@@ -10,13 +10,13 @@ const getPurchaseOrders = async (body) => {
     // 2. Fetch purchase orders from bridge API
     const url = process.env.BRIDGE_PO_LIST_URL || 'https://api-bridge-sb.motorsights.com/api/v1/bridge/purchase-orders/get-list';
     
-    // Provide default values adjusting for both body query payloads
+    // Map internal payload to bridge API payload format
     const requestData = {
       page: body.page || 1,
-      page_size: body.page_size || body.limit || 20,
-      sort_by: body.sort_by || 'last_modified',
-      sort_order: body.sort_order || 'DESC',
-      filters: body.filters || {}
+      page_size: body.limit || 10,
+      sort_by: body.sort_by === 'created_at' ? 'last_modified' : (body.sort_by || 'last_modified'),
+      sort_order: body.sort_order ? body.sort_order.toUpperCase() : 'DESC',
+      filters: body.search ? { search: body.search } : {}
     };
 
     const response = await axios.post(url, requestData, {

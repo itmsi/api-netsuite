@@ -2,7 +2,7 @@ const express = require('express')
 // const { verifyToken } = require('../../middlewares')
 
 const routing = express();
-const API_TAG = '/api';
+const API_TAG = '/api/netsuite';
 
 /* RULE
 naming convention endpoint: using plural

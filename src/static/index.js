@@ -13,29 +13,38 @@ const info = {
 
 const servers = [
   {
-    url: '/api/',
+    url: '/api/netsuite/',
     description: 'Development server'
   },
   {
-    url: 'https://your-production-url.com/api/',
+    url: 'https://gateway.motorsights.com/api/netsuite',
     description: 'Production server'
+  },
+  {
+    url: 'https://dev-gateway.motorsights.com/api/netsuite',
+    description: 'Develop server'
   }
 ]
 
 // Import schemas
 // Tambahkan schema module Anda di sini
+const commonSchema = require('./schema/common');
 // const exampleSchema = require('./schema/example');
 const authSchema = require('./schema/auth');
+const purchasingOrdersSchema = require('./schema/purchasing_orders');
 
 // Import paths
 // Tambahkan path module Anda di sini
 // const examplePaths = require('./path/example');
 const authPaths = require('./path/auth');
+const purchasingOrdersPaths = require('./path/purchasing_orders');
 
 // Combine all schemas
 const schemas = {
+  ...commonSchema,
   // ...exampleSchema,
   ...authSchema,
+  ...purchasingOrdersSchema,
   // ...yourModuleSchema,
 };
 
@@ -43,6 +52,7 @@ const schemas = {
 const paths = {
   // ...examplePaths,
   ...authPaths,
+  ...purchasingOrdersPaths,
   // ...yourModulePaths,
 };
 
