@@ -21,6 +21,28 @@ const getList = async (req, res) => {
   }
 };
 
+/**
+ * Create new purchase order
+ */
+const create = async (req, res) => {
+  try {
+    const result = await service.createPurchaseOrder(req.body);
+    return baseResponse(res, {
+      data: result,
+      message: 'Purchase order berhasil dibuat',
+      statusCode: 201
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || 'Internal Server Error',
+      errors: error.errors || error
+    });
+  }
+};
+
 module.exports = {
-  getList
+  getList,
+  create
 };
