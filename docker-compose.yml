@@ -21,7 +21,7 @@ services:
     # akan diambil dari file .env via env_file di atas
     environment:
       # Override untuk production server
-      - NODE_ENV=development
+      - NODE_ENV=production
       - APP_PORT=9581
       - SERVICE_NAME=api-netsuite
       - DATABASE_URL=${DATABASE_URL}?application_name=api-netsuite
