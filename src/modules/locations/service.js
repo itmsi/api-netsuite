@@ -13,9 +13,9 @@ const getLocationsList = async (body) => {
 
     // Map internal payload to bridge API payload format
     const requestData = {
-      pageIndex: body.page || 1,
-      pageSize: body.limit || 10,
-      sort_by: body.sort_by === 'created_at' ? 'last_modified' : (body.sort_by || 'last_modified'),
+      page: body.page || 1,
+      page_size: body.limit || 10,
+      sort_by: body.sort_by === 'created_at' ? 'last_modified_netsuite' : (body.sort_by || 'last_modified_netsuite'),
       sort_order: body.sort_order ? body.sort_order.toUpperCase() : 'DESC',
       filters: body.search ? { search: body.search } : {}
     };
