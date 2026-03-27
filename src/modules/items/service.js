@@ -21,7 +21,7 @@ const getItemsList = async (body) => {
       lastmodified: body.lastmodified || null,
       netsuite_id: body.netsuite_id || null
     };
-    
+
     const response = await axios.post(url, requestData, {
       headers: {
         'Content-Type': 'application/json',
@@ -33,12 +33,12 @@ const getItemsList = async (body) => {
 
     // 3. Map to system template formatting for pagination
     return {
-      items: resData.data || [],
+      items: resData.data || resData.items || [],
       pagination: {
-        page: resData.page || body.page || 1,
-        limit: resData.page_size || body.limit || 10,
-        total: resData.total_records || 0,
-        totalPages: resData.total_pages || 0
+        page: resData.page || resData.pageIndex || body.page || 1,
+        limit: resData.page_size || resData.pageSize || body.limit || 10,
+        total: resData.total_records || resData.totalRows || 0,
+        totalPages: resData.total_pages || resData.totalPages || 0
       }
     };
 

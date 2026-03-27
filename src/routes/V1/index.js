@@ -34,6 +34,9 @@ routing.use(`${API_TAG}/items`, itemsModule);
 const vendorModule = require('../../modules/vendor');
 routing.use(`${API_TAG}/vendor`, vendorModule);
 
+const locationsModule = require('../../modules/locations');
+routing.use(`${API_TAG}/locations`, locationsModule);
+
 // Example:
 // const yourModule = require('../../modules/yourModule')
 // routing.use(`${API_TAG}/your-endpoint`, yourModule)
