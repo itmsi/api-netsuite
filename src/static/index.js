@@ -32,12 +32,14 @@ const commonSchema = require('./schema/common');
 // const exampleSchema = require('./schema/example');
 const authSchema = require('./schema/auth');
 const purchasingOrdersSchema = require('./schema/purchasing_orders');
+const componenSchema = require('./schema/componen');
 
 // Import paths
 // Tambahkan path module Anda di sini
 // const examplePaths = require('./path/example');
 const authPaths = require('./path/auth');
 const purchasingOrdersPaths = require('./path/purchasing_orders');
+const componenPaths = require('./path/componen');
 
 // Combine all schemas
 const schemas = {
@@ -45,6 +47,7 @@ const schemas = {
   // ...exampleSchema,
   ...authSchema,
   ...purchasingOrdersSchema,
+  ...componenSchema,
   // ...yourModuleSchema,
 };
 
@@ -53,6 +56,7 @@ const paths = {
   // ...examplePaths,
   ...authPaths,
   ...purchasingOrdersPaths,
+  ...componenPaths,
   // ...yourModulePaths,
 };
 
