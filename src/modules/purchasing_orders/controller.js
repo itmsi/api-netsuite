@@ -8,8 +8,11 @@ const getList = async (req, res) => {
   try {
     const result = await service.getPurchaseOrders(req.body);
     return baseResponse(res, { 
-      data: result,
-      message: 'Data purchase orders berhasil diambil' 
+      data: {
+        success: true,
+        data: result,
+        message: 'Data purchase orders berhasil diambil'
+      }
     });
   } catch (error) {
     const statusCode = error.statusCode || 500;
@@ -28,9 +31,12 @@ const create = async (req, res) => {
   try {
     const result = await service.createPurchaseOrder(req.body);
     return baseResponse(res, {
-      data: result,
-      message: 'Purchase order berhasil dibuat',
-      statusCode: 201
+      code: 201,
+      data: {
+        success: true,
+        data: result,
+        message: 'Purchase order berhasil dibuat'
+      }
     });
   } catch (error) {
     const statusCode = error.statusCode || 500;

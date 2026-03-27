@@ -2,14 +2,17 @@ const service = require('./service');
 const { baseResponse } = require('../../utils');
 
 /**
- * Get componen list
+ * Get items list
  */
 const getList = async (req, res) => {
   try {
-    const result = await service.getComponenList();
+    const result = await service.getItemsList(req.body);
     return baseResponse(res, { 
+      data: {
+        success: true,
         data: result,
-        message: 'Data componen berhasil diambil'
+        message: 'Data items berhasil diambil'
+      }
     });
   } catch (error) {
     const statusCode = error.statusCode || 500;
