@@ -58,6 +58,46 @@ const purchasingOrdersSchemas = {
       sort_order: { type: 'string', default: 'desc', example: 'desc' },
       search: { type: 'string', default: '', example: '' }
     }
+  },
+  PurchaseOrderLineItem: {
+    type: 'object',
+    required: ['itemId', 'qty', 'rate'],
+    properties: {
+      itemId: { type: 'integer', example: 26589 },
+      qty: { type: 'number', example: 10 },
+      rate: { type: 'number', example: 50000 },
+      department: { type: 'integer', example: 101 },
+      class: { type: 'integer', example: 3 },
+      location: { type: 'integer', example: 19 },
+      taxcode: { type: 'integer', example: 18098 }
+    }
+  },
+  PurchaseOrderCreateRequest: {
+    type: 'object',
+    required: ['customform', 'vendorid', 'purchasedate', 'subsidiary', 'location', 'currency', 'items'],
+    properties: {
+      customform: { type: 'integer', example: 102 },
+      vendorid: { type: 'integer', example: 246 },
+      purchasedate: { type: 'string', example: '25/03/2026' },
+      subsidiary: { type: 'integer', example: 5 },
+      location: { type: 'integer', example: 19 },
+      memo: { type: 'string', example: 'PO from API - 26 Note Approved' },
+      currency: { type: 'integer', example: 1 },
+      terms: { type: 'integer', example: 9 },
+      custbody_me_pr_date: { type: 'string', example: '24/03/2026' },
+      custbody_me_project_location: { type: 'integer', example: 1 },
+      custbody_me_pr_type: { type: 'integer', example: 1 },
+      custbody_me_saving_type: { type: 'integer', example: 1 },
+      custbody_me_pr_number: { type: 'string', example: 'PR-001' },
+      custbody_msi_createdby_api: { type: 'string', example: 'dharmaridwan@motorsights.net' },
+      class: { type: 'integer', example: 3 },
+      department: { type: 'integer', example: 101 },
+      note: { type: 'string', example: 'ini untuk pembelian baru dimana sudah disediakan' },
+      items: {
+        type: 'array',
+        items: { $ref: '#/components/schemas/PurchaseOrderLineItem' }
+      }
+    }
   }
 };
 

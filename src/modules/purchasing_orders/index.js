@@ -12,4 +12,14 @@ router.post(
   controller.getList
 );
 
+/**
+ * @route   POST /api/purchasing-orders/create
+ * @desc    Create a new purchase order via bridge API
+ * @access  Public
+ */
+router.post(
+  '/create',
+  controller.create
+);
+
 module.exports = router;

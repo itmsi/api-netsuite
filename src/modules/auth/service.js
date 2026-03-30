@@ -8,7 +8,8 @@ const axios = require('axios');
  * Get access token from motorsights API bridge
  */
 const getToken = async () => {
-  const url = process.env.BRIDGE_AUTH_URL || 'https://api-bridge-sb.motorsights.com/api/v1/bridge/auth/token';
+  const baseUrl = process.env.BRIDGE_BASE_URL || 'https://api-bridge-sb.motorsights.com';
+  const url = `${baseUrl}/api/v1/bridge/auth/token`;
   const requestData = {
     grant_type: 'client_credentials',
     client_id: process.env.BRIDGE_CLIENT_ID,
