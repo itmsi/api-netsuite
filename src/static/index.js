@@ -36,6 +36,8 @@ const componenSchema = require('./schema/componen');
 const itemsSchema = require('./schema/items');
 const vendorSchema = require('./schema/vendor');
 const locationsSchema = require('./schema/locations');
+const customerSchema = require('./schema/customer');
+const fakturSchema = require('./schema/faktur');
 
 // Import paths
 // Tambahkan path module Anda di sini
@@ -46,6 +48,8 @@ const componenPaths = require('./path/componen');
 const itemsPaths = require('./path/items');
 const vendorPaths = require('./path/vendor');
 const locationsPaths = require('./path/locations');
+const customerPaths = require('./path/customer');
+const fakturPaths = require('./path/faktur');
 
 // Combine all schemas
 const schemas = {
@@ -57,6 +61,8 @@ const schemas = {
   ...itemsSchema,
   ...vendorSchema,
   ...locationsSchema,
+  ...customerSchema,
+  ...fakturSchema,
   // ...yourModuleSchema,
 };
 
@@ -69,6 +75,8 @@ const paths = {
   ...itemsPaths,
   ...vendorPaths,
   ...locationsPaths,
+  ...customerPaths,
+  ...fakturPaths,
   // ...yourModulePaths,
 };
 
