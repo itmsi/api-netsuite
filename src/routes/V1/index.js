@@ -43,6 +43,9 @@ routing.use(`${API_TAG}/customers`, customerModule);
 const fakturModule = require('../../modules/faktur');
 routing.use(`${API_TAG}/faktur`, fakturModule);
 
+const referenceModule = require('../../modules/reference');
+routing.use(`${API_TAG}/reference`, referenceModule);
+
 // Example:
 // const yourModule = require('../../modules/yourModule')
 // routing.use(`${API_TAG}/your-endpoint`, yourModule)
