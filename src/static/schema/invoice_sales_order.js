@@ -52,6 +52,7 @@ const invoiceSalesOrderSchemas = {
       location: { type: 'string', example: '19' },
       custbody_cseg_cn_cfi: { type: 'string', example: '1' },
       custbody_me_description: { type: 'string', nullable: true, example: null },
+      fakture_id: { type: 'string', format: 'uuid', example: 'e3b0c442-98fc-1c14-9afb-f4c59f1910d2' },
       lines: {
         type: 'array',
         items: { $ref: '#/components/schemas/InvoiceSalesOrderLine' }

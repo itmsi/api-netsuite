@@ -140,6 +140,48 @@ const purchasingOrdersPaths = {
         }
       }
     }
+  },
+  '/purchasing-orders/{id}': {
+    get: {
+      tags: ['Purchasing Orders'],
+      summary: 'Get purchase order detail by ID',
+      description: 'Fetch a single purchase order detail from NetSuite RESTlet directly using OAuth 1.0. The `id` (po_id) is passed as a URL parameter.',
+      parameters: [
+        {
+          name: 'id',
+          in: 'path',
+          required: true,
+          description: 'The NetSuite internal ID of the purchase order (po_id)',
+          schema: { type: 'integer', example: 7102 }
+        }
+      ],
+      responses: {
+        200: {
+          description: 'Success',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/PurchaseOrderDetailResponse' }
+            }
+          }
+        },
+        400: {
+          description: 'Bad Request - ID not provided',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+            }
+          }
+        },
+        500: {
+          description: 'Internal Server Error',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+            }
+          }
+        }
+      }
+    }
   }
 };
 

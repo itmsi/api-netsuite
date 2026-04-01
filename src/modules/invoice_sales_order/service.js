@@ -129,6 +129,9 @@ const syncToFakturs = async (records) => {
         await trx('faktur_details').insert(detailsToInsert);
       }
     });
+
+    // Attach local ID to the record for response
+    record.fakture_id = faktur_id;
   }
 };
 

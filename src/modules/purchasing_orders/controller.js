@@ -67,8 +67,30 @@ const approve = async (req, res) => {
   }
 };
 
+/**
+ * Get purchase order by ID (via NetSuite RESTlet OAuth)
+ */
+const getById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res.status(400).json({ success: false, message: 'Parameter id tidak boleh kosong' });
+    }
+    const result = await service.getPurchaseOrderById(id);
+    return baseResponse(res, { data: result });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || 'Internal Server Error',
+      errors: error.errors || error
+    });
+  }
+};
+
 module.exports = {
   getList,
   create,
-  approve
+  approve,
+  getById
 };

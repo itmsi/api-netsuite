@@ -32,4 +32,14 @@ router.post(
   controller.approve
 );
 
+/**
+ * @route   GET /api/purchasing-orders/:id
+ * @desc    Get a purchase order detail by ID via NetSuite RESTlet
+ * @access  Public
+ */
+router.get(
+  '/:id',
+  controller.getById
+);
+
 module.exports = router;

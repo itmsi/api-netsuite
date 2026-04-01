@@ -124,6 +124,18 @@ const purchasingOrdersSchemas = {
         }
       }
     }
+  },
+  PurchaseOrderDetailResponse: {
+    type: 'object',
+    properties: {
+      success: { type: 'boolean', example: true },
+      message: { type: 'string', example: '' },
+      data: {
+        type: 'array',
+        items: { $ref: '#/components/schemas/PurchaseOrder' }
+      },
+      timestamp: { type: 'string', format: 'date-time', example: '2026-04-01T06:26:20.856Z' }
+    }
   }
 };
 
