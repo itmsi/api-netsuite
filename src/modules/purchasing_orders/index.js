@@ -22,4 +22,14 @@ router.post(
   controller.create
 );
 
+/**
+ * @route   POST /api/purchasing-orders/approval
+ * @desc    Approve a purchase order via bridge API
+ * @access  Public
+ */
+router.post(
+  '/approval',
+  controller.approve
+);
+
 module.exports = router;

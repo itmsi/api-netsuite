@@ -48,7 +48,27 @@ const create = async (req, res) => {
   }
 };
 
+/**
+ * Approve purchase order
+ */
+const approve = async (req, res) => {
+  try {
+    const result = await service.approvePurchaseOrder(req.body);
+    return baseResponse(res, {
+      data: result
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || 'Internal Server Error',
+      errors: error.errors || error
+    });
+  }
+};
+
 module.exports = {
   getList,
-  create
+  create,
+  approve
 };

@@ -99,6 +99,47 @@ const purchasingOrdersPaths = {
         }
       }
     }
+  },
+  '/purchasing-orders/approval': {
+    post: {
+      tags: ['Purchasing Orders'],
+      summary: 'Approve a purchase order',
+      description: 'Trigger the approval workflow for a purchase order via bridge API',
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: { $ref: '#/components/schemas/PurchaseOrderApprovalRequest' }
+          }
+        }
+      },
+      responses: {
+        200: {
+          description: 'Approval successful',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/PurchaseOrderApprovalResponse' }
+            }
+          }
+        },
+        400: {
+          description: 'Bad Request',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+            }
+          }
+        },
+        500: {
+          description: 'Internal Server Error',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+            }
+          }
+        }
+      }
+    }
   }
 };
 
