@@ -5,14 +5,14 @@
 const invoiceSalesOrderPaths = {
   '/invoice-sales-orders/get': {
     post: {
-      tags: ['Invoice Sales Order'],
+      tags: ['Invoice Sales Orders'],
       summary: 'Get list of invoice sales orders',
-      description: 'Fetch invoice sales orders from bridge API with pagination and filters',
+      description: 'Fetch invoice sales orders from internal bridge API with pagination and search',
       requestBody: {
         required: true,
         content: {
           'application/json': {
-            schema: { $ref: '#/components/schemas/InvoiceSalesOrderRequest' }
+            schema: { $ref: '#/components/schemas/InvoiceSalesOrderListRequest' }
           }
         }
       },
@@ -25,8 +25,17 @@ const invoiceSalesOrderPaths = {
                 type: 'object',
                 properties: {
                   success: { type: 'boolean', example: true },
-                  data: { $ref: '#/components/schemas/InvoiceSalesOrderResponse' },
-                  message: { type: 'string', example: 'Success! Task completed' }
+                  data: {
+                    type: 'object',
+                    properties: {
+                      items: {
+                        type: 'array',
+                        items: { $ref: '#/components/schemas/InvoiceSalesOrder' }
+                      },
+                      pagination: { $ref: '#/components/schemas/Pagination' }
+                    }
+                  },
+                  message: { type: 'string', example: 'Data invoice sales orders berhasil diambil' }
                 }
               }
             }

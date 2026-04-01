@@ -8,7 +8,11 @@ const getList = async (req, res) => {
   try {
     const result = await service.getInvoiceSalesOrders(req.body);
     return baseResponse(res, { 
-      data: result
+      data: {
+        success: true,
+        data: result,
+        message: 'Data invoice sales orders berhasil diambil'
+      }
     });
   } catch (error) {
     const statusCode = error.statusCode || 500;

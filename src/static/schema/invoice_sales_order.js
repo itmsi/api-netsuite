@@ -58,35 +58,14 @@ const invoiceSalesOrderSchemas = {
       }
     }
   },
-  InvoiceSalesOrderRequest: {
+  InvoiceSalesOrderListRequest: {
     type: 'object',
     properties: {
       page: { type: 'integer', default: 1, example: 1 },
-      page_size: { type: 'integer', default: 20, example: 20 },
-      sort_by: { type: 'string', default: 'trandate', example: 'trandate' },
-      sort_order: { type: 'string', enum: ['ASC', 'DESC'], default: 'DESC', example: 'DESC' },
-      filters: {
-        type: 'object',
-        properties: {
-          tranid: { type: 'string', example: 'SI-IEC-2026-000009' },
-          approvalstatus: { type: 'string', example: '1' },
-          lastmodified: { type: 'string', format: 'date-time', example: '2025-03-25T00:00:00' }
-        }
-      }
-    }
-  },
-  InvoiceSalesOrderResponse: {
-    type: 'object',
-    properties: {
-      status: { type: 'string', example: 'success' },
-      page: { type: 'integer', example: 1 },
-      page_size: { type: 'integer', example: 1 },
-      total_records: { type: 'integer', example: 1 },
-      total_pages: { type: 'integer', example: 1 },
-      data: {
-        type: 'array',
-        items: { $ref: '#/components/schemas/InvoiceSalesOrder' }
-      }
+      limit: { type: 'integer', default: 10, example: 10 },
+      sort_by: { type: 'string', default: 'created_at', example: 'created_at' },
+      sort_order: { type: 'string', default: 'desc', example: 'desc' },
+      search: { type: 'string', default: '', example: 'SI-IEC-2026-000009' }
     }
   }
 };
