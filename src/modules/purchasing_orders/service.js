@@ -83,7 +83,89 @@ const createPurchaseOrder = async (body) => {
   }
 };
 
+const approvePurchaseOrder = async (body) => {
+  try {
+    // 1. Get token from auth module
+    const tokenResponse = await authService.getToken();
+    const token = tokenResponse.data.access_token;
+
+    // 2. Hit bridge approval purchase order endpoint
+    const baseUrl = process.env.BRIDGE_BASE_URL || 'https://api-bridge-sb.motorsights.com';
+    const url = `${baseUrl}/api/v1/bridge/purchase-orders/approval`;
+
+    const response = await axios.post(url, body, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    return response.data;
+
+  } catch (error) {
+    if (error.response) {
+      throw {
+        message: error.response.data.message || 'Failed to approve purchase order via bridge API',
+        statusCode: error.response.status,
+        errors: error.response.data
+      };
+    }
+    throw { message: error.message, statusCode: 500 };
+  }
+};
+
+const getPurchaseOrderById = async (id) => {
+  try {
+    // 1. Get token from auth module
+    const tokenResponse = await authService.getToken();
+    const token = tokenResponse.data.access_token;
+
+    // 2. Hit bridge purchase orders get-list with po_ids filter
+    const baseUrl = process.env.BRIDGE_BASE_URL || 'https://api-bridge-sb.motorsights.com';
+    const url = `${baseUrl}/api/v1/bridge/purchase-orders/get-list`;
+
+    const requestData = {
+      page: 1,
+      page_size: 20,
+      sort_by: 't.trandate',
+      sort_order: 'DESC',
+      filters: {
+        po_ids: [parseInt(id)],
+        lastmodified: '2025-03-16T23:59:00+07:00'
+      }
+    };
+
+    const response = await axios.post(url, requestData, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    const resData = response.data;
+
+    return {
+      success: true,
+      message: '',
+      data: resData.data || resData.items || [],
+      timestamp: new Date().toISOString()
+    };
+
+  } catch (error) {
+    if (error.response) {
+      throw {
+        message: error.response.data?.message || 'Failed to fetch purchase order detail from bridge API',
+        statusCode: error.response.status,
+        errors: error.response.data
+      };
+    }
+    throw { message: error.message, statusCode: 500 };
+  }
+};
+
 module.exports = {
   getPurchaseOrders,
-  createPurchaseOrder
+  createPurchaseOrder,
+  approvePurchaseOrder,
+  getPurchaseOrderById
 };

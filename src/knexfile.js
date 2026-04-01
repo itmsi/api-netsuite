@@ -15,6 +15,8 @@ module.exports = {
     migrations: {
       tableName: 'migrations',
       directory: path.join(__dirname, 'repository/postgres/migrations'),
+      loadExtensions: ['.js'],
+      ignoreMissing: true
     },
     seeds: {
       directory: path.join(__dirname, 'repository/postgres/seeders'),
@@ -33,6 +35,8 @@ module.exports = {
     migrations: {
       tableName: 'migrations',
       directory: path.join(__dirname, 'repository/postgres/migrations'),
+      loadExtensions: ['.js'],
+      ignoreMissing: true
     },
     seeds: {
       directory: path.join(__dirname, 'repository/postgres/seeders'),
@@ -51,6 +55,8 @@ module.exports = {
     migrations: {
       tableName: 'migrations',
       directory: path.join(__dirname, 'repository/postgres/migrations'),
+      loadExtensions: ['.js'],
+      ignoreMissing: true
     },
     seeds: {
       directory: path.join(__dirname, 'repository/postgres/seeders'),

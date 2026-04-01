@@ -98,6 +98,44 @@ const purchasingOrdersSchemas = {
         items: { $ref: '#/components/schemas/PurchaseOrderLineItem' }
       }
     }
+  },
+  PurchaseOrderApprovalRequest: {
+    type: 'object',
+    required: ['id', 'recordType'],
+    properties: {
+      id: { type: 'integer', example: 7112 },
+      recordType: { type: 'string', example: 'purchaseorder' },
+      custbody_msi_submit_app_api: { type: 'boolean', example: false },
+      custbody_msi_reopen_api: { type: 'boolean', example: true },
+      custbody_msi_resubmit_api: { type: 'boolean', example: false },
+      note: { type: 'string', example: 'ini process resubmit' }
+    }
+  },
+  PurchaseOrderApprovalResponse: {
+    type: 'object',
+    properties: {
+      success: { type: 'boolean', example: true },
+      message: { type: 'string', example: 'Note created first, record updated & workflow triggered' },
+      data: {
+        type: 'object',
+        properties: {
+          id: { type: 'integer', example: 7112 },
+          noteId: { type: 'integer', example: 3312 }
+        }
+      }
+    }
+  },
+  PurchaseOrderDetailResponse: {
+    type: 'object',
+    properties: {
+      success: { type: 'boolean', example: true },
+      message: { type: 'string', example: '' },
+      data: {
+        type: 'array',
+        items: { $ref: '#/components/schemas/PurchaseOrder' }
+      },
+      timestamp: { type: 'string', format: 'date-time', example: '2026-04-01T06:26:20.856Z' }
+    }
   }
 };
 

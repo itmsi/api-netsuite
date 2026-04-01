@@ -22,4 +22,24 @@ router.post(
   controller.create
 );
 
+/**
+ * @route   POST /api/purchasing-orders/approval
+ * @desc    Approve a purchase order via bridge API
+ * @access  Public
+ */
+router.post(
+  '/approval',
+  controller.approve
+);
+
+/**
+ * @route   GET /api/purchasing-orders/:id
+ * @desc    Get a purchase order detail by ID via NetSuite RESTlet
+ * @access  Public
+ */
+router.get(
+  '/:id',
+  controller.getById
+);
+
 module.exports = router;
