@@ -20,6 +20,10 @@ const getLocationsList = async (body) => {
       filters: body.search ? { search: body.search } : {}
     };
 
+    if (body.is_parent !== undefined) {
+      requestData.is_parent = body.is_parent;
+    }
+
     const response = await axios.post(url, requestData, {
       headers: {
         'Content-Type': 'application/json',
