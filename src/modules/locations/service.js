@@ -11,18 +11,22 @@ const getLocationsList = async (body) => {
     const baseUrl = process.env.BRIDGE_BASE_URL || 'https://api-bridge-sb.motorsights.com';
     const url = `${baseUrl}/api/v1/bridge/locations/get`;
 
+    const filters = {};
+    if (body.search) {
+      filters.search = body.search;
+    }
+    if (body.is_parent !== undefined) {
+      filters.is_parent = body.is_parent;
+    }
+
     // Map internal payload to bridge API payload format
     const requestData = {
       page: body.page || 1,
       page_size: body.limit || 10,
       sort_by: body.sort_by === 'created_at' ? 'last_modified_netsuite' : (body.sort_by || 'last_modified_netsuite'),
       sort_order: body.sort_order ? body.sort_order.toUpperCase() : 'DESC',
-      filters: body.search ? { search: body.search } : {}
+      filters: filters
     };
-
-    if (body.is_parent !== undefined) {
-      requestData.is_parent = body.is_parent;
-    }
 
     const response = await axios.post(url, requestData, {
       headers: {
