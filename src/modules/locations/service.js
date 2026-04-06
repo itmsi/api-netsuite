@@ -17,6 +17,8 @@ const getLocationsList = async (body) => {
     }
     if (body.is_parent !== undefined) {
       filters.is_parent = body.is_parent;
+    } else {
+      filters.is_parent = false;
     }
 
     // Map internal payload to bridge API payload format
