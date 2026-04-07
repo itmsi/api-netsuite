@@ -24,13 +24,13 @@ const syncToFakturs = async (records) => {
   for (let i = 0; i < records.length; i++) {
     const record = records[i];
     const barisFaktur = (i + 1).toString();
-    
+
     // 1. Check if sales_invoice_id already exists
     const existingFaktur = await db('fakturs').where('sales_invoice_id', record.id).first();
-    
+
     // 10-16. Lookup customer details
     const customer = await db('customers').where('customer_id_netsuite', record.entity).first();
-    
+
     let npwp_or_nik_pembeli = '0000000000000000';
     let jenis_id_pembeli = 'TIN'; // Default if not found? User says "ambil dari proses"
     let nama_pembeli = record.entity; // Fallback
@@ -40,27 +40,27 @@ const syncToFakturs = async (records) => {
 
     if (customer) {
       jenis_id_pembeli = customer.type_tax_buyer || 'TIN';
-      
+
       // Rule 10: NPWP/NIK logic
       if (jenis_id_pembeli === 'TIN') {
         npwp_or_nik_pembeli = customer.no_tax_buyer || '0000000000000000';
       } else {
         npwp_or_nik_pembeli = '0000000000000000';
       }
-      
+
       // Rule 14: Name logic
       nama_pembeli = customer.name_tax_buyer || customer.customer_name || '-';
-      
+
       // Rule 15: Address logic
       alamat_pembeli = customer.customer_address || '-';
-      
+
       // Rule 16: ID TKU logic
       if (jenis_id_pembeli === 'TIN') {
         id_tku_pembeli = (customer.no_tax_buyer || '') + '000000';
       } else {
         id_tku_pembeli = '000000';
       }
-      
+
       // Rule 13: Document Number logic
       if (jenis_id_pembeli === 'TIN') {
         nomor_dokumen_pembeli = '-';
@@ -112,20 +112,20 @@ const syncToFakturs = async (records) => {
           faktur_id: faktur_id,
           baris: (index + 1).toString(),
           barang_or_jasa: 'A',
-          kode_barang_jasa: '870900',
+          kode_barang_jasa: line.custitem_me_product_category_display === 'UNIT' ? '870900' : '980200',
           nama_barang_or_jasa: line.item_display,
           nama_satuan_ukur: 'UM.0018',
           harga_satuan: line.rate,
           jumlah_barang_jasa: line.quantity,
           total_diskon: 0,
-          dpp: line.netamount,
-          dpp_nilai_lain: 0,
+          dpp: line.rate * line.quantity,
+          dpp_nilai_lain: (11 / 12) * (line.rate * line.quantity),
           tarif_ppn: line.taxrate1,
-          ppn: line.tax1amt,
+          ppn: (12 / 100) * ((11 / 12) * (line.rate * line.quantity)),
           tarif_ppnnbm: 0,
           ppnbm: 0
         }));
-        
+
         await trx('faktur_details').insert(detailsToInsert);
       }
     });

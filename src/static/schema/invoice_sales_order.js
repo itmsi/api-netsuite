@@ -20,7 +20,8 @@ const invoiceSalesOrderSchemas = {
       netamount: { type: 'number', example: 13400000 },
       item_display: { type: 'string', example: 'MSI003 - MS600 6X4 DUMP TRUCK WEICHAI' },
       price_display: { type: 'string', example: 'Kustom' },
-      custcol_me_tier_price: { type: 'string', nullable: true, example: null }
+      custcol_me_tier_price: { type: 'string', nullable: true, example: null },
+      custitem_me_product_category_display: { type: 'string', nullable: true, example: 'UNIT' }
     }
   },
   InvoiceSalesOrder: {
