@@ -15,7 +15,7 @@ const getPurchaseOrders = async (body) => {
     const requestData = {
       page: body.page || 1,
       page_size: body.limit || 10,
-      sort_by: body.sort_by === 'created_at' ? 'last_modified' : (body.sort_by || 'last_modified'),
+      sort_by: body.sort_by || 'last_modified',
       sort_order: body.sort_order ? body.sort_order.toUpperCase() : 'DESC',
       filters: body.search ? { search: body.search } : {}
     };
