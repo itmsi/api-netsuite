@@ -20,6 +20,9 @@ const getLocationsList = async (body) => {
     } else {
       filters.is_parent = false;
     }
+    if (body.subsidiary_id) {
+      filters.subsidiary_id = body.subsidiary_id;
+    }
 
     // Map internal payload to bridge API payload format
     const requestData = {
