@@ -130,8 +130,17 @@ const syncToFakturs = async (records) => {
       }
     });
 
+    // Fetch updated_at and updated_by_name
+    const fakturInfo = await db('fakturs')
+      .leftJoin('employees', 'fakturs.updated_by', 'employees.employee_id')
+      .where('fakturs.faktur_id', faktur_id)
+      .select('fakturs.updated_at', 'employees.employee_name')
+      .first();
+
     // Attach local ID to the record for response
     record.fakture_id = faktur_id;
+    record.faktur_updated_at = fakturInfo ? fakturInfo.updated_at : '';
+    record.faktur_updated_by_name = fakturInfo ? fakturInfo.employee_name : '';
   }
 };
 
