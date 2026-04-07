@@ -120,7 +120,7 @@ const syncToFakturs = async (records) => {
           total_diskon: 0,
           dpp: line.rate * line.quantity,
           dpp_nilai_lain: (11 / 12) * (line.rate * line.quantity),
-          tarif_ppn: line.taxrate1,
+          tarif_ppn: line.taxrate,
           ppn: (12 / 100) * ((11 / 12) * (line.rate * line.quantity)),
           tarif_ppnnbm: 0,
           ppnbm: 0
