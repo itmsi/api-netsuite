@@ -25,24 +25,20 @@ const isValidPassword = (password, hash, salt) => {
 
 const setPayloadToken = (result, type = 'admin', column = false) => {
   const roles = type === 'admin' ? 'backoffice' : 'front'
-  let sub = ''
-  if (type === 'admin') {
-    sub = result?.users_id.toString()
-  }
-  sub = result.users_id
+  const sub = result?.users_id?.toString() || ''
   let full_name = ''
   if (column) {
-    full_name = result.full_name
+    full_name = result?.full_name || ''
   }
   const jti = crypto.randomUUID();
   const payload = {
-      sub,
-      full_name,
-      roles: [result?.role_name, roles],
-      jti: jti,
-      exp: Math.floor(new Date(Date.now() + (43200 * 1000)) / 1000)
+    sub,
+    full_name,
+    roles: [result?.role_name, roles],
+    jti: jti,
+    exp: Math.floor(new Date(Date.now() + (43200 * 1000)) / 1000)
   };
-  const b_token = jwt.sign(payload, process.env.SECRET_KEY_AUTH_JWT, { algorithm: 'HS256' });
+  const b_token = jwt.sign(payload, process.env.JWT_SECRET, { algorithm: 'HS256' });
   return {
     bearer_token: b_token,
     access_token: {
@@ -69,28 +65,31 @@ const decodeToken = (type, req) => {
     const tokenHeader = req?.headers?.authorization ?? ''
     const token = tokenHeader.split(' ')[1]
 
-    const decode = jwt.verify(token, process.env.SECRET_KEY_AUTH_JWT)
+    if (!token) {
+      throw new Error('No token provided');
+    }
 
+    const decode = jwt.verify(token, process.env.JWT_SECRET)
     switch (type) {
       case 'created':
-        payload.created_by = decode?.sub ?? 0
+        payload.created_by = decode?.employee_id ?? 0
         break;
       case 'updated':
-        payload.updated_by = decode?.sub ?? 0
+        payload.updated_by = decode?.employee_id ?? 0
         payload.updated_at = new Date().toISOString()
         break;
       case 'deleted':
-        payload.deleted_by = decode?.sub ?? 0
+        payload.deleted_by = decode?.employee_id ?? 0
         payload.deleted_at = new Date().toISOString()
         break;
       case 'default':
-        payload.users_id = decode?.sub ?? 0
+        payload.users_id = decode?.employee_id ?? 0
         break;
       case 'getRoles':
         return decode?.roles ?? []
       case 'refreshToken':
-        payload.users_id = decode?.sub
-        payload.is_admin = decode?.roles.toString() === 'front' ? 0 : 1
+        payload.users_id = decode?.employee_id
+        payload.is_admin = decode?.roles?.toString() === 'front' ? 0 : 1
         payload.roles = decode?.roles ?? []
         break;
       default:
@@ -104,12 +103,35 @@ const decodeToken = (type, req) => {
     if (process.env.NODE_ENV === 'development') {
       console.error(`error decoded token : ${error})`);
     }
-    return {
+    const defaultPayload = {
       users_id: '',
-      created_by: '',
       is_admin: 1,
       roles: ['']
     }
+
+    switch (type) {
+      case 'created':
+        defaultPayload.created_by = 0;
+        break;
+      case 'updated':
+        defaultPayload.updated_by = 0;
+        defaultPayload.updated_at = new Date().toISOString();
+        break;
+      case 'deleted':
+        defaultPayload.deleted_by = 0;
+        defaultPayload.deleted_at = new Date().toISOString();
+        break;
+      case 'getRoles':
+        return []
+      case 'refreshToken':
+        // use defaultPayload
+        break;
+      default:
+        defaultPayload.users_id = 0;
+        break;
+    }
+
+    return defaultPayload
   }
 }
 
