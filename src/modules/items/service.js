@@ -13,13 +13,13 @@ const getItemsList = async (body) => {
 
     // Map internal payload to bridge API payload format
     const requestData = {
-      pageIndex: body.page || 1,
+      pageIndex: body.page - 1 || 0,
       pageSize: body.limit || 10,
       sort_by: body.sort_by === 'created_at' ? 'last_modified' : (body.sort_by || 'last_modified'),
       sort_order: body.sort_order ? body.sort_order.toUpperCase() : 'DESC',
-      filters: body.search ? { search: body.search } : {},
-      lastmodified: body.lastmodified || null,
-      netsuite_id: body.netsuite_id || null
+      search: body.search || null
+      // lastmodified: body.lastmodified || null
+      // netsuite_id: body.netsuite_id || null
     };
 
     const response = await axios.post(url, requestData, {
