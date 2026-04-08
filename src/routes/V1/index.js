@@ -49,6 +49,12 @@ routing.use(`${API_TAG}/reference`, referenceModule);
 const invoiceSalesOrderModule = require('../../modules/invoice_sales_order');
 routing.use(`${API_TAG}/invoice-sales-orders`, invoiceSalesOrderModule);
 
+const classesModule = require('../../modules/classes');
+routing.use(`${API_TAG}/classes`, classesModule);
+
+const departmentModule = require('../../modules/department');
+routing.use(`${API_TAG}/departments`, departmentModule);
+
 // Example:
 // const yourModule = require('../../modules/yourModule')
 // routing.use(`${API_TAG}/your-endpoint`, yourModule)

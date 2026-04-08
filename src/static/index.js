@@ -40,6 +40,8 @@ const customerSchema = require('./schema/customer');
 const fakturSchema = require('./schema/faktur');
 const referenceSchema = require('./schema/reference');
 const invoiceSalesOrderSchema = require('./schema/invoice_sales_order');
+const classesSchema = require('./schema/classes');
+const departmentSchema = require('./schema/department');
 
 // Import paths
 // Tambahkan path module Anda di sini
@@ -54,6 +56,8 @@ const customerPaths = require('./path/customer');
 const fakturPaths = require('./path/faktur');
 const referencePaths = require('./path/reference');
 const invoiceSalesOrderPaths = require('./path/invoice_sales_order');
+const classesPaths = require('./path/classes');
+const departmentPaths = require('./path/department');
 
 // Combine all schemas
 const schemas = {
@@ -69,6 +73,8 @@ const schemas = {
   ...fakturSchema,
   ...referenceSchema,
   ...invoiceSalesOrderSchema,
+  ...classesSchema,
+  ...departmentSchema,
   // ...yourModuleSchema,
 };
 
@@ -85,6 +91,8 @@ const paths = {
   ...fakturPaths,
   ...referencePaths,
   ...invoiceSalesOrderPaths,
+  ...classesPaths,
+  ...departmentPaths,
   // ...yourModulePaths,
 };
 
