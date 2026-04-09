@@ -56,7 +56,8 @@ const purchasingOrdersSchemas = {
       limit: { type: 'integer', default: 10, example: 10 },
       sort_by: { type: 'string', default: 'created_at', example: 'created_at' },
       sort_order: { type: 'string', default: 'desc', example: 'desc' },
-      search: { type: 'string', default: '', example: '' }
+      search: { type: 'string', default: '', example: '' },
+      classes: { type: 'string', default: '', example: '' }
     }
   },
   PurchaseOrderLineItem: {

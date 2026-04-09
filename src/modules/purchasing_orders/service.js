@@ -12,12 +12,20 @@ const getPurchaseOrders = async (body) => {
     const url = `${baseUrl}/api/v1/bridge/purchase-orders/get-list`;
 
     // Map internal payload to bridge API payload format
+
+    const filters = {};
+    if (body.search) {
+      filters.search = body.search;
+    }
+    if (body.classes) {
+      filters.classes = body.classes;
+    }
     const requestData = {
       page: body.page || 1,
       page_size: body.limit || 10,
       sort_by: body.sort_by || 'last_modified',
       sort_order: body.sort_order ? body.sort_order.toUpperCase() : 'DESC',
-      filters: body.search ? { search: body.search } : {}
+      filters: filters
     };
 
     const response = await axios.post(url, requestData, {
