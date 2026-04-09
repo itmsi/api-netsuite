@@ -21,6 +21,9 @@ const getClassesList = async (body) => {
     if (body.lastmodified) {
       filters.lastmodified = body.lastmodified;
     }
+    if (body.class_profile) {
+      filters.class_profile = body.class_profile;
+    }
 
     // Map internal payload to bridge API payload format
     const requestData = {
