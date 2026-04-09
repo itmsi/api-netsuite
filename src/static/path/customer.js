@@ -35,6 +35,39 @@ const customerPaths = {
         }
       }
     }
+  },
+  '/customers/create': {
+    post: {
+      tags: ['Customer'],
+      summary: 'Create a new customer',
+      description: 'Create a new customer via external bridge API',
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: { $ref: '#/components/schemas/CustomerCreateRequest' }
+          }
+        }
+      },
+      responses: {
+        201: {
+          description: 'Created',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/CustomerCreateResponse' }
+            }
+          }
+        },
+        500: {
+          description: 'Internal Server Error',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+            }
+          }
+        }
+      }
+    }
   }
 };
 

@@ -12,4 +12,14 @@ router.post(
   controller.getList
 );
 
+/**
+ * @route   POST /api/netsuite/customers/create
+ * @desc    Create customer via bridge API
+ * @access  Public
+ */
+router.post(
+  '/create',
+  controller.create
+);
+
 module.exports = router;
