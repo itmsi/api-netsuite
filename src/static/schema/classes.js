@@ -13,7 +13,8 @@ const classesSchemas = {
       sort_order: { type: 'string', default: 'DESC', example: 'DESC' },
       search: { type: 'string', default: '', example: '' },
       subsidiary_id: { type: 'string', example: '1' },
-      lastmodified: { type: 'string', example: '2026-01-01T00:00:00' }
+      lastmodified: { type: 'string', example: '2026-01-01T00:00:00' },
+      class_profile: { type: 'string', example: '1' }
     }
   },
   ClassesListResponse: {
