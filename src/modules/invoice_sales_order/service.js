@@ -69,6 +69,10 @@ const syncToFakturs = async (records) => {
       }
     }
 
+    // Lookup subsidiary/NPWP Inline for id_tku_Penjual
+    const npwpInline = await db('npwp_inlines').where('id', record.subsidiary).first();
+    const id_tku_Penjual = npwpInline ? npwpInline.nitku : '0000000000000000';
+
     // 2-9, 12, 13. Prepare fakturs data
     const fakturData = {
       sales_invoice_id: parseInt(record.id),
@@ -77,7 +81,7 @@ const syncToFakturs = async (records) => {
       jenis_faktur: 'Normal',
       kode_transaksi: '04',
       referensi: (record.tranid || '') + ' ' + (record.memo || ''),
-      id_tku_Penjual: '0000000000000000',
+      id_tku_Penjual: id_tku_Penjual,
       npwp_or_nik_pembeli: npwp_or_nik_pembeli,
       jenis_id_pembeli: jenis_id_pembeli,
       negara_pembeli: 'IDN',
