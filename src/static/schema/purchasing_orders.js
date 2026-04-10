@@ -70,7 +70,9 @@ const purchasingOrdersSchemas = {
       department: { type: 'integer', example: 101 },
       class: { type: 'integer', example: 3 },
       location: { type: 'integer', example: 19 },
-      taxcode: { type: 'integer', example: 18098 }
+      taxcode: { type: 'integer', example: 18098 },
+      custcol_msi_fob: { type: 'number', example: 5000 },
+      custcol_me_landed_cost: { type: 'number', example: 5000 }
     }
   },
   PurchaseOrderCreateRequest: {
@@ -93,6 +95,7 @@ const purchasingOrdersSchemas = {
       custbody_msi_createdby_api: { type: 'string', example: 'dharmaridwan@motorsights.net' },
       class: { type: 'integer', example: 3 },
       department: { type: 'integer', example: 101 },
+      custbody_me_validity_date: { type: 'string', example: '24/03/2026' },
       note: { type: 'string', example: 'ini untuk pembelian baru dimana sudah disediakan' },
       items: {
         type: 'array',
