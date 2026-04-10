@@ -57,7 +57,9 @@ const purchasingOrdersSchemas = {
       sort_by: { type: 'string', default: 'created_at', example: 'created_at' },
       sort_order: { type: 'string', default: 'desc', example: 'desc' },
       search: { type: 'string', default: '', example: '' },
-      classes: { type: 'string', default: '', example: '' }
+      classes: { type: 'string', default: '', example: '' },
+      subsidiary: { type: 'string', default: '', example: '' },
+      location: { type: 'string', default: '', example: '' }
     }
   },
   PurchaseOrderLineItem: {

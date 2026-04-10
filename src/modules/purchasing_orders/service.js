@@ -20,6 +20,12 @@ const getPurchaseOrders = async (body) => {
     if (body.classes) {
       filters.classes = body.classes;
     }
+    if (body.subsidiary) {
+      filters.subsidiary = body.subsidiary;
+    }
+    if (body.location) {
+      filters.location = body.location;
+    }
     const requestData = {
       page: body.page || 1,
       page_size: body.limit || 10,
