@@ -69,7 +69,8 @@ const invoiceSalesOrderSchemas = {
       limit: { type: 'integer', default: 10, example: 10 },
       sort_by: { type: 'string', default: 'created_at', example: 'created_at' },
       sort_order: { type: 'string', default: 'desc', example: 'desc' },
-      search: { type: 'string', default: '', example: 'SI-IEC-2026-000009' }
+      search: { type: 'string', default: '', example: 'SI-IEC-2026-000009' },
+      subsidiary: { type: 'string', default: '', example: '1' }
     }
   }
 };

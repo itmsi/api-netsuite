@@ -161,13 +161,21 @@ const getInvoiceSalesOrders = async (body) => {
     const baseUrl = process.env.BRIDGE_BASE_URL || 'https://api-bridge-sb.motorsights.com';
     const url = `${baseUrl}/api/v1/bridge/invoice-sales-orders/get`;
 
+    const filters = {};
+    if (body.search) {
+      filters.search = body.search;
+    }
+    if (body.subsidiary) {
+      filters.subsidiary = body.subsidiary;
+    }
+
     // Map internal payload to bridge API payload format
     const requestData = {
       page: body.page || 1,
       page_size: body.limit || 10,
       sort_by: body.sort_by === 'created_at' ? 'trandate' : (body.sort_by || 'trandate'),
       sort_order: body.sort_order ? body.sort_order.toUpperCase() : 'DESC',
-      filters: body.search ? { tranid: body.search } : {}
+      filters: filters
     };
 
     // If filters are explicitly passed in body, merge them
