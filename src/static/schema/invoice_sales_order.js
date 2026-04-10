@@ -70,7 +70,10 @@ const invoiceSalesOrderSchemas = {
       sort_by: { type: 'string', default: 'created_at', example: 'created_at' },
       sort_order: { type: 'string', default: 'desc', example: 'desc' },
       search: { type: 'string', default: '', example: 'SI-IEC-2026-000009' },
-      subsidiary: { type: 'string', default: '', example: '1' }
+      subsidiary: { type: 'string', default: '', example: '1' },
+      approvalstatus: { type: 'string', default: '', example: '2' },
+      trandate_start: { type: 'string', default: '', example: '2026-04-08' },
+      trandate_end: { type: 'string', default: '', example: '2026-04-10' }
     }
   }
 };

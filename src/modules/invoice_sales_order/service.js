@@ -168,6 +168,15 @@ const getInvoiceSalesOrders = async (body) => {
     if (body.subsidiary) {
       filters.subsidiary = body.subsidiary;
     }
+    if (body.approvalstatus) {
+      filters.approvalstatus = body.approvalstatus;
+    }
+    if (body.trandate_start) {
+      filters.trandate_start = body.trandate_start;
+    }
+    if (body.trandate_end) {
+      filters.trandate_end = body.trandate_end;
+    }
 
     // Map internal payload to bridge API payload format
     const requestData = {
