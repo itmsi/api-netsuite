@@ -8,6 +8,7 @@ const departmentPaths = {
       tags: ['Departments'],
       summary: 'Get list of departments',
       description: 'Fetch departments data from external bridge API with pagination/search support',
+      security: [{ bearerAuth: [] }],
       requestBody: {
         required: true,
         content: {

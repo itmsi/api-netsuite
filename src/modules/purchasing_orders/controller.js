@@ -29,6 +29,23 @@ const getList = async (req, res) => {
  */
 const create = async (req, res) => {
   try {
+    // Automate fields
+    if (req.user && req.user.email) {
+      req.body.custbody_msi_createdby_api = req.user.email;
+    }
+
+    if (req.body.items && Array.isArray(req.body.items) && req.body.items.length > 0) {
+      // Pick department from first item if missing at top level
+      if (!req.body.department && req.body.items[0].department) {
+        req.body.department = req.body.items[0].department;
+      }
+
+      req.body.items = req.body.items.map(item => ({
+        ...item,
+        rate: (item.custcol_msi_fob || 0) + (item.custcol_me_landed_cost || 0)
+      }));
+    }
+
     const result = await service.createPurchaseOrder(req.body);
     return baseResponse(res, {
       code: 201,
@@ -36,6 +53,47 @@ const create = async (req, res) => {
         success: true,
         data: result,
         message: 'Purchase order berhasil dibuat'
+      }
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || 'Internal Server Error',
+      errors: error.errors || error
+    });
+  }
+};
+
+/**
+ * Update purchase order
+ */
+const update = async (req, res) => {
+  try {
+    // Automate fields
+    if (req.user && req.user.email) {
+      req.body.custbody_msi_createdby_api = req.user.email;
+    }
+
+    if (req.body.items && Array.isArray(req.body.items) && req.body.items.length > 0) {
+      // Pick department from first item if missing at top level
+      if (!req.body.department && req.body.items[0].department) {
+        req.body.department = req.body.items[0].department;
+      }
+
+      req.body.items = req.body.items.map(item => ({
+        ...item,
+        rate: (item.custcol_msi_fob || 0) + (item.custcol_me_landed_cost || 0)
+      }));
+    }
+
+    const result = await service.updatePurchaseOrder(req.body);
+    return baseResponse(res, {
+      code: 200,
+      data: {
+        success: true,
+        data: result,
+        message: 'Purchase order berhasil diupdate'
       }
     });
   } catch (error) {
@@ -91,6 +149,7 @@ const getById = async (req, res) => {
 module.exports = {
   getList,
   create,
+  update,
   approve,
   getById
 };

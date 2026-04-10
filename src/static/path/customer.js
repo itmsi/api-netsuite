@@ -8,6 +8,7 @@ const customerPaths = {
       tags: ['Customer'],
       summary: 'Get list of customers',
       description: 'Fetch customer data from external bridge API with pagination support',
+      security: [{ bearerAuth: [] }],
       requestBody: {
         required: true,
         content: {
@@ -41,6 +42,7 @@ const customerPaths = {
       tags: ['Customer'],
       summary: 'Create a new customer',
       description: 'Create a new customer via external bridge API',
+      security: [{ bearerAuth: [] }],
       requestBody: {
         required: true,
         content: {

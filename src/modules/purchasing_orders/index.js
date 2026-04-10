@@ -1,44 +1,60 @@
 const express = require('express');
 const router = express.Router();
 const controller = require('./controller');
+const { verifyToken } = require('../../middlewares');
 
 /**
  * @route   POST /api/purchasing-orders/get-list
  * @desc    Get purchase orders from bridge API and format pagination
- * @access  Public
+ * @access  Private
  */
 router.post(
   '/get-list',
+  verifyToken,
   controller.getList
 );
 
 /**
  * @route   POST /api/purchasing-orders/create
  * @desc    Create a new purchase order via bridge API
- * @access  Public
+ * @access  Private
  */
 router.post(
   '/create',
+  verifyToken,
   controller.create
+);
+
+/**
+ * @route   PUT /api/purchasing-orders/update
+ * @desc    Update an existing purchase order via bridge API
+ * @access  Private
+ */
+router.put(
+  '/update',
+  verifyToken,
+  controller.update
 );
 
 /**
  * @route   POST /api/purchasing-orders/approval
  * @desc    Approve a purchase order via bridge API
- * @access  Public
+ * @access  Private
  */
 router.post(
   '/approval',
+  verifyToken,
   controller.approve
 );
 
 /**
  * @route   GET /api/purchasing-orders/:id
  * @desc    Get a purchase order detail by ID via NetSuite RESTlet
- * @access  Public
+ * @access  Private
  */
 router.get(
   '/:id',
+  verifyToken,
   controller.getById
 );
 

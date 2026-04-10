@@ -8,6 +8,7 @@ const invoiceSalesOrderPaths = {
       tags: ['Invoice Sales Orders'],
       summary: 'Get list of invoice sales orders',
       description: 'Fetch invoice sales orders from internal bridge API with pagination and search',
+      security: [{ bearerAuth: [] }],
       requestBody: {
         required: true,
         content: {

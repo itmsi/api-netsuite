@@ -8,6 +8,7 @@ const vendorPaths = {
       tags: ['Vendors'],
       summary: 'Get list of vendors',
       description: 'Fetch vendors data from external bridge API',
+      security: [{ bearerAuth: [] }],
       requestBody: {
         required: true,
         content: {

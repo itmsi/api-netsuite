@@ -8,6 +8,7 @@ const locationsPaths = {
       tags: ['Locations'],
       summary: 'Get list of locations',
       description: 'Fetch locations data from external bridge API with pagination/search support',
+      security: [{ bearerAuth: [] }],
       requestBody: {
         required: true,
         content: {

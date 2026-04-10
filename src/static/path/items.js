@@ -8,6 +8,7 @@ const itemsPaths = {
       tags: ['Items'],
       summary: 'Get list of items',
       description: 'Fetch items data from external bridge API',
+      security: [{ bearerAuth: [] }],
       requestBody: {
         required: true,
         content: {

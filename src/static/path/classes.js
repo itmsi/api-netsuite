@@ -8,6 +8,7 @@ const classesPaths = {
       tags: ['Classes'],
       summary: 'Get list of classes',
       description: 'Fetch classes data from external bridge API with pagination/search support',
+      security: [{ bearerAuth: [] }],
       requestBody: {
         required: true,
         content: {
