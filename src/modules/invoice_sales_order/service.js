@@ -195,7 +195,55 @@ const getInvoiceSalesOrders = async (body) => {
 
     // AUTOMATIC SYNC TO FAKTURS
     if (records.length > 0) {
-      await syncToFakturs(records);
+      // 1. Bulk lookup for existing fakturs to determine what to skip
+      const ids = records.map(r => parseInt(r.id));
+      const existingFakturs = await db('fakturs')
+        .leftJoin('employees', 'fakturs.updated_by', 'employees.employee_id')
+        .whereIn('fakturs.sales_invoice_id', ids)
+        .select(
+          'fakturs.faktur_id', 
+          'fakturs.sales_invoice_id', 
+          'fakturs.updated_at', 
+          'employees.employee_name as updated_by_name'
+        );
+
+      const existingMap = new Map();
+      existingFakturs.forEach(f => existingMap.set(parseInt(f.sales_invoice_id), f));
+
+      // 2. Decide which records to sync:
+      // If search is used, assume manual sync/re-sync for the searched items
+      // Otherwise, only sync records that are NOT in existingMap
+      const recordsToSync = [];
+      const recordsToSkip = [];
+
+      records.forEach(record => {
+        const id = parseInt(record.id);
+        if (body.search) {
+          // Manual sync: sync everything
+          recordsToSync.push(record);
+        } else if (existingMap.has(id)) {
+          // Automatic sync: skip if already exists
+          recordsToSkip.push(record);
+        } else {
+          // Automatic sync: sync if new
+          recordsToSync.push(record);
+        }
+      });
+
+      // 3. Process recordsToSync (Create or Update if manual)
+      if (recordsToSync.length > 0) {
+        await syncToFakturs(recordsToSync);
+      }
+
+      // 4. Populate information for recordsToSkip from local DB
+      recordsToSkip.forEach(record => {
+        const existing = existingMap.get(parseInt(record.id));
+        if (existing) {
+          record.fakture_id = existing.faktur_id;
+          record.faktur_updated_at = existing.updated_at;
+          record.faktur_updated_by_name = existing.updated_by_name || '';
+        }
+      });
     }
 
     // 3. Map to system template formatting for pagination
