@@ -17,9 +17,10 @@ const getVendorsList = async (body) => {
       pageSize: body.limit || 50,
       sort_by: body.sort_by === 'created_at' ? 'last_modified' : (body.sort_by || 'last_modified'),
       sort_order: body.sort_order ? body.sort_order.toUpperCase() : 'DESC',
-      filters: body.search ? { search: body.search } : {},
+      search: body.search || '',
       lastmodified: body.lastmodified || null,
-      netsuite_id: body.netsuite_id || null
+      netsuite_id: body.netsuite_id || null,
+      subsidiary: body.subsidiary || null
     };
 
     const response = await axios.post(url, requestData, {
