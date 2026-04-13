@@ -74,7 +74,8 @@ const purchasingOrdersSchemas = {
       location: { type: 'integer', example: 19 },
       taxcode: { type: 'integer', example: 18098 },
       custcol_msi_fob: { type: 'number', example: 5000 },
-      custcol_me_landed_cost: { type: 'number', example: 5000 }
+      custcol_me_landed_cost: { type: 'number', example: 5000 },
+      description: { type: 'string', example: 'Description' }
     }
   },
   PurchaseOrderCreateRequest: {
