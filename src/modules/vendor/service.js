@@ -13,7 +13,7 @@ const getVendorsList = async (body) => {
 
     // Map internal payload to bridge API payload format
     const requestData = {
-      pageIndex: body.page || 0,
+      pageIndex: body.page ? (body.page - 1) : 0,
       pageSize: body.limit || 50,
       sort_by: body.sort_by === 'created_at' ? 'last_modified' : (body.sort_by || 'last_modified'),
       sort_order: body.sort_order ? body.sort_order.toUpperCase() : 'DESC',
