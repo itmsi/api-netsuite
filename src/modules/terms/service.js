@@ -25,7 +25,7 @@ const getTermsList = async (body) => {
       page_size: body.limit || body.page_size || 10,
       sort_by: body.sort_by || 'name',
       sort_order: body.sort_order ? body.sort_order.toUpperCase() : 'DESC',
-      filters: filters
+      search: body.search || ''
     };
 
     const response = await axios.post(url, requestData, {
