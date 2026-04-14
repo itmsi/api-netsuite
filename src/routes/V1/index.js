@@ -58,6 +58,9 @@ routing.use(`${API_TAG}/departments`, departmentModule);
 const subsidiaryModule = require('../../modules/subsidiary');
 routing.use(`${API_TAG}/subsidiary`, subsidiaryModule);
 
+const termsModule = require('../../modules/terms');
+routing.use(`${API_TAG}/terms`, termsModule);
+
 // Example:
 // const yourModule = require('../../modules/yourModule')
 // routing.use(`${API_TAG}/your-endpoint`, yourModule)
