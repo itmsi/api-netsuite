@@ -49,8 +49,26 @@ const getPurchaseOrders = async (body) => {
     if (body.location) {
       query = query.where('location', body.location);
     }
+
+    // Handle classes filter (parent and children)
+    let classIds = [];
     if (body.classes) {
-      query = query.where('class', body.classes);
+      const parentIdStr = body.classes.toString();
+      classIds.push(parentIdStr);
+
+      // Step 2 & 3: Cek ke tabel class untuk child yang memiliki parent_id tersebut
+      const children = await dbNetsuite('class')
+        .select('netsuite_id')
+        .where('parent_id', parentIdStr)
+        .andWhere('is_delete', false)
+        .whereNull('deleted_at');
+
+      // Step 4 & 5: Masukan daftar netsuite_id tersebut
+      if (children && children.length > 0) {
+        children.forEach(child => {
+          if (child.netsuite_id) classIds.push(child.netsuite_id.toString());
+        });
+      }
     }
 
     // Hitung total
