@@ -1,6 +1,19 @@
 const axios = require('axios');
+const knex = require('knex');
 const authService = require('../auth/service');
 const { pgCore: db } = require('../../config/database');
+
+// Knex instance untuk DB Netsuite (bridge_sanbox)
+const dbNetsuite = knex({
+  client: 'pg',
+  connection: {
+    host: process.env.DB_HOST_NETSUITE || 'localhost',
+    port: parseInt(process.env.DB_PORT_NETSUITE) || 9541,
+    user: process.env.DB_USER_NETSUITE || 'msiserver',
+    password: process.env.DB_PASS_NETSUITE,
+    database: process.env.DB_NAME_NETSUITE || 'bridge_sanbox'
+  }
+});
 
 /**
  * Format trandate "31/3/2026" to "2026-03-31" for Postgres
@@ -149,45 +162,145 @@ const syncToFakturs = async (records) => {
 };
 
 /**
- * Get invoice sales orders from bridge API
+ * Get invoice sales orders dari DB Netsuite (bridge_sanbox.invoice_sales_orders)
+ * Format response identik dengan format bridge API sebelumnya.
  */
 const getInvoiceSalesOrders = async (body) => {
   try {
-    // 1. Get token from auth module
+    const page      = parseInt(body.page)  || 1;
+    const limit     = parseInt(body.limit) || 10;
+    const sortOrder = body.sort_order ? body.sort_order.toUpperCase() : 'DESC';
+    const offset    = (page - 1) * limit;
+
+    // Kolom yang boleh dijadikan sort_by
+    const validSortColumns = [
+      'netsuite_id', 'tranid', 'entity', 'entityid', 'trandate', 'startdate', 'enddate',
+      'subsidiary', 'department', 'class', 'location', 'approvalstatus',
+      'last_modified_netsuite', 'created_at', 'updated_at'
+    ];
+    const sortByRaw = body.sort_by === 'created_at' ? 'trandate' : (body.sort_by || 'last_modified_netsuite');
+    const orderCol  = validSortColumns.includes(sortByRaw) ? sortByRaw : 'last_modified_netsuite';
+
+    let query = dbNetsuite('invoice_sales_orders').where('is_deleted', false);
+
+    // Filter opsional
+    if (body.search) {
+      query = query.where(function () {
+        this.whereILike('tranid', `%${body.search}%`)
+            .orWhereILike('entityid', `%${body.search}%`)
+            .orWhereILike('memo', `%${body.search}%`);
+      });
+    }
+    if (body.subsidiary) {
+      query = query.where('subsidiary', String(body.subsidiary));
+    }
+    if (body.approvalstatus) {
+      query = query.where('approvalstatus', String(body.approvalstatus));
+    }
+    if (body.trandate_start) {
+      query = query.where('trandate', '>=', body.trandate_start);
+    }
+    if (body.trandate_end) {
+      query = query.where('trandate', '<=', body.trandate_end);
+    }
+
+    // Hitung total
+    const countResult = await query.clone().count('* as total').first();
+    const total       = parseInt(countResult.total) || 0;
+    const totalPages  = Math.ceil(total / limit);
+
+    // Select kolom eksplisit (exclude raw_data, id internal)
+    const rows = await query
+      .clone()
+      .select([
+        'netsuite_id as id',
+        'tranid', 'entity', 'entityid', 'trandate', 'startdate', 'enddate',
+        'postingperiod', 'postingperiod_display', 'otherrefnum', 'memo',
+        'custbody_me_related_fulfillment', 'terms', 'account', 'account_display',
+        'currency', 'currency_display', 'exchangerate',
+        'custbody_msi_bank_payment_so', 'custbody_msi_bank_payment_so_display',
+        'approvalstatus',
+        'custbody_me_wf_created_by', 'custbody_me_wf_created_by_display',
+        'custbody_me_wf_next_approver_blank',
+        'saleseffectivedate', 'createdfrom', 'createdfrom_display',
+        'subsidiary', 'subsidiary_display',
+        'department', 'department_display',
+        'class', 'class_display',
+        'location', 'location_display',
+        'custbody_cseg_cn_cfi', 'custbody_cseg_cn_cfi_display',
+        'custbody_me_description',
+        'lines',
+        'last_modified_netsuite'
+      ])
+      .orderBy(orderCol, sortOrder)
+      .limit(limit)
+      .offset(offset);
+
+    // Populate faktur info dari local DB
+    if (rows.length > 0) {
+      const ids = rows.map(r => parseInt(r.id));
+      const existingFakturs = await db('fakturs')
+        .leftJoin('employees', 'fakturs.updated_by', 'employees.employee_id')
+        .whereIn('fakturs.sales_invoice_id', ids)
+        .select(
+          'fakturs.faktur_id',
+          'fakturs.sales_invoice_id',
+          'fakturs.updated_at',
+          'employees.employee_name as updated_by_name'
+        );
+
+      const existingMap = new Map();
+      existingFakturs.forEach(f => existingMap.set(parseInt(f.sales_invoice_id), f));
+
+      rows.forEach(record => {
+        const existing = existingMap.get(parseInt(record.id));
+        if (existing) {
+          record.fakture_id = existing.faktur_id;
+          record.faktur_updated_at = existing.updated_at;
+          record.faktur_updated_by_name = existing.updated_by_name || '';
+        }
+      });
+    }
+
+    return {
+      items: rows,
+      pagination: { page, limit, total, totalPages }
+    };
+
+  } catch (error) {
+    throw { message: error.message || 'Failed to fetch invoice sales orders from database', statusCode: 500 };
+  }
+};
+
+/**
+ * Sync invoice sales orders — hit bridge API (proses lama) + sync ke fakturs.
+ * Format response identik dengan get.
+ */
+const syncInvoiceSalesOrders = async (body) => {
+  try {
+    // 1. Get token
     const tokenResponse = await authService.getToken();
     const token = tokenResponse.data.access_token;
 
-    // 2. Fetch invoice sales orders from bridge API
+    // 2. Fetch dari bridge API
     const baseUrl = process.env.BRIDGE_BASE_URL || 'https://api-bridge-sb.motorsights.com';
     const url = `${baseUrl}/api/v1/bridge/invoice-sales-orders/get`;
 
     const filters = {};
-    if (body.search) {
-      filters.search = body.search;
-    }
-    if (body.subsidiary) {
-      filters.subsidiary = body.subsidiary;
-    }
-    if (body.approvalstatus) {
-      filters.approvalstatus = body.approvalstatus;
-    }
-    if (body.trandate_start) {
-      filters.trandate_start = body.trandate_start;
-    }
-    if (body.trandate_end) {
-      filters.trandate_end = body.trandate_end;
-    }
+    if (body.search)         filters.search         = body.search;
+    if (body.subsidiary)     filters.subsidiary     = body.subsidiary;
+    if (body.approvalstatus) filters.approvalstatus = body.approvalstatus;
+    if (body.trandate_start) filters.trandate_start = body.trandate_start;
+    if (body.trandate_end)   filters.trandate_end   = body.trandate_end;
 
-    // Map internal payload to bridge API payload format
     const requestData = {
-      page: body.page || 1,
-      page_size: body.limit || 10,
-      sort_by: body.sort_by === 'created_at' ? 'trandate' : (body.sort_by || 'trandate'),
+      page:       body.page  || 1,
+      page_size:  body.limit || 10,
+      sort_by:    body.sort_by === 'created_at' ? 'trandate' : (body.sort_by || 'trandate'),
       sort_order: body.sort_order ? body.sort_order.toUpperCase() : 'DESC',
-      filters: filters
+      filters
     };
 
-    // If filters are explicitly passed in body, merge them
     if (body.filters) {
       requestData.filters = { ...requestData.filters, ...body.filters };
     }
@@ -202,49 +315,40 @@ const getInvoiceSalesOrders = async (body) => {
     const resData = response.data;
     const records = resData.data || [];
 
-    // AUTOMATIC SYNC TO FAKTURS
+    // Sync ke fakturs (proses lama)
     if (records.length > 0) {
-      // 1. Bulk lookup for existing fakturs to determine what to skip
       const ids = records.map(r => parseInt(r.id));
       const existingFakturs = await db('fakturs')
         .leftJoin('employees', 'fakturs.updated_by', 'employees.employee_id')
         .whereIn('fakturs.sales_invoice_id', ids)
         .select(
-          'fakturs.faktur_id', 
-          'fakturs.sales_invoice_id', 
-          'fakturs.updated_at', 
+          'fakturs.faktur_id',
+          'fakturs.sales_invoice_id',
+          'fakturs.updated_at',
           'employees.employee_name as updated_by_name'
         );
 
       const existingMap = new Map();
       existingFakturs.forEach(f => existingMap.set(parseInt(f.sales_invoice_id), f));
 
-      // 2. Decide which records to sync:
-      // If search is used, assume manual sync/re-sync for the searched items
-      // Otherwise, only sync records that are NOT in existingMap
       const recordsToSync = [];
       const recordsToSkip = [];
 
       records.forEach(record => {
         const id = parseInt(record.id);
         if (body.search) {
-          // Manual sync: sync everything
           recordsToSync.push(record);
         } else if (existingMap.has(id)) {
-          // Automatic sync: skip if already exists
           recordsToSkip.push(record);
         } else {
-          // Automatic sync: sync if new
           recordsToSync.push(record);
         }
       });
 
-      // 3. Process recordsToSync (Create or Update if manual)
       if (recordsToSync.length > 0) {
         await syncToFakturs(recordsToSync);
       }
 
-      // 4. Populate information for recordsToSkip from local DB
       recordsToSkip.forEach(record => {
         const existing = existingMap.get(parseInt(record.id));
         if (existing) {
@@ -255,21 +359,20 @@ const getInvoiceSalesOrders = async (body) => {
       });
     }
 
-    // 3. Map to system template formatting for pagination
     return {
       items: records,
       pagination: {
-        page: resData.page || resData.pageIndex || body.page || 1,
-        limit: resData.page_size || resData.pageSize || body.limit || 10,
-        total: resData.total_records || resData.totalRows || 0,
-        totalPages: resData.total_pages || resData.totalPages || 0
+        page:       resData.page       || resData.pageIndex  || body.page  || 1,
+        limit:      resData.page_size  || resData.pageSize   || body.limit || 10,
+        total:      resData.total_records || resData.totalRows   || 0,
+        totalPages: resData.total_pages   || resData.totalPages  || 0
       }
     };
 
   } catch (error) {
     if (error.response) {
       throw {
-        message: error.response.data.message || 'Failed to fetch invoice sales orders from bridge API',
+        message: error.response.data.message || 'Failed to sync invoice sales orders from bridge API',
         statusCode: error.response.status,
         errors: error.response.data
       };
@@ -279,5 +382,6 @@ const getInvoiceSalesOrders = async (body) => {
 };
 
 module.exports = {
-  getInvoiceSalesOrders
+  getInvoiceSalesOrders,
+  syncInvoiceSalesOrders
 };
