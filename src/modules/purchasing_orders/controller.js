@@ -181,11 +181,52 @@ const getById = async (req, res) => {
   }
 };
 
+/**
+ * Sync purchase order by ID dari bridge API
+ * GET /purchasing-orders/sync/:id
+ */
+const syncById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res.status(400).json({ success: false, message: 'Parameter id tidak boleh kosong' });
+    }
+
+    const result = await service.syncPurchaseOrderById(id);
+
+    await syncService.createSync(
+      { sync_module: 'purchasing_orders', sync_status: 'success' },
+      req.user
+    );
+
+    return baseResponse(res, {
+      data: {
+        success: true,
+        data: result,
+        message: `Purchase order ID ${id} berhasil di-sync dari bridge API`
+      }
+    });
+  } catch (error) {
+    await syncService.createSync(
+      { sync_module: 'purchasing_orders', sync_status: 'failed' },
+      req.user
+    ).catch(() => {});
+
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || 'Internal Server Error',
+      errors: error.errors || error
+    });
+  }
+};
+
 module.exports = {
   getList,
   sync,
   create,
   update,
   approve,
-  getById
+  getById,
+  syncById
 };

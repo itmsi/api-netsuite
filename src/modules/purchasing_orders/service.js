@@ -20,10 +20,10 @@ const dbNetsuite = knex({
  */
 const getPurchaseOrders = async (body) => {
   try {
-    const page      = parseInt(body.page)  || 1;
-    const limit     = parseInt(body.limit) || 10;
+    const page = parseInt(body.page) || 1;
+    const limit = parseInt(body.limit) || 10;
     const sortOrder = body.sort_order ? body.sort_order.toUpperCase() : 'DESC';
-    const offset    = (page - 1) * limit;
+    const offset = (page - 1) * limit;
 
     // Kolom yang boleh dijadikan sort_by
     const validSortColumns = [
@@ -39,8 +39,8 @@ const getPurchaseOrders = async (body) => {
     if (body.search) {
       query = query.where(function () {
         this.whereILike('po_number', `%${body.search}%`)
-            .orWhereILike('vendor_name', `%${body.search}%`)
-            .orWhereILike('memo', `%${body.search}%`);
+          .orWhereILike('vendor_name', `%${body.search}%`)
+          .orWhereILike('memo', `%${body.search}%`);
       });
     }
     if (body.subsidiary) {
@@ -55,8 +55,8 @@ const getPurchaseOrders = async (body) => {
 
     // Hitung total
     const countResult = await query.clone().count('* as total').first();
-    const total       = parseInt(countResult.total) || 0;
-    const totalPages  = Math.ceil(total / limit);
+    const total = parseInt(countResult.total) || 0;
+    const totalPages = Math.ceil(total / limit);
 
     // Select kolom eksplisit sesuai format response (exclude raw_request, raw_response, id internal)
     const items = await query
@@ -109,15 +109,15 @@ const syncPurchaseOrders = async (body) => {
     const url = `${baseUrl}/api/v1/bridge/purchase-orders/get-list`;
 
     const filters = {};
-    if (body.search)     filters.search     = body.search;
-    if (body.classes)    filters.classes    = body.classes;
+    if (body.search) filters.search = body.search;
+    if (body.classes) filters.classes = body.classes;
     if (body.subsidiary) filters.subsidiary = body.subsidiary;
-    if (body.location)   filters.location   = body.location;
+    if (body.location) filters.location = body.location;
 
     const requestData = {
-      page:       body.page       || 1,
-      page_size:  body.limit      || 10,
-      sort_by:    body.sort_by    || 'last_modified',
+      page: body.page || 1,
+      page_size: body.limit || 10,
+      sort_by: body.sort_by || 'last_modified',
       sort_order: body.sort_order ? body.sort_order.toUpperCase() : 'DESC',
       filters
     };
@@ -135,10 +135,10 @@ const syncPurchaseOrders = async (body) => {
     return {
       items: resData.data || resData.items || [],
       pagination: {
-        page:       resData.page       || resData.pageIndex  || body.page  || 1,
-        limit:      resData.page_size  || resData.pageSize   || body.limit || 10,
-        total:      resData.total_records || resData.totalRows   || 0,
-        totalPages: resData.total_pages   || resData.totalPages  || 0
+        page: resData.page || resData.pageIndex || body.page || 1,
+        limit: resData.page_size || resData.pageSize || body.limit || 10,
+        total: resData.total_records || resData.totalRows || 0,
+        totalPages: resData.total_pages || resData.totalPages || 0
       }
     };
 
@@ -296,11 +296,46 @@ const updatePurchaseOrder = async (body) => {
   }
 };
 
+/**
+ * Sync single purchase order by ID dari bridge API
+ * Hit: GET {BRIDGE_BASE_URL}/api/v1/bridge/purchase-orders/sync/{id}
+ */
+const syncPurchaseOrderById = async (id) => {
+  try {
+    // 1. Get token
+    const tokenResponse = await authService.getToken();
+    const token = tokenResponse.data.access_token;
+
+    // 2. Hit bridge sync by ID endpoint
+    const baseUrl = process.env.BRIDGE_BASE_URL || 'https://api-bridge-sb.motorsights.com';
+    const url = `${baseUrl}/api/v1/bridge/purchase-orders/sync/${id}`;
+
+    const response = await axios.get(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    return response.data;
+
+  } catch (error) {
+    if (error.response) {
+      throw {
+        message: error.response.data?.message || 'Failed to sync purchase order by ID from bridge API',
+        statusCode: error.response.status,
+        errors: error.response.data
+      };
+    }
+    throw { message: error.message, statusCode: 500 };
+  }
+};
+
 module.exports = {
   getPurchaseOrders,
   syncPurchaseOrders,
   createPurchaseOrder,
   approvePurchaseOrder,
   getPurchaseOrderById,
-  updatePurchaseOrder
+  updatePurchaseOrder,
+  syncPurchaseOrderById
 };

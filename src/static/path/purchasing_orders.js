@@ -251,6 +251,64 @@ const purchasingOrdersPaths = {
       }
     }
   },
+  '/purchasing-orders/sync/{id}': {
+    get: {
+      tags: ['Purchasing Orders'],
+      summary: 'Sync single purchase order by ID dari bridge API',
+      description: 'Hit bridge API `GET /api/v1/bridge/purchase-orders/sync/{id}` untuk sync satu purchase order berdasarkan ID. Hasil sync dicatat di tabel `syncs`.',
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        {
+          name: 'id',
+          in: 'path',
+          required: true,
+          description: 'NetSuite internal ID dari purchase order (po_id)',
+          schema: { type: 'integer', example: 7337 }
+        }
+      ],
+      responses: {
+        200: {
+          description: 'Success',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  success: { type: 'boolean', example: true },
+                  data: { type: 'object', description: 'Raw response dari bridge API' },
+                  message: { type: 'string', example: 'Purchase order ID 7337 berhasil di-sync dari bridge API' }
+                }
+              }
+            }
+          }
+        },
+        400: {
+          description: 'Bad Request - ID not provided',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+            }
+          }
+        },
+        401: {
+          description: 'Unauthorized',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+            }
+          }
+        },
+        500: {
+          description: 'Internal Server Error',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+            }
+          }
+        }
+      }
+    }
+  },
   '/purchasing-orders/{id}': {
     get: {
       tags: ['Purchasing Orders'],

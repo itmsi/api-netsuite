@@ -59,6 +59,17 @@ router.post(
 );
 
 /**
+ * @route   GET /api/purchasing-orders/sync/:id
+ * @desc    Sync a single purchase order by ID dari bridge API
+ * @access  Private
+ */
+router.get(
+  '/sync/:id',
+  verifyToken,
+  controller.syncById
+);
+
+/**
  * @route   GET /api/purchasing-orders/:id
  * @desc    Get a purchase order detail by ID via NetSuite RESTlet
  * @access  Private
