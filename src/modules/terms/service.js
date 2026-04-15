@@ -19,17 +19,17 @@ const dbNetsuite = knex({
  */
 const getTermsList = async (body) => {
   try {
-    const page      = parseInt(body.page) || 1;
-    const limit     = parseInt(body.limit) || parseInt(body.page_size) || 10;
+    const page = parseInt(body.page) || 1;
+    const limit = parseInt(body.limit) || parseInt(body.page_size) || 10;
     const sortOrder = body.sort_order ? body.sort_order.toUpperCase() : 'DESC';
-    const offset    = (page - 1) * limit;
+    const offset = (page - 1) * limit;
 
     // Kolom yang boleh dijadikan sort_by
     const validSortColumns = [
       'netsuite_id', 'name', 'isinactive', 'created_at', 'updated_at'
     ];
     const sortByRaw = body.sort_by || 'name';
-    const orderCol  = validSortColumns.includes(sortByRaw) ? sortByRaw : 'name';
+    const orderCol = validSortColumns.includes(sortByRaw) ? sortByRaw : 'name';
 
     let query = dbNetsuite('terms').where('is_delete', false);
 
@@ -40,8 +40,8 @@ const getTermsList = async (body) => {
 
     // Hitung total
     const countResult = await query.clone().count('* as total').first();
-    const total       = parseInt(countResult.total) || 0;
-    const totalPages  = Math.ceil(total / limit);
+    const total = parseInt(countResult.total) || 0;
+    const totalPages = Math.ceil(total / limit);
 
     // Select kolom sesuai format response
     const rows = await query
