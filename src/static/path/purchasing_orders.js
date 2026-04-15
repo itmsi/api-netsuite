@@ -7,7 +7,7 @@ const purchasingOrdersPaths = {
     post: {
       tags: ['Purchasing Orders'],
       summary: 'Get list of purchase orders',
-      description: 'Fetch purchase orders with pagination from external bridge API API',
+      description: 'Fetch purchase orders dengan pagination dari database lokal (bridge_sanbox.purchase_orders). Data sudah tersimpan dari hasil sync sebelumnya via endpoint /sync.',
       security: [{ bearerAuth: [] }],
       requestBody: {
         required: true,
@@ -39,6 +39,64 @@ const purchasingOrdersPaths = {
                   message: { type: 'string', example: 'Data purchase orders berhasil diambil' }
                 }
               }
+            }
+          }
+        },
+        500: {
+          description: 'Internal Server Error',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+            }
+          }
+        }
+      }
+    }
+  },
+  '/purchasing-orders/sync': {
+    post: {
+      tags: ['Purchasing Orders'],
+      summary: 'Sync purchase orders dari bridge API',
+      description: 'Fetch purchase orders langsung dari bridge API (NetSuite) dengan pagination. Format response identik dengan `/get-list`. Gunakan endpoint ini untuk mendapatkan data real-time dari NetSuite.',
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: { $ref: '#/components/schemas/PurchaseOrderListRequest' }
+          }
+        }
+      },
+      responses: {
+        200: {
+          description: 'Success',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  success: { type: 'boolean', example: true },
+                  data: {
+                    type: 'object',
+                    properties: {
+                      items: {
+                        type: 'array',
+                        items: { $ref: '#/components/schemas/PurchaseOrder' }
+                      },
+                      pagination: { $ref: '#/components/schemas/Pagination' }
+                    }
+                  },
+                  message: { type: 'string', example: 'Data purchase orders berhasil di-sync dari bridge API' }
+                }
+              }
+            }
+          }
+        },
+        401: {
+          description: 'Unauthorized',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
             }
           }
         },
