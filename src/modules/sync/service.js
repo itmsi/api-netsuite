@@ -80,10 +80,24 @@ const deleteSync = async (id, user) => {
   return await repository.remove(id, userId);
 };
 
+/**
+ * Get latest sync info for a module (with employee name)
+ */
+const getLatestSyncInfo = async (syncModule) => {
+  const data = await repository.findLatestByModuleWithEmployee(syncModule);
+  if (!data) return null;
+  return {
+    sync_status: data.sync_status,
+    created_at: data.created_at,
+    created_by_name: data.created_by_name || null
+  };
+};
+
 module.exports = {
   getSyncList,
   getSyncById,
   createSync,
   updateSync,
-  deleteSync
+  deleteSync,
+  getLatestSyncInfo
 };

@@ -37,10 +37,13 @@ const sync = async (req, res) => {
       req.user
     );
 
+    const syncInfo = await syncService.getLatestSyncInfo('invoice_sales_orders').catch(() => null);
+
     return baseResponse(res, {
       data: {
         success: true,
         data: result,
+        sync_info: syncInfo,
         message: 'Data invoice sales orders berhasil di-sync dari bridge API'
       }
     });

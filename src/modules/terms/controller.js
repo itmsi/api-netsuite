@@ -37,10 +37,13 @@ const sync = async (req, res) => {
       req.user
     );
 
+    const syncInfo = await syncService.getLatestSyncInfo('terms').catch(() => null);
+
     return baseResponse(res, {
       data: {
         success: true,
         data: result,
+        sync_info: syncInfo,
         message: 'Data terms berhasil di-sync dari bridge API'
       }
     });

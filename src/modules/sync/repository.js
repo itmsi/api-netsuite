@@ -11,6 +11,7 @@ const TABLE_NAME = 'syncs';
 
 /**
  * Find all syncs - return data terbaru per sync_module (GROUP BY sync_module, ambil MAX sync_id)
+ * dengan LEFT JOIN employees untuk created_by_name
  */
 const findAll = async ({ page = 1, limit = 10, search = '', sort_by = 'sync_id', sort_order = 'desc' }) => {
   const offset = (page - 1) * limit;
@@ -27,8 +28,10 @@ const findAll = async ({ page = 1, limit = 10, search = '', sort_by = 'sync_id',
     .as('latest');
 
   // Base query: join ke subquery agar hanya row terbaru per module yang keluar
+  // LEFT JOIN employees dengan cast ::text untuk handle type mismatch (varchar vs uuid)
   let baseQuery = pgCore(TABLE_NAME)
     .join(latestSubquery, `${TABLE_NAME}.sync_id`, 'latest.max_sync_id')
+    .leftJoin('employees', pgCore.raw(`"${TABLE_NAME}".created_by::text = employees.employee_id::text`))
     .where(`${TABLE_NAME}.is_delete`, false);
 
   if (search) {
@@ -50,6 +53,7 @@ const findAll = async ({ page = 1, limit = 10, search = '', sort_by = 'sync_id',
       `${TABLE_NAME}.sync_status`,
       `${TABLE_NAME}.created_at`,
       `${TABLE_NAME}.created_by`,
+      'employees.employee_name as created_by_name',
       `${TABLE_NAME}.updated_at`,
       `${TABLE_NAME}.updated_by`,
       `${TABLE_NAME}.is_delete`
@@ -122,10 +126,34 @@ const remove = async (id, deletedBy) => {
   return result;
 };
 
+/**
+ * Find latest sync record for a given module with employee name (JOIN employees)
+ */
+const findLatestByModuleWithEmployee = async (syncModule) => {
+  return await pgCore(TABLE_NAME)
+    .leftJoin(
+      'employees',
+      pgCore.raw(`"${TABLE_NAME}".created_by::text = employees.employee_id::text`)
+    )
+    .where(`${TABLE_NAME}.sync_module`, syncModule)
+    .where(`${TABLE_NAME}.is_delete`, false)
+    .select([
+      `${TABLE_NAME}.sync_id`,
+      `${TABLE_NAME}.sync_module`,
+      `${TABLE_NAME}.sync_status`,
+      `${TABLE_NAME}.created_at`,
+      `${TABLE_NAME}.created_by`,
+      'employees.employee_name as created_by_name'
+    ])
+    .orderBy(`${TABLE_NAME}.sync_id`, 'desc')
+    .first();
+};
+
 module.exports = {
   findAll,
   findById,
   create,
   update,
-  remove
+  remove,
+  findLatestByModuleWithEmployee
 };

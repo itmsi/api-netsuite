@@ -37,10 +37,13 @@ const sync = async (req, res) => {
       req.user
     );
 
+    const syncInfo = await syncService.getLatestSyncInfo('vendors').catch(() => null);
+
     return baseResponse(res, {
       data: {
         success: true,
         data: result,
+        sync_info: syncInfo,
         message: 'Data vendors berhasil di-sync dari bridge API'
       }
     });
