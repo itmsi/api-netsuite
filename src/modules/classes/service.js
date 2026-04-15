@@ -19,10 +19,10 @@ const dbNetsuite = knex({
  */
 const getClassesList = async (body) => {
   try {
-    const page      = parseInt(body.page) || 1;
-    const limit     = parseInt(body.limit) || parseInt(body.page_size) || 10;
+    const page = parseInt(body.page) || 1;
+    const limit = parseInt(body.limit) || parseInt(body.page_size) || 10;
     const sortOrder = body.sort_order ? body.sort_order.toUpperCase() : 'DESC';
-    const offset    = (page - 1) * limit;
+    const offset = (page - 1) * limit;
 
     // Kolom yang boleh dijadikan sort_by
     const validSortColumns = [
@@ -30,7 +30,7 @@ const getClassesList = async (body) => {
       'subsidiary_id', 'subsidiary_name', 'last_modified_netsuite', 'created_at', 'updated_at'
     ];
     const sortByRaw = body.sort_by === 'created_at' ? 'last_modified_netsuite' : (body.sort_by || 'last_modified_netsuite');
-    const orderCol  = validSortColumns.includes(sortByRaw) ? sortByRaw : 'last_modified_netsuite';
+    const orderCol = validSortColumns.includes(sortByRaw) ? sortByRaw : 'last_modified_netsuite';
 
     let query = dbNetsuite('class').where('is_delete', false);
 
@@ -45,10 +45,17 @@ const getClassesList = async (body) => {
       query = query.where('last_modified_netsuite', '>=', body.lastmodified);
     }
 
+    if (body.class_profile) {
+      query = query.where(function () {
+        this.where('netsuite_id', body.class_profile.toString())
+          .orWhere('parent_id', body.class_profile.toString());
+      });
+    }
+
     // Hitung total
     const countResult = await query.clone().count('* as total').first();
-    const total       = parseInt(countResult.total) || 0;
-    const totalPages  = Math.ceil(total / limit);
+    const total = parseInt(countResult.total) || 0;
+    const totalPages = Math.ceil(total / limit);
 
     // Select kolom sesuai format response
     const items = await query
