@@ -8,10 +8,12 @@ const { baseResponse } = require('../../utils');
 const getList = async (req, res) => {
   try {
     const result = await service.getInvoiceSalesOrders(req.body);
-    return baseResponse(res, { 
+    const syncInfo = await syncService.getLatestSyncInfo('invoice_sales_orders').catch(() => null);
+    return baseResponse(res, {
       data: {
         success: true,
         data: result,
+        sync_info: syncInfo,
         message: 'Data invoice sales orders berhasil diambil'
       }
     });
@@ -51,7 +53,7 @@ const sync = async (req, res) => {
     await syncService.createSync(
       { sync_module: 'invoice_sales_orders', sync_status: 'failed' },
       req.user
-    ).catch(() => {});
+    ).catch(() => { });
 
     const statusCode = error.statusCode || 500;
     return res.status(statusCode).json({
