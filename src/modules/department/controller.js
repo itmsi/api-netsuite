@@ -1,4 +1,5 @@
 const service = require('./service');
+const syncService = require('../sync/service');
 const { baseResponse } = require('../../utils');
 
 /**
@@ -29,7 +30,13 @@ const getList = async (req, res) => {
  */
 const sync = async (req, res) => {
   try {
-    const result = await service.syncDepartmentsList(req.body);
+    const result = await service.syncDepartmentsList(req.body, req.user);
+
+    await syncService.createSync(
+      { sync_module: 'departments', sync_status: 'success' },
+      req.user
+    );
+
     return baseResponse(res, {
       data: {
         success: true,
@@ -38,6 +45,11 @@ const sync = async (req, res) => {
       }
     });
   } catch (error) {
+    await syncService.createSync(
+      { sync_module: 'departments', sync_status: 'failed' },
+      req.user
+    ).catch(() => {});
+
     const statusCode = error.statusCode || 500;
     return res.status(statusCode).json({
       success: false,
