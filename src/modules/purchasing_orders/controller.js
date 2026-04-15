@@ -107,6 +107,29 @@ const update = async (req, res) => {
 };
 
 /**
+ * Sync purchase orders dari bridge API (hit API, return format sama dengan get-list)
+ */
+const sync = async (req, res) => {
+  try {
+    const result = await service.syncPurchaseOrders(req.body);
+    return baseResponse(res, {
+      data: {
+        success: true,
+        data: result,
+        message: 'Data purchase orders berhasil di-sync dari bridge API'
+      }
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || 'Internal Server Error',
+      errors: error.errors || error
+    });
+  }
+};
+
+/**
  * Approve purchase order
  */
 const approve = async (req, res) => {
@@ -148,6 +171,7 @@ const getById = async (req, res) => {
 
 module.exports = {
   getList,
+  sync,
   create,
   update,
   approve,

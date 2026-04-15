@@ -1,37 +1,125 @@
 const axios = require('axios');
+const knex = require('knex');
 const authService = require('../auth/service');
 
+// Knex instance untuk DB Netsuite (bridge_sanbox)
+const dbNetsuite = knex({
+  client: 'pg',
+  connection: {
+    host: process.env.DB_HOST_NETSUITE || 'localhost',
+    port: parseInt(process.env.DB_PORT_NETSUITE) || 9541,
+    user: process.env.DB_USER_NETSUITE || 'msiserver',
+    password: process.env.DB_PASS_NETSUITE,
+    database: process.env.DB_NAME_NETSUITE || 'bridge_sanbox'
+  }
+});
+
+/**
+ * Get purchase orders dari DB Netsuite (bridge_sanbox.purchase_orders)
+ * Format response identik dengan format bridge API sebelumnya.
+ */
 const getPurchaseOrders = async (body) => {
   try {
-    // 1. Get token from auth module
+    const page      = parseInt(body.page)  || 1;
+    const limit     = parseInt(body.limit) || 10;
+    const sortOrder = body.sort_order ? body.sort_order.toUpperCase() : 'DESC';
+    const offset    = (page - 1) * limit;
+
+    // Kolom yang boleh dijadikan sort_by
+    const validSortColumns = [
+      'po_id', 'po_number', 'po_date', 'po_status', 'vendor_id', 'vendor_name',
+      'subsidiary', 'location', 'class', 'department', 'last_modified',
+      'foreigntotal', 'total', 'approvalstatus', 'created_at', 'updated_at'
+    ];
+    const orderCol = validSortColumns.includes(body.sort_by) ? body.sort_by : 'last_modified';
+
+    let query = dbNetsuite('purchase_orders');
+
+    // Filter opsional
+    if (body.search) {
+      query = query.where(function () {
+        this.whereILike('po_number', `%${body.search}%`)
+            .orWhereILike('vendor_name', `%${body.search}%`)
+            .orWhereILike('memo', `%${body.search}%`);
+      });
+    }
+    if (body.subsidiary) {
+      query = query.where('subsidiary', body.subsidiary);
+    }
+    if (body.location) {
+      query = query.where('location', body.location);
+    }
+    if (body.classes) {
+      query = query.where('class', body.classes);
+    }
+
+    // Hitung total
+    const countResult = await query.clone().count('* as total').first();
+    const total       = parseInt(countResult.total) || 0;
+    const totalPages  = Math.ceil(total / limit);
+
+    // Select kolom eksplisit sesuai format response (exclude raw_request, raw_response, id internal)
+    const items = await query
+      .clone()
+      .select([
+        'po_id', 'po_number', 'po_date', 'po_status', 'po_status_label',
+        'memo', 'vendor_id', 'vendor_name', 'currency_id', 'currency_symbol',
+        'foreigntotal', 'total', 'last_modified', 'approvalstatus',
+        'custbody_me_wf_created_by', 'custbody_me_wf_in_delegation',
+        'custbody_me_delegate_approver', 'custbody_msi_createdby_api',
+        'custbody_me_pr_date', 'custbody_me_project_location', 'custbody_me_pr_type',
+        'custbody_me_saving_type', 'custbody_me_pr_number', 'custbody_me_description',
+        'intercotransaction', 'terms', 'terms_display', 'duedate', 'otherrefnum',
+        'subsidiary', 'subsidiary_display', 'location', 'location_display',
+        'customform', 'customform_display', 'class', 'class_display',
+        'nextapprover', 'custbody_me_validity_date', 'department', 'department_display',
+        'lines'
+      ])
+      .orderBy(orderCol, sortOrder)
+      .limit(limit)
+      .offset(offset);
+
+    return {
+      items,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages
+      }
+    };
+
+  } catch (error) {
+    throw { message: error.message || 'Failed to fetch purchase orders from database', statusCode: 500 };
+  }
+};
+
+/**
+ * Sync purchase orders — hit bridge API (proses lama dari get-list),
+ * hasilnya di-return langsung tanpa disimpan.
+ */
+const syncPurchaseOrders = async (body) => {
+  try {
+    // 1. Get token
     const tokenResponse = await authService.getToken();
     const token = tokenResponse.data.access_token;
 
-    // 2. Fetch purchase orders from bridge API
+    // 2. Fetch dari bridge API
     const baseUrl = process.env.BRIDGE_BASE_URL || 'https://api-bridge-sb.motorsights.com';
     const url = `${baseUrl}/api/v1/bridge/purchase-orders/get-list`;
 
-    // Map internal payload to bridge API payload format
-
     const filters = {};
-    if (body.search) {
-      filters.search = body.search;
-    }
-    if (body.classes) {
-      filters.classes = body.classes;
-    }
-    if (body.subsidiary) {
-      filters.subsidiary = body.subsidiary;
-    }
-    if (body.location) {
-      filters.location = body.location;
-    }
+    if (body.search)     filters.search     = body.search;
+    if (body.classes)    filters.classes    = body.classes;
+    if (body.subsidiary) filters.subsidiary = body.subsidiary;
+    if (body.location)   filters.location   = body.location;
+
     const requestData = {
-      page: body.page || 1,
-      page_size: body.limit || 10,
-      sort_by: body.sort_by || 'last_modified',
+      page:       body.page       || 1,
+      page_size:  body.limit      || 10,
+      sort_by:    body.sort_by    || 'last_modified',
       sort_order: body.sort_order ? body.sort_order.toUpperCase() : 'DESC',
-      filters: filters
+      filters
     };
 
     const response = await axios.post(url, requestData, {
@@ -43,21 +131,21 @@ const getPurchaseOrders = async (body) => {
 
     const resData = response.data;
 
-    // 3. Map to system template formatting for pagination
+    // 3. Return dengan format yang sama dengan get-list
     return {
       items: resData.data || resData.items || [],
       pagination: {
-        page: resData.page || resData.pageIndex || body.page || 1,
-        limit: resData.page_size || resData.pageSize || body.limit || 10,
-        total: resData.total_records || resData.totalRows || 0,
-        totalPages: resData.total_pages || resData.totalPages || 0
+        page:       resData.page       || resData.pageIndex  || body.page  || 1,
+        limit:      resData.page_size  || resData.pageSize   || body.limit || 10,
+        total:      resData.total_records || resData.totalRows   || 0,
+        totalPages: resData.total_pages   || resData.totalPages  || 0
       }
     };
 
   } catch (error) {
     if (error.response) {
       throw {
-        message: error.response.data.message || 'Failed to fetch purchase orders from bridge API',
+        message: error.response.data.message || 'Failed to sync purchase orders from bridge API',
         statusCode: error.response.status,
         errors: error.response.data
       };
@@ -210,6 +298,7 @@ const updatePurchaseOrder = async (body) => {
 
 module.exports = {
   getPurchaseOrders,
+  syncPurchaseOrders,
   createPurchaseOrder,
   approvePurchaseOrder,
   getPurchaseOrderById,

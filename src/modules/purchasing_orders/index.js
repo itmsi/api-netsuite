@@ -15,6 +15,17 @@ router.post(
 );
 
 /**
+ * @route   POST /api/purchasing-orders/sync
+ * @desc    Sync purchase orders dari bridge API (proses hit API, format sama dengan get-list)
+ * @access  Private
+ */
+router.post(
+  '/sync',
+  verifyToken,
+  controller.sync
+);
+
+/**
  * @route   POST /api/purchasing-orders/create
  * @desc    Create a new purchase order via bridge API
  * @access  Private
