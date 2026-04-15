@@ -1,7 +1,86 @@
 const axios = require('axios');
+const knex = require('knex');
 const authService = require('../auth/service');
 
+// Knex instance untuk DB Netsuite (bridge_sanbox)
+const dbNetsuite = knex({
+  client: 'pg',
+  connection: {
+    host: process.env.DB_HOST_NETSUITE || 'localhost',
+    port: parseInt(process.env.DB_PORT_NETSUITE) || 9541,
+    user: process.env.DB_USER_NETSUITE || 'msiserver',
+    password: process.env.DB_PASS_NETSUITE,
+    database: process.env.DB_NAME_NETSUITE || 'bridge_sanbox'
+  }
+});
+
+/**
+ * Get classes dari DB Netsuite (bridge_sanbox.class)
+ */
 const getClassesList = async (body) => {
+  try {
+    const page      = parseInt(body.page) || 1;
+    const limit     = parseInt(body.limit) || parseInt(body.page_size) || 10;
+    const sortOrder = body.sort_order ? body.sort_order.toUpperCase() : 'DESC';
+    const offset    = (page - 1) * limit;
+
+    // Kolom yang boleh dijadikan sort_by
+    const validSortColumns = [
+      'netsuite_id', 'name', 'parent_id', 'parent_name',
+      'subsidiary_id', 'subsidiary_name', 'last_modified_netsuite', 'created_at', 'updated_at'
+    ];
+    const sortByRaw = body.sort_by === 'created_at' ? 'last_modified_netsuite' : (body.sort_by || 'last_modified_netsuite');
+    const orderCol  = validSortColumns.includes(sortByRaw) ? sortByRaw : 'last_modified_netsuite';
+
+    let query = dbNetsuite('class').where('is_delete', false);
+
+    // Filter opsional
+    if (body.search) {
+      query = query.whereILike('name', `%${body.search}%`);
+    }
+    if (body.subsidiary_id) {
+      query = query.whereILike('subsidiary_id', `%${body.subsidiary_id}%`);
+    }
+    if (body.lastmodified) {
+      query = query.where('last_modified_netsuite', '>=', body.lastmodified);
+    }
+
+    // Hitung total
+    const countResult = await query.clone().count('* as total').first();
+    const total       = parseInt(countResult.total) || 0;
+    const totalPages  = Math.ceil(total / limit);
+
+    // Select kolom sesuai format response
+    const items = await query
+      .clone()
+      .select([
+        'netsuite_id as id',
+        'name',
+        'is_inactive',
+        'parent_id',
+        'parent_name',
+        'subsidiary_id',
+        'subsidiary_name',
+        'last_modified_netsuite as last_modified'
+      ])
+      .orderBy(orderCol, sortOrder)
+      .limit(limit)
+      .offset(offset);
+
+    return {
+      items,
+      pagination: { page, limit, total, totalPages }
+    };
+
+  } catch (error) {
+    throw { message: error.message || 'Failed to fetch classes from database', statusCode: 500 };
+  }
+};
+
+/**
+ * Sync classes — hit bridge API (proses lama), return data langsung.
+ */
+const syncClassesList = async (body) => {
   try {
     // 1. Get token from auth module
     const tokenResponse = await authService.getToken();
@@ -43,7 +122,6 @@ const getClassesList = async (body) => {
 
     const resData = response.data;
 
-    // 3. Map to system template formatting for pagination
     return {
       items: resData.data || resData.items || [],
       pagination: {
@@ -57,7 +135,7 @@ const getClassesList = async (body) => {
   } catch (error) {
     if (error.response) {
       throw {
-        message: error.response.data.message || 'Failed to fetch classes from bridge API',
+        message: error.response.data.message || 'Failed to sync classes from bridge API',
         statusCode: error.response.status,
         errors: error.response.data
       };
@@ -67,5 +145,6 @@ const getClassesList = async (body) => {
 };
 
 module.exports = {
-  getClassesList
+  getClassesList,
+  syncClassesList
 };
