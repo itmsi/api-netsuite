@@ -82,7 +82,7 @@ const getPurchaseOrders = async (body) => {
       .select([
         'po_id', 'po_number', 'po_date', 'po_status', 'po_status_label',
         'memo', 'vendor_id', 'vendor_name', 'currency_id', 'currency_symbol',
-        'foreigntotal', 'total', 'last_modified', 'approvalstatus',
+        'foreigntotal', 'total', 'last_modified', 'approvalstatus', 'approvalstatus_display',
         'custbody_me_wf_created_by', 'custbody_me_wf_in_delegation',
         'custbody_me_delegate_approver', 'custbody_msi_createdby_api',
         'custbody_me_pr_date', 'custbody_me_project_location', 'custbody_me_pr_type',
