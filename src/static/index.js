@@ -46,6 +46,7 @@ const subsidiarySchema = require('./schema/subsidiary');
 const termsSchema = require('./schema/terms');
 const syncSchema = require('./schema/sync');
 const salesOrdersSchema = require('./schema/sales_orders');
+const bankSchema = require('./schema/bank');
 
 // Import paths
 // Tambahkan path module Anda di sini
@@ -66,6 +67,7 @@ const subsidiaryPaths = require('./path/subsidiary');
 const termsPaths = require('./path/terms');
 const syncPaths = require('./path/sync');
 const salesOrdersPaths = require('./path/sales_orders');
+const bankPaths = require('./path/bank');
 
 // Combine all schemas
 const schemas = {
@@ -87,6 +89,7 @@ const schemas = {
   ...termsSchema,
   ...syncSchema,
   ...salesOrdersSchema,
+  ...bankSchema,
   // ...yourModuleSchema,
 };
 
@@ -109,6 +112,7 @@ const paths = {
   ...termsPaths,
   ...syncPaths,
   ...salesOrdersPaths,
+  ...bankPaths,
   // ...yourModulePaths,
 };
 

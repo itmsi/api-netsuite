@@ -34,6 +34,9 @@ routing.use(`${API_TAG}/items`, itemsModule);
 const vendorModule = require('../../modules/vendor');
 routing.use(`${API_TAG}/vendor`, vendorModule);
 
+const bankModule = require('../../modules/bank');
+routing.use(`${API_TAG}/bank`, bankModule);
+
 const locationsModule = require('../../modules/locations');
 routing.use(`${API_TAG}/locations`, locationsModule);
 
