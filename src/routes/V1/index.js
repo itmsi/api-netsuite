@@ -64,6 +64,9 @@ routing.use(`${API_TAG}/terms`, termsModule);
 const syncModule = require('../../modules/sync');
 routing.use(`${API_TAG}/sync`, syncModule);
 
+const salesOrdersModule = require('../../modules/sales_orders');
+routing.use(`${API_TAG}/sales-orders`, salesOrdersModule);
+
 // Example:
 // const yourModule = require('../../modules/yourModule')
 // routing.use(`${API_TAG}/your-endpoint`, yourModule)
