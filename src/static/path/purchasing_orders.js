@@ -351,6 +351,54 @@ const purchasingOrdersPaths = {
         }
       }
     }
+  },
+  '/purchasing-orders/print': {
+    post: {
+      tags: ['Purchasing Orders'],
+      summary: 'Print a purchase order',
+      description: 'Print a purchase order via bridge API and return the base64 PDF content',
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: ['recId'],
+              properties: {
+                recId: { type: 'integer', example: 4152 }
+              }
+            }
+          }
+        }
+      },
+      responses: {
+        200: {
+          description: 'Print successful',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  success: { type: 'boolean', example: true },
+                  mimeType: { type: 'string', example: 'application/pdf' },
+                  fileName: { type: 'string', example: 'INV_4152.pdf' },
+                  fileContent: { type: 'string', description: 'Base64 encoded PDF content' }
+                }
+              }
+            }
+          }
+        },
+        500: {
+          description: 'Internal Server Error',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+            }
+          }
+        }
+      }
+    }
   }
 };
 

@@ -59,6 +59,17 @@ router.post(
 );
 
 /**
+ * @route   POST /api/purchasing-orders/print
+ * @desc    Print purchase order via bridge API
+ * @access  Private
+ */
+router.post(
+  '/print',
+  verifyToken,
+  controller.print
+);
+
+/**
  * @route   GET /api/purchasing-orders/sync/:id
  * @desc    Sync a single purchase order by ID dari bridge API
  * @access  Private

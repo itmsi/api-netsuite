@@ -348,8 +348,40 @@ const syncPurchaseOrderById = async (id) => {
   }
 };
 
+const printPurchaseOrder = async (body) => {
+  try {
+    // 1. Get token from auth module
+    const tokenResponse = await authService.getToken();
+    const token = tokenResponse.data.access_token;
+
+    // 2. Hit bridge print purchase order endpoint
+    const baseUrl = process.env.BRIDGE_BASE_URL || 'https://api-bridge-sb.motorsights.com';
+    const url = `${baseUrl}/api/v1/bridge/purchase-orders/print`;
+
+    const response = await axios.post(url, body, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    return response.data;
+
+  } catch (error) {
+    if (error.response) {
+      throw {
+        message: error.response.data?.message || 'Failed to print purchase order via bridge API',
+        statusCode: error.response.status,
+        errors: error.response.data
+      };
+    }
+    throw { message: error.message, statusCode: 500 };
+  }
+};
+
 module.exports = {
   getPurchaseOrders,
+  printPurchaseOrder,
   syncPurchaseOrders,
   createPurchaseOrder,
   approvePurchaseOrder,
