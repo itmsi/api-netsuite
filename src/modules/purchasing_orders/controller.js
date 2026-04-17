@@ -173,17 +173,26 @@ const approve = async (req, res) => {
 const receiveItem = async (req, res) => {
   try {
     const result = await service.receiveItemPurchaseOrder(req.body);
-    
-    // Remove the nested success field if it exists to avoid redundancy in the response
-    const { success: innerSuccess, ...resultData } = result || {};
+
+    // Jika sukses, trigger sync untuk record yang baru dibuat
+    if (result && result.success && result.goods_receipts && Array.isArray(result.goods_receipts)) {
+      for (const gr of result.goods_receipts) {
+        if (gr.id) {
+          // Sync record baru ke database lokal
+          await service.syncReceiveList({
+            filters: {
+              receipt_ids: [gr.id.toString()]
+            }
+          }).catch(err => {
+            console.error(`Auto-sync failed for GR ${gr.id}:`, err.message);
+          });
+        }
+      }
+    }
 
     return baseResponse(res, {
       code: 200,
-      data: {
-        success: true,
-        data: resultData,
-        message: 'Item purchase order berhasil diterima'
-      }
+      data: result
     });
   } catch (error) {
     const statusCode = error.statusCode || 500;

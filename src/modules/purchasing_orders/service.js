@@ -511,9 +511,50 @@ const syncReceiveList = async (body) => {
     });
 
     const resData = response.data;
+    const items = resData.data?.items || resData.data || [];
+
+    // Sync to local database
+    if (items && Array.isArray(items) && items.length > 0) {
+      for (const item of items) {
+        if (!item.receipt_id && !item.netsuite_id) continue;
+
+        const receiveData = {
+          netsuite_id: item.receipt_id || item.netsuite_id,
+          tranid: item.tranid,
+          trandate: item.trandate,
+          status: item.status,
+          status_display: item.status_display,
+          memo: item.memo,
+          vendor_id: item.vendor_id,
+          vendor_name: item.vendor_name,
+          createdfrom: item.createdfrom,
+          createdfrom_display: item.createdfrom_display,
+          subsidiary: item.subsidiary,
+          subsidiary_display: item.subsidiary_display,
+          location: item.location,
+          location_display: item.location_display,
+          department: item.department,
+          department_display: item.department_display,
+          class: item.class,
+          class_display: item.class_display,
+          last_modified_netsuite: item.last_modified || item.last_modified_netsuite,
+          datecreated_netsuite: item.datecreated || item.datecreated_netsuite,
+          lines: typeof item.lines === 'string' ? item.lines : JSON.stringify(item.lines),
+          updated_at: new Date()
+        };
+
+        await dbNetsuite('receives')
+          .insert({
+            ...receiveData,
+            created_at: new Date()
+          })
+          .onConflict('netsuite_id')
+          .merge();
+      }
+    }
 
     return {
-      items: resData.data?.items || resData.data || [],
+      items,
       pagination: resData.data?.pagination || {
         page: resData.page || resData.pageIndex || requestData.page,
         limit: resData.page_size || resData.pageSize || requestData.page_size,
