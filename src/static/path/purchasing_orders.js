@@ -251,6 +251,72 @@ const purchasingOrdersPaths = {
       }
     }
   },
+  '/purchasing-orders/receive-item': {
+    post: {
+      tags: ['Purchasing Orders'],
+      summary: 'Receive item on a purchase order',
+      description: 'Trigger the item receipt workflow for a purchase order via bridge API',
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: ['po_id', 'items'],
+              properties: {
+                po_id: { type: 'integer', example: 7228 },
+                memo: { type: 'string', example: 'standart item receipt' },
+                items: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      item: { type: 'integer', example: 19611 },
+                      quantity: { type: 'integer', example: 1 }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      responses: {
+        200: {
+          description: 'Receive item successful',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  success: { type: 'boolean', example: true },
+                  data: { type: 'object', description: 'Raw response from bridge API' },
+                  message: { type: 'string', example: 'Item purchase order berhasil diterima' }
+                }
+              }
+            }
+          }
+        },
+        400: {
+          description: 'Bad Request',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+            }
+          }
+        },
+        500: {
+          description: 'Internal Server Error',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+            }
+          }
+        }
+      }
+    }
+  },
   '/purchasing-orders/sync/{id}': {
     get: {
       tags: ['Purchasing Orders'],

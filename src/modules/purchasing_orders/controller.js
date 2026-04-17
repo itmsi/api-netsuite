@@ -168,6 +168,34 @@ const approve = async (req, res) => {
 };
 
 /**
+ * Receive item for purchase order
+ */
+const receiveItem = async (req, res) => {
+  try {
+    const result = await service.receiveItemPurchaseOrder(req.body);
+    
+    // Remove the nested success field if it exists to avoid redundancy in the response
+    const { success: innerSuccess, ...resultData } = result || {};
+
+    return baseResponse(res, {
+      code: 200,
+      data: {
+        success: true,
+        data: resultData,
+        message: 'Item purchase order berhasil diterima'
+      }
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || 'Internal Server Error',
+      errors: error.errors || error
+    });
+  }
+};
+
+/**
  * Get purchase order by ID (via NetSuite RESTlet OAuth)
  */
 const getById = async (req, res) => {
@@ -255,6 +283,7 @@ module.exports = {
   create,
   update,
   approve,
+  receiveItem,
   getById,
   syncById
 };

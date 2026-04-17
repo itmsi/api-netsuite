@@ -59,6 +59,17 @@ router.post(
 );
 
 /**
+ * @route   POST /api/purchasing-orders/receive-item
+ * @desc    Receive item for a purchase order via bridge API
+ * @access  Private
+ */
+router.post(
+  '/receive-item',
+  verifyToken,
+  controller.receiveItem
+);
+
+/**
  * @route   POST /api/purchasing-orders/print
  * @desc    Print purchase order via bridge API
  * @access  Private
