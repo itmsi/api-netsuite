@@ -71,6 +71,11 @@ const getPurchaseOrders = async (body) => {
       }
     }
 
+    // Step 6: Apply class filter
+    if (classIds.length > 0) {
+      query = query.whereIn('class', classIds);
+    }
+
     // Hitung total
     const countResult = await query.clone().count('* as total').first();
     const total = parseInt(countResult.total) || 0;
