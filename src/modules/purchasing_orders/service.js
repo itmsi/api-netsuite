@@ -430,8 +430,8 @@ const getReceiveList = async (body) => {
     const sortOrder = body.sort_order ? body.sort_order.toUpperCase() : 'DESC';
     const offset = (page - 1) * limit;
 
-    const validSortColumns = ['last_modified', 'tranid', 'trandate'];
-    const orderCol = validSortColumns.includes(body.sort_by) ? body.sort_by : 'last_modified';
+    const validSortColumns = ['last_modified_netsuite', 'tranid', 'trandate'];
+    const orderCol = validSortColumns.includes(body.sort_by) ? body.sort_by : 'last_modified_netsuite';
 
     let query = dbNetsuite('receives');
 
@@ -452,7 +452,7 @@ const getReceiveList = async (body) => {
         query = query.where('vendor_id', body.filters.vendor_id);
       }
       if (body.filters.lastmodified) {
-        query = query.where('last_modified', '>=', body.filters.lastmodified);
+        query = query.where('last_modified_netsuite', '>=', body.filters.lastmodified);
       }
     }
 
@@ -467,7 +467,7 @@ const getReceiveList = async (body) => {
         'memo', 'vendor_id', 'vendor_name', 'createdfrom', 'createdfrom_display',
         'subsidiary', 'subsidiary_display', 'location', 'location_display',
         'department', 'department_display', 'class', 'class_display',
-        'last_modified', 'datecreated', 'lines'
+        'last_modified_netsuite', 'datecreated_netsuite', 'lines'
       ])
       .orderBy(orderCol, sortOrder)
       .limit(limit)
