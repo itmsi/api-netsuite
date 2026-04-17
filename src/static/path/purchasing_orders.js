@@ -111,6 +111,149 @@ const purchasingOrdersPaths = {
       }
     }
   },
+  '/purchasing-orders/receive-list': {
+    post: {
+      tags: ['Purchasing Orders (Receives)'],
+      summary: 'Get list of receives (Goods Receipt)',
+      description: 'Fetch receives data dari database lokal (bridge_sanbox.receives).',
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              properties: {
+                page: { type: 'integer', example: 1 },
+                page_size: { type: 'integer', example: 20 },
+                sort_by: { type: 'string', example: 'last_modified' },
+                sort_order: { type: 'string', example: 'DESC' },
+                filters: {
+                  type: 'object',
+                  properties: {
+                    receipt_ids: { type: 'array', items: { type: 'string' }, example: ['10361'] },
+                    tranid: { type: 'string', example: 'IR-2026-001' },
+                    createdfrom_text: { type: 'string', example: 'PO-' },
+                    createdfrom: { type: 'integer', example: 5512 },
+                    vendor_id: { type: 'integer', example: 10 },
+                    lastmodified: { type: 'string', example: '2026-03-31T23:59:00+07:00' }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      responses: {
+        200: {
+          description: 'Success',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  success: { type: 'boolean', example: true },
+                  data: {
+                    type: 'object',
+                    properties: {
+                      items: { type: 'array', items: { type: 'object' } },
+                      pagination: {
+                        type: 'object',
+                        properties: {
+                          page: { type: 'integer', example: 1 },
+                          limit: { type: 'integer', example: 20 },
+                          total: { type: 'integer', example: 459 },
+                          totalPages: { type: 'integer', example: 23 }
+                        }
+                      }
+                    }
+                  },
+                  message: { type: 'string', example: 'Data receives berhasil diambil' }
+                }
+              }
+            }
+          }
+        },
+        500: {
+          description: 'Internal Server Error',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+            }
+          }
+        }
+      }
+    }
+  },
+  '/purchasing-orders/receive-list/sync': {
+    post: {
+      tags: ['Purchasing Orders (Receives)'],
+      summary: 'Sync receives list dari bridge API',
+      description: 'Fetch receives langsung dari bridge API.',
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              properties: {
+                page: { type: 'integer', example: 1 },
+                page_size: { type: 'integer', example: 20 },
+                sort_by: { type: 'string', example: 'last_modified' },
+                sort_order: { type: 'string', example: 'DESC' },
+                filters: {
+                  type: 'object',
+                  properties: {
+                    lastmodified: { type: 'string', example: '2026-03-31T23:59:00+07:00' }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      responses: {
+        200: {
+          description: 'Success',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  success: { type: 'boolean', example: true },
+                  data: {
+                    type: 'object',
+                    properties: {
+                      items: { type: 'array', items: { type: 'object' } },
+                      pagination: {
+                        type: 'object',
+                        properties: {
+                          page: { type: 'integer', example: 1 },
+                          limit: { type: 'integer', example: 20 },
+                          total: { type: 'integer', example: 459 },
+                          totalPages: { type: 'integer', example: 23 }
+                        }
+                      }
+                    }
+                  },
+                  message: { type: 'string', example: 'Data receives berhasil di-sync dari bridge API' }
+                }
+              }
+            }
+          }
+        },
+        500: {
+          description: 'Internal Server Error',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+            }
+          }
+        }
+      }
+    }
+  },
   '/purchasing-orders/create': {
     post: {
       tags: ['Purchasing Orders'],

@@ -50,6 +50,14 @@ const getPurchaseOrders = async (body) => {
       query = query.where('location', body.location);
     }
 
+    if (body.po_status) {
+      query = query.where('po_status', body.po_status);
+    }
+
+    if (body.approvalstatus) {
+      query = query.where('approvalstatus', body.approvalstatus);
+    }
+
     // Handle classes filter (parent and children)
     let classIds = [];
     if (body.classes) {
@@ -415,6 +423,117 @@ const printPurchaseOrder = async (body) => {
   }
 };
 
+const getReceiveList = async (body) => {
+  try {
+    const page = parseInt(body.page) || 1;
+    const limit = parseInt(body.page_size || body.limit) || 20;
+    const sortOrder = body.sort_order ? body.sort_order.toUpperCase() : 'DESC';
+    const offset = (page - 1) * limit;
+
+    const validSortColumns = ['last_modified', 'tranid', 'trandate'];
+    const orderCol = validSortColumns.includes(body.sort_by) ? body.sort_by : 'last_modified';
+
+    let query = dbNetsuite('receives');
+
+    if (body.filters) {
+      if (body.filters.receipt_ids && Array.isArray(body.filters.receipt_ids)) {
+        query = query.whereIn('netsuite_id', body.filters.receipt_ids);
+      }
+      if (body.filters.tranid) {
+        query = query.whereILike('tranid', `%${body.filters.tranid}%`);
+      }
+      if (body.filters.createdfrom_text) {
+        query = query.whereILike('createdfrom_display', `%${body.filters.createdfrom_text}%`);
+      }
+      if (body.filters.createdfrom) {
+        query = query.where('createdfrom', body.filters.createdfrom);
+      }
+      if (body.filters.vendor_id) {
+        query = query.where('vendor_id', body.filters.vendor_id);
+      }
+      if (body.filters.lastmodified) {
+        query = query.where('last_modified', '>=', body.filters.lastmodified);
+      }
+    }
+
+    const countResult = await query.clone().count('* as total').first();
+    const total = parseInt(countResult.total) || 0;
+    const totalPages = Math.ceil(total / limit);
+
+    const items = await query
+      .clone()
+      .select([
+        'netsuite_id as receipt_id', 'tranid', 'trandate', 'status', 'status_display',
+        'memo', 'vendor_id', 'vendor_name', 'createdfrom', 'createdfrom_display',
+        'subsidiary', 'subsidiary_display', 'location', 'location_display',
+        'department', 'department_display', 'class', 'class_display',
+        'last_modified', 'datecreated', 'lines'
+      ])
+      .orderBy(orderCol, sortOrder)
+      .limit(limit)
+      .offset(offset);
+
+    return {
+      items,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages
+      }
+    };
+  } catch (error) {
+    throw { message: error.message || 'Failed to fetch receive list from database', statusCode: 500 };
+  }
+};
+
+const syncReceiveList = async (body) => {
+  try {
+    const tokenResponse = await authService.getToken();
+    const token = tokenResponse.data.access_token;
+
+    const baseUrl = process.env.BRIDGE_BASE_URL || 'https://api-bridge-sb.motorsights.com';
+    const url = `${baseUrl}/api/v1/bridge/receives/get-list`;
+
+    const requestData = {
+      page: body.page || 1,
+      page_size: body.page_size || body.limit || 20,
+      sort_by: body.sort_by || 'last_modified',
+      sort_order: body.sort_order ? body.sort_order.toUpperCase() : 'DESC',
+      filters: body.filters || {}
+    };
+
+    const response = await axios.post(url, requestData, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    const resData = response.data;
+
+    return {
+      items: resData.data?.items || resData.data || [],
+      pagination: resData.data?.pagination || {
+        page: resData.page || resData.pageIndex || requestData.page,
+        limit: resData.page_size || resData.pageSize || requestData.page_size,
+        total: resData.total_records || resData.totalRows || 0,
+        totalPages: resData.total_pages || resData.totalPages || 0
+      }
+    };
+
+  } catch (error) {
+    if (error.response) {
+      throw {
+        message: error.response.data.message || 'Failed to sync receive list from bridge API',
+        statusCode: error.response.status,
+        errors: error.response.data
+      };
+    }
+    throw { message: error.message, statusCode: 500 };
+  }
+};
+
 module.exports = {
   getPurchaseOrders,
   printPurchaseOrder,
@@ -422,6 +541,8 @@ module.exports = {
   createPurchaseOrder,
   approvePurchaseOrder,
   receiveItemPurchaseOrder,
+  getReceiveList,
+  syncReceiveList,
   getPurchaseOrderById,
   updatePurchaseOrder,
   syncPurchaseOrderById

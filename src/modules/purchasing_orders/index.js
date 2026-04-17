@@ -59,6 +59,28 @@ router.post(
 );
 
 /**
+ * @route   POST /api/purchasing-orders/receive-list
+ * @desc    Get receives from bridge_sanbox DB
+ * @access  Private
+ */
+router.post(
+  '/receive-list',
+  verifyToken,
+  controller.getReceiveList
+);
+
+/**
+ * @route   POST /api/purchasing-orders/receive-list/sync
+ * @desc    Sync receive list from bridge API
+ * @access  Private
+ */
+router.post(
+  '/receive-list/sync',
+  verifyToken,
+  controller.syncReceiveList
+);
+
+/**
  * @route   POST /api/purchasing-orders/receive-item
  * @desc    Receive item for a purchase order via bridge API
  * @access  Private

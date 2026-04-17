@@ -276,6 +276,70 @@ const print = async (req, res) => {
   }
 };
 
+/**
+ * Get receive list (Goods Receipt / Item Receipt)
+ */
+const getReceiveList = async (req, res) => {
+  try {
+    const result = await service.getReceiveList(req.body);
+
+    const syncInfo = await syncService.getLatestSyncInfo('receive_list').catch(() => null);
+
+    return baseResponse(res, {
+      data: {
+        success: true,
+        data: result,
+        sync_info: syncInfo,
+        message: 'Data receives berhasil diambil'
+      }
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || 'Internal Server Error',
+      errors: error.errors || error
+    });
+  }
+};
+
+/**
+ * Sync receive list from bridge API
+ */
+const syncReceiveList = async (req, res) => {
+  try {
+    const result = await service.syncReceiveList(req.body);
+
+    await syncService.createSync(
+      { sync_module: 'receive_list', sync_status: 'success' },
+      req.user
+    );
+
+    const syncInfo = await syncService.getLatestSyncInfo('receive_list').catch(() => null);
+
+    return baseResponse(res, {
+      data: {
+        success: true,
+        data: result,
+        sync_info: syncInfo,
+        message: 'Data receives berhasil di-sync dari bridge API'
+      }
+    });
+  } catch (error) {
+    await syncService.createSync(
+      { sync_module: 'receive_list', sync_status: 'failed' },
+      req.user
+    ).catch(() => { });
+
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || 'Internal Server Error',
+      errors: error.errors || error
+    });
+  }
+};
+
 module.exports = {
   getList,
   print,
@@ -284,6 +348,8 @@ module.exports = {
   update,
   approve,
   receiveItem,
+  getReceiveList,
+  syncReceiveList,
   getById,
   syncById
 };
