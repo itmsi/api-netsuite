@@ -185,7 +185,129 @@ const purchasingOrdersPaths = {
       }
     }
   },
+  '/purchasing-orders/receive-list/{id}': {
+    get: {
+      tags: ['Purchasing Orders (Receives)'],
+      summary: 'Get receive detail by ID',
+      description: 'Fetch a single receive (Goods Receipt) detail from database lokal (bridge_sanbox.receives) berdasarkan netsuite_id.',
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        {
+          name: 'id',
+          in: 'path',
+          required: true,
+          description: 'NetSuite internal ID dari receive (receipt_id)',
+          schema: { type: 'string', example: '10361' }
+        }
+      ],
+      responses: {
+        200: {
+          description: 'Success',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  success: { type: 'boolean', example: true },
+                  data: {
+                    type: 'object',
+                    properties: {
+                      items: {
+                        type: 'array',
+                        items: {
+                          type: 'object',
+                          properties: {
+                            receipt_id: { type: 'string', example: '10361' },
+                            tranid: { type: 'string', example: 'GR-IEL-2026-000060' },
+                            trandate: { type: 'string', example: '17/4/2026' },
+                            status: { type: 'string', example: '' },
+                            status_display: { type: 'string', example: '' },
+                            memo: { type: 'string', example: '' },
+                            vendor_id: { type: 'string', example: '488' },
+                            vendor_name: { type: 'string', example: 'ACA - PT ANUGERAH CENTRAL AUTOMOTIVE' },
+                            createdfrom: { type: 'string', example: '9955' },
+                            createdfrom_display: { type: 'string', example: 'Purchase Order #PO-IEL-2026-000029' },
+                            subsidiary: { type: 'string', example: '6' },
+                            subsidiary_display: { type: 'string', example: 'PT Indonesia Equipment Line' },
+                            location: { type: 'string', example: '1' },
+                            location_display: { type: 'string', example: 'JAWA : Jakarta - IEL' },
+                            department: { type: 'string', example: '101' },
+                            department_display: { type: 'string', example: 'Indirect Purchasing' },
+                            class: { type: 'string', example: '6' },
+                            class_display: { type: 'string', example: 'GENERAL : NON COMMERCIAL : ASSET/EXPENSE' },
+                            last_modified_netsuite: { type: 'string', example: '2026-04-17T08:15:00.000Z' },
+                            datecreated_netsuite: { type: 'string', example: '2026-04-17T08:15:00.000Z' },
+                            lines: {
+                              type: 'array',
+                              items: {
+                                type: 'object',
+                                properties: {
+                                  item: { type: 'string', example: '18113' },
+                                  line: { type: 'string', example: '1' },
+                                  memo: { type: 'string', example: '' },
+                                  rate: { type: 'string', example: '20000.00' },
+                                  class: { type: 'string', example: '6' },
+                                  amount: { type: 'string', example: '20000.00' },
+                                  location: { type: 'string', example: '1' },
+                                  quantity: { type: 'string', example: '1' },
+                                  department: { type: 'string', example: '101' },
+                                  item_display: { type: 'string', example: 'SUPPLIES' },
+                                  class_display: { type: 'string', example: 'GENERAL : NON COMMERCIAL : ASSET/EXPENSE' },
+                                  inventorydetail: { type: 'string', example: '' },
+                                  location_display: { type: 'string', example: 'JAWA : Jakarta - IEL' },
+                                  department_display: { type: 'string', example: 'Indirect Purchasing' }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      },
+                      pagination: {
+                        type: 'object',
+                        properties: {
+                          page: { type: 'integer', example: 1 },
+                          limit: { type: 'integer', example: 20 },
+                          total: { type: 'integer', example: 1 },
+                          totalPages: { type: 'integer', example: 1 }
+                        }
+                      }
+                    }
+                  },
+                  sync_info: {
+                    type: 'object',
+                    properties: {
+                      sync_status: { type: 'string', example: 'success' },
+                      created_at: { type: 'string', example: '2026-04-17T09:30:07.705Z' },
+                      created_by_name: { type: 'string', example: 'abdul harris' }
+                    }
+                  },
+                  message: { type: 'string', example: 'Data receives berhasil diambil' }
+                }
+              }
+            }
+          }
+        },
+        404: {
+          description: 'Not Found',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+            }
+          }
+        },
+        500: {
+          description: 'Internal Server Error',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+            }
+          }
+        }
+      }
+    }
+  },
   '/purchasing-orders/receive-list/sync': {
+
     post: {
       tags: ['Purchasing Orders (Receives)'],
       summary: 'Sync receives list dari bridge API',

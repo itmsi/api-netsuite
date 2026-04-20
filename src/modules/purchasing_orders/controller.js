@@ -349,7 +349,41 @@ const syncReceiveList = async (req, res) => {
   }
 };
 
+/**
+ * Get receive detail by ID from local database
+ * GET /purchasing-orders/receive-list/:id
+ */
+const getReceiveById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res.status(400).json({ success: false, message: 'Parameter id tidak boleh kosong' });
+    }
+
+    const result = await service.getReceiveById(id);
+
+    const syncInfo = await syncService.getLatestSyncInfo('receive_list').catch(() => null);
+
+    return baseResponse(res, {
+      data: {
+        success: true,
+        data: result,
+        sync_info: syncInfo,
+        message: 'Data receives berhasil diambil'
+      }
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || 'Internal Server Error',
+      errors: error.errors || error
+    });
+  }
+};
+
 module.exports = {
+
   getList,
   print,
   sync,
@@ -358,6 +392,7 @@ module.exports = {
   approve,
   receiveItem,
   getReceiveList,
+  getReceiveById,
   syncReceiveList,
   getById,
   syncById

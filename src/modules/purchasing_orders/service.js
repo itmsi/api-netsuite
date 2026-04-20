@@ -327,7 +327,52 @@ const getPurchaseOrderById = async (id) => {
   }
 };
 
+/**
+ * Get receive detail by ID (netsuite_id) from local database
+ */
+const getReceiveById = async (id) => {
+  try {
+    const item = await dbNetsuite('receives')
+      .select([
+        'netsuite_id as receipt_id', 'tranid', 'trandate', 'status', 'status_display',
+        'memo', 'vendor_id', 'vendor_name', 'createdfrom', 'createdfrom_display',
+        'subsidiary', 'subsidiary_display', 'location', 'location_display',
+        'department', 'department_display', 'class', 'class_display',
+        'last_modified_netsuite', 'datecreated_netsuite', 'lines'
+      ])
+      .where('netsuite_id', id)
+      .first();
+
+    if (!item) {
+      throw { message: 'Data receive tidak ditemukan', statusCode: 404 };
+    }
+
+    // Parse lines if it's a string
+    if (item.lines && typeof item.lines === 'string') {
+      try {
+        item.lines = JSON.parse(item.lines);
+      } catch (e) {
+        item.lines = [];
+      }
+    }
+
+    return {
+      items: [item],
+      pagination: {
+        page: 1,
+        limit: 20,
+        total: 1,
+        totalPages: 1
+      }
+    };
+  } catch (error) {
+    if (error.statusCode === 404) throw error;
+    throw { message: error.message || 'Failed to fetch receive detail from database', statusCode: 500 };
+  }
+};
+
 const updatePurchaseOrder = async (body) => {
+
   try {
     // 1. Get token from auth module
     const tokenResponse = await authService.getToken();
@@ -583,6 +628,7 @@ module.exports = {
   approvePurchaseOrder,
   receiveItemPurchaseOrder,
   getReceiveList,
+  getReceiveById,
   syncReceiveList,
   getPurchaseOrderById,
   updatePurchaseOrder,

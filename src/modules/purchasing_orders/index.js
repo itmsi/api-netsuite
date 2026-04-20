@@ -70,6 +70,17 @@ router.post(
 );
 
 /**
+ * @route   GET /api/purchasing-orders/receive-list/:id
+ * @desc    Get receive detail by ID from bridge_sanbox DB
+ * @access  Private
+ */
+router.get(
+  '/receive-list/:id',
+  verifyToken,
+  controller.getReceiveById
+);
+
+/**
  * @route   POST /api/purchasing-orders/receive-list/sync
  * @desc    Sync receive list from bridge API
  * @access  Private
