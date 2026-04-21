@@ -50,11 +50,18 @@ const methodExecution = async (payload, channel, msg) => {
 
     channel.ack(msg)
   } catch (error) {
-    console.error(`[RetryWorker] Error processing manual retry for PO Event ${event_id}:`, error.message)
+    console.error(`[RetryWorker] Error processing manual retry for PO Event ${event_id}:`, error.response.data.message)
 
     try {
-      await purchasingService.updateEventStatus(event_id, 'FAILED')
-      await purchasingService.logEvent(event_id, 'failed', `Manual retry failed: ${error.message}`, { error: error.message })
+      // Safely extract error details, especially from Axios errors
+      const errorDetail = error.response ? error.response.data : (error.errors || error);
+      const errorMessage = error.response.data.message || String(error);
+
+      // Simpan request & response ke properties untuk audit
+      const failureProperties = { request: data, response: errorDetail };
+      await purchasingService.updateEventStatus(event_id, 'FAILED', errorMessage, failureProperties)
+
+      await purchasingService.logEvent(event_id, 'failed', `Manual retry failed: ${errorMessage}`, errorDetail)
       await purchasingService.updateLocalPOStatus(po_internal_id, 'failed')
     } catch (updateErr) {
       console.error(`[RetryWorker] Failed to update status for PO Event ${event_id}:`, updateErr.message)

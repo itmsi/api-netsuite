@@ -262,7 +262,7 @@ const createPurchaseOrder = async (body, user) => {
     const { EXCHANGES, QUEUE } = require('../../utils/constant');
 
     await publishToRabbitMqQueueSingle(
-      EXCHANGES.PURCHASE_ORDER,
+      EXCHANGES.PURCHASE_ORDER_CREATE,
       QUEUE.PURCHASE_ORDER_CREATE,
       {
         event_id: eventId,
@@ -272,7 +272,7 @@ const createPurchaseOrder = async (body, user) => {
       {
         durable: true,
         arguments: {
-          'x-dead-letter-exchange': `${EXCHANGES.PURCHASE_ORDER}-retry`
+          'x-dead-letter-exchange': `${EXCHANGES.PURCHASE_ORDER_CREATE}-retry`
         }
       }
     );
@@ -349,18 +349,30 @@ const updateLocalPOId = async (id, netsuiteId) => {
 };
 
 const updateLocalPOStatus = async (id, status) => {
+  const updateData = { updated_at: new Date() };
+
+  if (status) {
+    updateData.po_status = status;
+  }
+
   await dbNetsuite('purchase_orders')
     .where('id', id)
-    .update({ po_status: status, updated_at: new Date() });
+    .update(updateData);
 };
 
-const updateEventStatus = async (id, status, result) => {
+const updateEventStatus = async (id, status, result, properties) => {
+  const updateData = {
+    status: status,
+    updated_at: new Date()
+  };
+
+  if (result) {
+    updateData.properties = JSON.stringify(result);
+  }
+
   await dbNetsuite('outbox_events')
     .where('id', id)
-    .update({
-      status: status,
-      updated_at: new Date()
-    });
+    .update(updateData);
 
   if (result) {
     await dbNetsuite('outbox_event_logs').insert({
@@ -681,7 +693,7 @@ const updatePurchaseOrder = async (body, user) => {
     // 1. Update data di DB lokal dulu
     const updateData = {
       po_date: body.purchasedate,
-      po_status: 'pending', // reset ke pending saat update berkala
+      // po_status: 'pending', // reset ke pending saat update berkala
       memo: body.memo,
       vendor_id: body.vendorid,
       subsidiary: body.subsidiary,
@@ -739,14 +751,19 @@ const updatePurchaseOrder = async (body, user) => {
     const { EXCHANGES, QUEUE } = require('../../utils/constant');
 
     await publishToRabbitMqQueueSingle(
-      EXCHANGES.PURCHASE_ORDER,
+      EXCHANGES.PURCHASE_ORDER_UPDATE,
       QUEUE.PURCHASE_ORDER_UPDATE,
       {
         event_id: eventId,
         po_internal_id: localId,
         data: body
       },
-      { durable: true }
+      {
+        durable: true,
+        arguments: {
+          'x-dead-letter-exchange': `${EXCHANGES.PURCHASE_ORDER_UPDATE}-retry`
+        }
+      }
     );
 
     return {

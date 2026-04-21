@@ -62,24 +62,32 @@ const methodExecution = async (payload, channel, msg) => {
 
     channel.ack(msg)
   } catch (error) {
-    console.error(`[Worker] Error processing PO Event ${event_id}:`, error.message)
+    console.error(`[Worker] Error processing PO Event ${event_id}:`, error.response.data.message)
 
     try {
+      // Safely extract error details, especially from Axios errors
+      const errorDetail = error.response ? error.response.data : (error.errors || error);
+      const errorMessage = error.response.data.message || String(error);
+
       // Cek apakah masih bisa auto-retry berdasarkan retry_count dan max_retry di DB
       const allowRetry = await purchasingService.canAutoRetry(event_id)
 
       if (allowRetry) {
         // Increment retry_count di DB dan nack ke DLQ
-        const updated = await purchasingService.incrementRetryCount(event_id, error.message)
+        const updated = await purchasingService.incrementRetryCount(event_id, errorMessage)
         console.info(`[Worker] Retrying PO Event ${event_id} (retry_count: ${updated?.retry_count}/${updated?.max_retry})`)
-        await purchasingService.logEvent(event_id, 'retry', `Retry attempt ${updated?.retry_count}: ${error.message}`, { error: error.message })
+        await purchasingService.logEvent(event_id, 'retry', `Retry attempt ${updated?.retry_count}: ${errorMessage}`, errorDetail)
         channel.nack(msg, false, false) // → ke DLX → DLQ (delay 30s) → balik ke main queue
       } else {
         // retry_count sudah mencapai max_retry → FAILED, harus manual retry
         console.error(`[Worker] Max retries reached for PO Event ${event_id}, marking as FAILED (manual retry required)`)
         await purchasingService.updateLocalPOStatus(po_internal_id, 'failed')
-        await purchasingService.updateEventStatus(event_id, 'FAILED')
-        await purchasingService.logEvent(event_id, 'failed', `Max retries reached: ${error.message}`, { error: error.message })
+
+        // Simpan request & response ke properties untuk audit
+        const failureProperties = { request: data, response: errorDetail };
+        await purchasingService.updateEventStatus(event_id, 'FAILED', errorMessage, failureProperties)
+
+        await purchasingService.logEvent(event_id, 'failed', `Max retries reached: ${errorMessage}`, errorDetail)
         channel.ack(msg) // ACK agar tidak retry lagi di RabbitMQ
       }
     } catch (retryErr) {
@@ -92,7 +100,7 @@ const methodExecution = async (payload, channel, msg) => {
 const initPurchaseOrderServices = async () => {
   if (process.env.RABBITMQ_ENABLED !== 'true') return
 
-  const exchangeName = EXCHANGES.PURCHASE_ORDER
+  const exchangeName = EXCHANGES.PURCHASE_ORDER_CREATE
   const queueName = QUEUE.PURCHASE_ORDER_CREATE
   const dlxName = `${exchangeName}-retry`
   const dlqName = `${queueName}-retry`
@@ -110,7 +118,7 @@ const initPurchaseOrderServices = async () => {
     await channel.assertQueue(dlqName, {
       durable: true,
       arguments: {
-        'x-message-ttl': 30000, // 30 seconds delay before retry
+        'x-message-ttl': 200, // 200 milliseconds delay before retry
         'x-dead-letter-exchange': exchangeName
       }
     })
