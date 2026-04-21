@@ -344,7 +344,8 @@ module.exports = {
     PUBLISH_CATALOG: 'queue-publish-catalog',
     IMAGE_KTP: 'queue-ktp-processing',
     PURCHASE_ORDER_CREATE: 'purchase-order-creation',
-    PURCHASE_ORDER_MANUAL_RETRY: 'purchase-order-manual-retry'
+    PURCHASE_ORDER_MANUAL_RETRY: 'purchase-order-manual-retry',
+    PURCHASE_ORDER_UPDATE: 'purchase-order-update'
   },
   ENUM: {
     Y: 'Y',

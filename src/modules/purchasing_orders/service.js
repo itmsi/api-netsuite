@@ -312,6 +312,26 @@ const createPurchaseOrderToBridge = async (body) => {
   return response.data;
 };
 
+/**
+ * Hits the actual bridge API for PO update (used by worker)
+ */
+const updatePurchaseOrderToBridge = async (body) => {
+  const tokenResponse = await authService.getToken();
+  const token = tokenResponse.data.access_token;
+
+  const baseUrl = process.env.BRIDGE_BASE_URL || 'https://api-bridge-sb.motorsights.com';
+  const url = `${baseUrl}/api/v1/bridge/purchase-orders/update`;
+
+  const response = await axios.post(url, body, {
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    }
+  });
+
+  return response.data;
+};
+
 const updateLocalPOId = async (id, netsuiteId) => {
   // Delete any duplicate data generated passively by api-bridge first
   await dbNetsuite('purchase_orders')
@@ -645,35 +665,106 @@ const getReceiveById = async (id) => {
   }
 };
 
-const updatePurchaseOrder = async (body) => {
-
+const updatePurchaseOrder = async (body, user) => {
+  const trx = await dbNetsuite.transaction();
   try {
-    // 1. Get token from auth module
-    const tokenResponse = await authService.getToken();
-    const token = tokenResponse.data.access_token;
+    const { id } = body;
 
-    // 2. Hit bridge update purchase order endpoint
-    const baseUrl = process.env.BRIDGE_BASE_URL || 'https://api-bridge-sb.motorsights.com';
-    const url = `${baseUrl}/api/v1/bridge/purchase-orders/update`;
+    const record = await trx('purchase_orders').where('po_id', id).first();
 
-    const response = await axios.post(url, body, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      }
+    if (!record) {
+      throw { message: `Purchase order dengan ID ${id} tidak ditemukan secara lokal`, statusCode: 404 };
+    }
+
+    const localId = record.id;
+
+    // 1. Update data di DB lokal dulu
+    const updateData = {
+      po_date: body.purchasedate,
+      po_status: 'pending', // reset ke pending saat update berkala
+      memo: body.memo,
+      vendor_id: body.vendorid,
+      subsidiary: body.subsidiary,
+      location: body.location,
+      currency_id: body.currency,
+      terms: body.terms,
+      class: body.class,
+      department: body.department,
+      custbody_me_pr_date: body.custbody_me_pr_date,
+      custbody_me_project_location: body.custbody_me_project_location,
+      custbody_me_pr_type: body.custbody_me_pr_type,
+      custbody_me_saving_type: body.custbody_me_saving_type,
+      custbody_me_pr_number: body.custbody_me_pr_number,
+      custbody_me_validity_date: body.custbody_me_validity_date,
+      lines: JSON.stringify(body.items),
+      updated_at: new Date()
+    };
+
+    await trx('purchase_orders').where('id', localId).update(updateData);
+
+    // 2. Insert data ke tabel outbox_events dan outbox_event_logs
+    const eventData = {
+      event_type: 'UPDATE',
+      payload: JSON.stringify(body),
+      aggregate_id: localId,
+      aggregate_type: 'purchase_order_update',
+      status: 'WAITING',
+      retry_count: 0,
+      max_retry: 3,
+      last_error: null,
+      properties: JSON.stringify({ request: body }),
+      created_at: new Date(),
+      updated_at: new Date()
+    };
+
+    const [eventIdObj] = await trx('outbox_events').insert(eventData).returning('id');
+    const eventId = typeof eventIdObj === 'object' ? eventIdObj.id : eventIdObj;
+
+    await trx('outbox_event_logs').insert({
+      outbox_event_id: eventId,
+      properties: JSON.stringify({
+        response: {
+          message: 'Update queued for processing',
+          status: 'WAITING'
+        }
+      }),
+      created_at: new Date(),
+      updated_at: new Date()
     });
 
-    return response.data;
+    await trx.commit();
+
+    // 3. Menambahkan queue untuk rabbitmq
+    const { publishToRabbitMqQueueSingle } = require('../../config/rabbitmq');
+    const { EXCHANGES, QUEUE } = require('../../utils/constant');
+
+    await publishToRabbitMqQueueSingle(
+      EXCHANGES.PURCHASE_ORDER,
+      QUEUE.PURCHASE_ORDER_UPDATE,
+      {
+        event_id: eventId,
+        po_internal_id: localId,
+        data: body
+      },
+      { durable: true }
+    );
+
+    return {
+      success: true,
+      message: 'Purchase order update is being processed',
+      data: {
+        poId: localId,
+        event_id: eventId
+      }
+    };
 
   } catch (error) {
-    if (error.response) {
-      throw {
-        message: error.response.data.message || 'Failed to update purchase order via bridge API',
-        statusCode: error.response.status,
-        errors: error.response.data
-      };
-    }
-    throw { message: error.message, statusCode: 500 };
+    if (trx) await trx.rollback();
+    throw {
+      message: error.message || 'Failed to initiate purchase order update',
+      statusCode: error.statusCode || 500,
+      errors: error.errors || error
+    };
   }
 };
 
@@ -949,6 +1040,7 @@ module.exports = {
   updatePurchaseOrder,
   syncPurchaseOrderById,
   syncPurchaseOrderByIdInternalId,
+  updatePurchaseOrderToBridge,
   createPurchaseOrderToBridge,
   logEvent,
   updateLocalPOId,

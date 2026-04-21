@@ -93,14 +93,15 @@ const update = async (req, res) => {
       }));
     }
 
-    const result = await service.updatePurchaseOrder(req.body);
-    return baseResponse(res, {
-      code: 200,
+    const result = await service.updatePurchaseOrder(req.body, req.user);
+    return res.status(200).json({
+      success: true,
       data: {
         success: true,
-        data: result,
-        message: 'Purchase order berhasil diupdate'
-      }
+        poId: result.data.poId,
+        local_id: result.data.event_id
+      },
+      message: 'Purchase order update berhasil diinisiasi'
     });
   } catch (error) {
     const statusCode = error.statusCode || 500;
