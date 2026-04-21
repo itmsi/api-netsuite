@@ -31,7 +31,10 @@ const getPurchaseOrders = async (body) => {
       'subsidiary', 'location', 'class', 'department', 'last_modified',
       'foreigntotal', 'total', 'approvalstatus', 'created_at', 'updated_at'
     ];
-    const orderCol = validSortColumns.includes(body.sort_by) ? body.sort_by : 'last_modified';
+    let orderCol = validSortColumns.includes(body.sort_by) ? body.sort_by : 'last_modified';
+    if (orderCol === 'created_at') {
+      orderCol = 'datecreated';
+    }
 
     let query = dbNetsuite('purchase_orders');
 
@@ -104,7 +107,7 @@ const getPurchaseOrders = async (body) => {
         'subsidiary', 'subsidiary_display', 'location', 'location_display',
         'customform', 'customform_display', 'class', 'class_display',
         'nextapprover', 'custbody_me_validity_date', 'department', 'department_display',
-        'lines'
+        'datecreated as created_at', 'lines'
       ])
       .orderBy(orderCol, sortOrder)
       .limit(limit)
