@@ -14,13 +14,13 @@ const connectRabbitMQ = async () => {
   }
 };
 
-const publishToRabbitMqQueueSingle = async (exchangeName, queueName, data) => {
+const publishToRabbitMqQueueSingle = async (exchangeName, queueName, data, queueOptions = { durable: true }) => {
   const config = await connectRabbitMQ()
 
   try {
     if (config?.connection && config?.channel) {
       await config?.channel.assertExchange(exchangeName, 'fanout', { durable: true })
-      await config?.channel.assertQueue(queueName, { durable: true })
+      await config?.channel.assertQueue(queueName, queueOptions)
       await config?.channel.bindQueue(queueName, exchangeName)
 
       config?.channel.publish(exchangeName, '', Buffer.from(JSON.stringify(data)))

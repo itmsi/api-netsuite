@@ -51,7 +51,7 @@ const create = async (req, res) => {
       }));
     }
 
-    const result = await service.createPurchaseOrder(req.body);
+    const result = await service.createPurchaseOrder(req.body, req.user);
     return baseResponse(res, {
       code: 201,
       data: {
@@ -382,6 +382,34 @@ const getReceiveById = async (req, res) => {
   }
 };
 
+/**
+ * Manual retry for purchase order creation
+ */
+const retry = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res.status(400).json({ success: false, message: 'Parameter id tidak boleh kosong' });
+    }
+
+    const result = await service.retryPurchaseOrder(id, req.user);
+    return baseResponse(res, {
+      data: {
+        success: true,
+        data: result,
+        message: 'Retry purchase order berhasil diinisiasi'
+      }
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || 'Internal Server Error',
+      errors: error.errors || error
+    });
+  }
+};
+
 module.exports = {
 
   getList,
@@ -395,5 +423,6 @@ module.exports = {
   getReceiveById,
   syncReceiveList,
   getById,
-  syncById
+  syncById,
+  retry
 };

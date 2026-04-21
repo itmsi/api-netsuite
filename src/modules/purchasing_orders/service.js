@@ -188,35 +188,225 @@ const syncPurchaseOrders = async (body) => {
   }
 };
 
-const createPurchaseOrder = async (body) => {
+const createPurchaseOrder = async (body, user) => {
+  const trx = await dbNetsuite.transaction();
   try {
-    // 1. Get token from auth module
-    const tokenResponse = await authService.getToken();
-    const token = tokenResponse.data.access_token;
+    // Ensure tables exist (optional but good for robustness if they are new)
+    // For this task, we assume they are created via migration or exist.
 
-    // 2. Hit bridge create purchase order endpoint
-    const baseUrl = process.env.BRIDGE_BASE_URL || 'https://api-bridge-sb.motorsights.com';
-    const url = `${baseUrl}/api/v1/bridge/purchase-orders/create`;
+    // 1. create data ke DB netsuite tabel purchase_orders
+    const poData = {
+      po_number: null, // po_id kosong sesuai permintaan (po_id in DB usually maps to po_number in NetSuite)
+      po_date: body.purchasedate,
+      po_status: 'pending',
+      memo: body.memo,
+      vendor_id: body.vendorid,
+      vendor_name: body.vendor_name || '', // optional
+      subsidiary: body.subsidiary,
+      location: body.location,
+      currency_id: body.currency,
+      terms: body.terms,
+      class: body.class,
+      custbody_me_pr_date: body.custbody_me_pr_date,
+      custbody_me_project_location: body.custbody_me_project_location,
+      custbody_me_pr_type: body.custbody_me_pr_type,
+      custbody_me_saving_type: body.custbody_me_saving_type,
+      custbody_me_pr_number: body.custbody_me_pr_number,
+      custbody_msi_createdby_api: body.custbody_msi_createdby_api || user?.email,
+      custbody_me_validity_date: body.custbody_me_validity_date,
+      lines: JSON.stringify(body.items),
+      created_at: new Date(),
+      updated_at: new Date()
+    };
 
-    const response = await axios.post(url, body, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      }
+    const [poInternal] = await trx('purchase_orders').insert(poData).returning('id');
+    const poInternalId = typeof poInternal === 'object' ? poInternal.id : poInternal;
+
+    // 2. create data ke DB netsuite tabel outbox_events dan tabel outbox_event_logs
+    const eventData = {
+      event_type: 'CREATE',
+      payload: JSON.stringify(body),
+      aggregate_id: poInternalId,
+      aggregate_type: 'purchase_orders',
+      status: 'WAITING',
+      created_at: new Date()
+    };
+
+    const [eventIdObj] = await trx('outbox_events').insert(eventData).returning('id');
+    const eventId = typeof eventIdObj === 'object' ? eventIdObj.id : eventIdObj;
+
+    await trx('outbox_event_logs').insert({
+      outbox_event_id: eventId,
+      properties: JSON.stringify({
+        event_type: 'purchase_order_created',
+        message: 'Initial event creation',
+        payload: body
+      }),
+      created_at: new Date(),
+      updated_at: new Date()
     });
 
-    return response.data;
+    await trx.commit();
+
+    // 3. buatkan queue untuk rabbit mq untuk memproses data tersebut
+    const { publishToRabbitMqQueueSingle } = require('../../config/rabbitmq');
+    const { EXCHANGES, QUEUE } = require('../../utils/constant');
+
+    await publishToRabbitMqQueueSingle(
+      EXCHANGES.PURCHASE_ORDER,
+      QUEUE.PURCHASE_ORDER_CREATE,
+      {
+        event_id: eventId,
+        po_internal_id: poInternalId,
+        data: body
+      },
+      {
+        durable: true,
+        arguments: {
+          'x-dead-letter-exchange': `${EXCHANGES.PURCHASE_ORDER}-retry`
+        }
+      }
+    );
+
+    return {
+      success: true,
+      message: 'Purchase order is being processed',
+      data: {
+        internal_id: poInternalId,
+        event_id: eventId
+      }
+    };
 
   } catch (error) {
-    if (error.response) {
-      throw {
-        message: error.response.data.message || 'Failed to create purchase order via bridge API',
-        statusCode: error.response.status,
-        errors: error.response.data
-      };
-    }
-    throw { message: error.message, statusCode: 500 };
+    if (trx) await trx.rollback();
+    throw { message: error.message || 'Failed to initiate purchase order creation', statusCode: 500 };
   }
+};
+
+/**
+ * Hits the actual bridge API for PO creation (used by worker)
+ */
+const createPurchaseOrderToBridge = async (body) => {
+  const tokenResponse = await authService.getToken();
+  const token = tokenResponse.data.access_token;
+
+  const baseUrl = process.env.BRIDGE_BASE_URL || 'https://api-bridge-sb.motorsights.com';
+  const url = `${baseUrl}/api/v1/bridge/purchase-orders/create`;
+
+  const response = await axios.post(url, body, {
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    }
+  });
+
+  return response.data;
+};
+
+const updateLocalPOId = async (id, netsuiteId) => {
+  // Delete any duplicate data generated passively by api-bridge first
+  await dbNetsuite('purchase_orders')
+    .where('po_id', netsuiteId)
+    .whereNot('id', id)
+    .del();
+
+  await dbNetsuite('purchase_orders')
+    .where('id', id)
+    .update({
+      po_id: netsuiteId,
+      po_number: netsuiteId, // Assuming po_id column is for NetSuite ID
+      po_status: 'success',
+      updated_at: new Date()
+    });
+};
+
+const updateLocalPOStatus = async (id, status) => {
+  await dbNetsuite('purchase_orders')
+    .where('id', id)
+    .update({ po_status: status, updated_at: new Date() });
+};
+
+const updateEventStatus = async (id, status, result) => {
+  await dbNetsuite('outbox_events')
+    .where('id', id)
+    .update({
+      status: status,
+      updated_at: new Date()
+    });
+
+  if (result) {
+    await dbNetsuite('outbox_event_logs').insert({
+      outbox_event_id: id,
+      properties: JSON.stringify({
+        response_data: result
+      }),
+      created_at: new Date(),
+      updated_at: new Date()
+    });
+  }
+};
+
+const logEvent = async (eventId, type, message, data) => {
+  const isError = type === 'failed' || type === 'sync_failed';
+
+  await dbNetsuite('outbox_event_logs').insert({
+    outbox_event_id: eventId,
+    http_status: data && data.statusCode ? String(data.statusCode) : null,
+    error: isError ? (data && data.message ? data.message : (message || String(data))) : null,
+    properties: JSON.stringify({
+      event_type: type,
+      message: message,
+      data: data
+    }),
+    created_at: new Date(),
+    updated_at: new Date()
+  });
+};
+
+const retryPurchaseOrder = async (id, user) => {
+  const po = await dbNetsuite('purchase_orders').where('id', id).first();
+  if (!po) throw { message: 'Purchase order not found', statusCode: 404 };
+
+  // Reset status
+  await dbNetsuite('purchase_orders').where('id', id).update({ po_status: 'pending' });
+
+  const body = JSON.parse(po.lines);
+  // Add metadata for retry
+  body._retry_by = user?.email;
+
+  // Create new outbox event
+  const [eventIdObj] = await dbNetsuite('outbox_events').insert({
+    event_type: 'CREATE',
+    payload: JSON.stringify(body),
+    aggregate_id: id,
+    aggregate_type: 'purchase_orders',
+    status: 'WAITING',
+    created_at: new Date()
+  }).returning('id');
+  const eventId = typeof eventIdObj === 'object' ? eventIdObj.id : eventIdObj;
+
+  await logEvent(eventId, 'purchase_order_retry', 'Manual retry initiated', body);
+
+  const { publishToRabbitMqQueueSingle } = require('../../config/rabbitmq');
+  const { EXCHANGES, QUEUE } = require('../../utils/constant');
+
+  await publishToRabbitMqQueueSingle(
+    EXCHANGES.PURCHASE_ORDER,
+    QUEUE.PURCHASE_ORDER_CREATE,
+    {
+      event_id: eventId,
+      po_internal_id: id,
+      data: body
+    },
+    {
+      durable: true,
+      arguments: {
+        'x-dead-letter-exchange': `${EXCHANGES.PURCHASE_ORDER}-retry`
+      }
+    }
+  );
+
+  return { success: true, message: 'Retry initiated successfully' };
 };
 
 const approvePurchaseOrder = async (body) => {
@@ -473,6 +663,13 @@ const printPurchaseOrder = async (body) => {
 
 const getReceiveList = async (body) => {
   try {
+    // Jalankan perintah sync ke bridge API terlebih dahulu sesuai instruksi
+    try {
+      await syncReceiveList(body);
+    } catch (syncError) {
+      console.warn('Sync failed before fetching getReceiveList:', syncError.message);
+    }
+
     const page = parseInt(body.page) || 1;
     const limit = parseInt(body.page_size || body.limit) || 20;
     const sortOrder = body.sort_order ? body.sort_order.toUpperCase() : 'DESC';
@@ -635,5 +832,11 @@ module.exports = {
   syncReceiveList,
   getPurchaseOrderById,
   updatePurchaseOrder,
-  syncPurchaseOrderById
+  syncPurchaseOrderById,
+  createPurchaseOrderToBridge,
+  logEvent,
+  updateLocalPOId,
+  updateLocalPOStatus,
+  updateEventStatus,
+  retryPurchaseOrder
 };

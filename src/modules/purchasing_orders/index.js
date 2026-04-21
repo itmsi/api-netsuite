@@ -135,4 +135,15 @@ router.get(
   controller.getById
 );
 
+/**
+ * @route   POST /api/purchasing-orders/retry/:id
+ * @desc    Manual retry for purchase order creation
+ * @access  Private
+ */
+router.post(
+  '/retry/:id',
+  verifyToken,
+  controller.retry
+);
+
 module.exports = router;

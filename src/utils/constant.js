@@ -325,7 +325,8 @@ module.exports = {
     UPDATE_INV: 'update-status-inventory',
     PRINT_CATALOG: 'exchanges-print-catalog',
     IMAGE_KTP: 'exchanges-ktp-processing',
-    PUBLISH_CATALOG: 'exchanges-publish-catalog'
+    PUBLISH_CATALOG: 'exchanges-publish-catalog',
+    PURCHASE_ORDER: 'purchase-order'
   },
   ACTION_TRX: {
     INSERT: 'insert',
@@ -340,7 +341,8 @@ module.exports = {
     BIKE_INV: 'bike-inventory',
     PRINT_CATALOG: 'queue-print-catalog',
     PUBLISH_CATALOG: 'queue-publish-catalog',
-    IMAGE_KTP: 'queue-ktp-processing'
+    IMAGE_KTP: 'queue-ktp-processing',
+    PURCHASE_ORDER_CREATE: 'purchase-order-creation'
   },
   ENUM: {
     Y: 'Y',
