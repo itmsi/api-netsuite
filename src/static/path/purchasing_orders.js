@@ -686,16 +686,6 @@ const purchasingOrdersPaths = {
                 properties: {
                   success: { type: 'boolean', example: true },
                   data: { $ref: '#/components/schemas/PurchaseOrder' },
-                  retry_triggered: {
-                    type: 'boolean',
-                    example: true,
-                    description: 'true jika po_status = failed dan retry queue otomatis dijalankan'
-                  },
-                  message: {
-                    type: 'string',
-                    example: 'Purchase order ditemukan dan retry queue sudah dijalankan',
-                    description: 'Hanya ada jika retry_triggered = true'
-                  },
                   timestamp: { type: 'string', example: '2026-04-21T06:00:00.000Z' }
                 }
               }

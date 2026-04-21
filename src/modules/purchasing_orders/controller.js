@@ -230,10 +230,10 @@ const getById = async (req, res) => {
       }
     }
 
-    return baseResponse(res, {
+    return res.status(200).json({
+      success: true,
       data: po,
-      retry_triggered: retryTriggered,
-      message: retryTriggered ? 'Purchase order ditemukan dan retry queue sudah dijalankan' : undefined
+      timestamp: new Date().toISOString()
     });
   } catch (error) {
     const statusCode = error.statusCode || 500;
