@@ -576,6 +576,18 @@ const getPurchaseOrderById = async (id) => {
       throw { message: `Purchase order dengan id '${id}' tidak ditemukan`, statusCode: 404 };
     }
 
+    // Tambahkan message_error jika status failed
+    if (record.po_status === 'failed') {
+      const lastEvent = await dbNetsuite('outbox_events')
+        .where('aggregate_id', record.id)
+        .orderBy('created_at', 'desc')
+        .first();
+      
+      if (lastEvent && lastEvent.properties) {
+        record.message_error = lastEvent.properties;
+      }
+    }
+
     return {
       success: true,
       data: record,

@@ -43,6 +43,12 @@ const purchasingOrdersSchemas = {
       raw_response: { type: 'string', nullable: true, example: null },
       foreigntotal: { type: 'number', example: -980000 },
       total: { type: 'number', example: -980000 },
+      message_error: {
+        type: 'object',
+        nullable: true,
+        description: 'Detail pesan error dari outbox_events jika status failed',
+        example: { response: { error: { message: 'Invalid scriptlet ID', code: 'SSS_INVALID_SCRIPTLET_ID' } } }
+      },
       lines: {
         type: 'array',
         items: { $ref: '#/components/schemas/PurchaseOrderLine' }
