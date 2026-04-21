@@ -450,7 +450,7 @@ const logEvent = async (eventId, type, message, data) => {
   });
 };
 
-const retryPurchaseOrder = async (id, user) => {
+const retryPurchaseOrder = async (id, user, method = 'CREATE') => {
   const po = await dbNetsuite('purchase_orders').where('id', id).first();
   if (!po) throw { message: 'Purchase order not found', statusCode: 404 };
 
@@ -458,8 +458,7 @@ const retryPurchaseOrder = async (id, user) => {
   // Gunakan .asc() agar kita dapat payload original, bukan payload dari retry sebelumnya
   const firstEvent = await dbNetsuite('outbox_events')
     .where('aggregate_id', id)
-    .where('event_type', 'CREATE')
-    .where('status', 'FAILED')
+    .where('event_type', method)
     .orderBy('created_at', 'desc')
     .first();
 
@@ -485,17 +484,21 @@ const retryPurchaseOrder = async (id, user) => {
   delete body._retry_by;    // akan di-set ulang di bawah
 
   // Reset status ke pending
-  await dbNetsuite('purchase_orders').where('id', id).update({ po_status: 'pending', updated_at: new Date() });
+  if (method === 'CREATE') {
+    await dbNetsuite('purchase_orders').where('id', id).update({ po_status: 'pending', updated_at: new Date() });
+  } else if (method === 'UPDATE') {
+    await dbNetsuite('purchase_orders').where('id', id).update({ updated_at: new Date() });
+  }
 
   // Tambahkan metadata retry
   body._retry_by = user?.email || null;
 
   // Create new outbox event untuk retry ini
   const [eventIdObj] = await dbNetsuite('outbox_events').insert({
-    event_type: 'CREATE',
+    event_type: method,
     payload: JSON.stringify(body),
     aggregate_id: id,
-    aggregate_type: 'purchase_order_create',
+    aggregate_type: `purchase_order_${method.toLowerCase()}`,
     status: 'WAITING',
     retry_count: 0,
     max_retry: 3,
@@ -504,28 +507,55 @@ const retryPurchaseOrder = async (id, user) => {
     created_at: new Date(),
     updated_at: new Date()
   }).returning('id');
-  const eventId = typeof eventIdObj === 'object' ? eventIdObj.id : eventIdObj;
 
-  await logEvent(eventId, 'purchase_order_retry', 'Manual retry initiated', { retried_by: body._retry_by });
 
-  const { publishToRabbitMqQueueSingle } = require('../../config/rabbitmq');
-  const { EXCHANGES, QUEUE } = require('../../utils/constant');
+  if (method == 'CREATE') {
+    const eventId = typeof eventIdObj === 'object' ? eventIdObj.id : eventIdObj;
 
-  await publishToRabbitMqQueueSingle(
-    EXCHANGES.PURCHASE_ORDER_RETRY,
-    QUEUE.PURCHASE_ORDER_MANUAL_RETRY,
-    {
-      event_id: eventId,
-      po_internal_id: id,
-      data: body
-    },
-    {
-      durable: true,
-      arguments: {}
-    }
-  );
+    await logEvent(eventId, 'purchase_order_retry', 'Manual retry initiated', { retried_by: body._retry_by });
 
-  return { success: true, message: 'Retry initiated successfully', event_id: eventId };
+    const { publishToRabbitMqQueueSingle } = require('../../config/rabbitmq');
+    const { EXCHANGES, QUEUE } = require('../../utils/constant');
+
+    await publishToRabbitMqQueueSingle(
+      EXCHANGES.PURCHASE_ORDER_RETRY,
+      QUEUE.PURCHASE_ORDER_MANUAL_RETRY,
+      {
+        event_id: eventId,
+        po_internal_id: id,
+        data: body
+      },
+      {
+        durable: true,
+        arguments: {}
+      }
+    );
+
+    return { success: true, message: 'Retry initiated successfully', event_id: eventId };
+  } else if (method === 'UPDATE') {
+    const eventId = typeof eventIdObj === 'object' ? eventIdObj.id : eventIdObj;
+
+    await logEvent(eventId, 'purchase_order_update', 'Manual retry initiated', { retried_by: body._retry_by });
+
+    const { publishToRabbitMqQueueSingle } = require('../../config/rabbitmq');
+    const { EXCHANGES, QUEUE } = require('../../utils/constant');
+
+    await publishToRabbitMqQueueSingle(
+      EXCHANGES.PURCHASE_ORDER_UPDATE,
+      QUEUE.PURCHASE_ORDER_MANUAL_UPDATE,
+      {
+        event_id: eventId,
+        po_internal_id: id,
+        data: body
+      },
+      {
+        durable: true,
+        arguments: {}
+      }
+    );
+
+    return { success: true, message: 'Retry initiated successfully', event_id: eventId };
+  }
 };
 
 const approvePurchaseOrder = async (body) => {

@@ -224,7 +224,15 @@ const getById = async (req, res) => {
     let retryTriggered = false;
     if (po && po.po_status === 'failed') {
       try {
-        await service.retryPurchaseOrder(po.id, req.user);
+        await service.retryPurchaseOrder(po.id, req.user, 'CREATE');
+        retryTriggered = true;
+        console.info(`[Controller] Auto-triggered retry queue for failed PO: ${po.id}`);
+      } catch (retryErr) {
+        console.error(`[Controller] Failed to auto-trigger retry for PO ${po.id}:`, retryErr.message);
+      }
+    } else if (po) {
+      try {
+        await service.retryPurchaseOrder(po.id, req.user, 'UPDATE');
         retryTriggered = true;
         console.info(`[Controller] Auto-triggered retry queue for failed PO: ${po.id}`);
       } catch (retryErr) {
