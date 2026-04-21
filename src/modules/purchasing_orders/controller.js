@@ -232,7 +232,8 @@ const getById = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      data: po,
+      message: '',
+      data: po ? [po] : [],
       timestamp: new Date().toISOString()
     });
   } catch (error) {

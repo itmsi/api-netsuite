@@ -685,8 +685,12 @@ const purchasingOrdersPaths = {
                 type: 'object',
                 properties: {
                   success: { type: 'boolean', example: true },
-                  data: { $ref: '#/components/schemas/PurchaseOrder' },
-                  timestamp: { type: 'string', example: '2026-04-21T06:00:00.000Z' }
+                  message: { type: 'string', example: '' },
+                  data: {
+                    type: 'array',
+                    items: { $ref: '#/components/schemas/PurchaseOrder' }
+                  },
+                  timestamp: { type: 'string', example: '2026-04-21T08:23:43.155Z' }
                 }
               }
             }
