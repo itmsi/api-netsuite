@@ -281,7 +281,7 @@ const createPurchaseOrder = async (body, user) => {
       success: true,
       message: 'Purchase order is being processed',
       data: {
-        po_id: poInternalId,
+        poId: poInternalId,
         event_id: eventId
       }
     };
@@ -582,7 +582,7 @@ const getPurchaseOrderById = async (id) => {
         .where('aggregate_id', record.id)
         .orderBy('created_at', 'desc')
         .first();
-      
+
       if (lastEvent && lastEvent.properties) {
         record.message_error = lastEvent.properties;
       }
