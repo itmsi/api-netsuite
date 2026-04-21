@@ -222,25 +222,34 @@ const createPurchaseOrder = async (body, user) => {
     const [poInternal] = await trx('purchase_orders').insert(poData).returning('id');
     const poInternalId = typeof poInternal === 'object' ? poInternal.id : poInternal;
 
-    // 2. create data ke DB netsuite tabel outbox_events dan tabel outbox_event_logs
+    // 2. create satu data ke outbox_events dan satu log awal ke outbox_event_logs
     const eventData = {
       event_type: 'CREATE',
       payload: JSON.stringify(body),
       aggregate_id: poInternalId,
-      aggregate_type: 'purchase_orders',
+      aggregate_type: 'purchase_order_create',
       status: 'WAITING',
-      created_at: new Date()
+      retry_count: 0,
+      max_retry: 3,
+      last_error: null,
+      properties: JSON.stringify({
+        request: body
+      }),
+      created_at: new Date(),
+      updated_at: new Date()
     };
 
     const [eventIdObj] = await trx('outbox_events').insert(eventData).returning('id');
     const eventId = typeof eventIdObj === 'object' ? eventIdObj.id : eventIdObj;
 
+    // Satu log awal
     await trx('outbox_event_logs').insert({
       outbox_event_id: eventId,
       properties: JSON.stringify({
-        event_type: 'purchase_order_created',
-        message: 'Initial event creation',
-        payload: body
+        response: {
+          message: 'Purchase order queued for processing',
+          status: 'WAITING'
+        }
       }),
       created_at: new Date(),
       updated_at: new Date()
@@ -272,7 +281,7 @@ const createPurchaseOrder = async (body, user) => {
       success: true,
       message: 'Purchase order is being processed',
       data: {
-        internal_id: poInternalId,
+        po_id: poInternalId,
         event_id: eventId
       }
     };
@@ -315,7 +324,6 @@ const updateLocalPOId = async (id, netsuiteId) => {
     .update({
       po_id: netsuiteId,
       po_number: netsuiteId, // Assuming po_id column is for NetSuite ID
-      po_status: 'success',
       updated_at: new Date()
     });
 };
@@ -346,18 +354,65 @@ const updateEventStatus = async (id, status, result) => {
   }
 };
 
+/**
+ * Increment retry_count dan update last_error di outbox_events.
+ * Return row terbaru setelah update.
+ */
+const incrementRetryCount = async (id, errorMessage) => {
+  const [updated] = await dbNetsuite('outbox_events')
+    .where('id', id)
+    .update({
+      retry_count: dbNetsuite.raw('retry_count + 1'),
+      last_error: errorMessage || null,
+      status: 'PROCESSING',
+      updated_at: new Date()
+    })
+    .returning(['retry_count', 'max_retry']);
+  return updated;
+};
+
+/**
+ * Cek apakah event masih bisa di-retry otomatis.
+ */
+const canAutoRetry = async (id) => {
+  const event = await dbNetsuite('outbox_events')
+    .where('id', id)
+    .select('retry_count', 'max_retry')
+    .first();
+  if (!event) return false;
+  return event.retry_count < event.max_retry;
+};
+
+/**
+ * Ambil status terkini dari outbox_events.
+ */
+const getEventStatus = async (id) => {
+  const event = await dbNetsuite('outbox_events')
+    .where('id', id)
+    .select('status')
+    .first();
+  return event ? event.status : null;
+};
+
 const logEvent = async (eventId, type, message, data) => {
-  const isError = type === 'failed' || type === 'sync_failed';
+  const isError = type === 'failed' || type === 'sync_failed' || type === 'retry';
+
+  const responseData = {};
+  if (isError) {
+    responseData.error = {
+      message: message || (data && data.message) || String(data),
+      code: data && data.code ? data.code : undefined
+    };
+  } else {
+    responseData.message = message;
+    if (data) responseData.data = data;
+  }
 
   await dbNetsuite('outbox_event_logs').insert({
     outbox_event_id: eventId,
     http_status: data && data.statusCode ? String(data.statusCode) : null,
-    error: isError ? (data && data.message ? data.message : (message || String(data))) : null,
-    properties: JSON.stringify({
-      event_type: type,
-      message: message,
-      data: data
-    }),
+    error: isError ? (message || (data && data.message) || String(data)) : null,
+    properties: JSON.stringify({ response: responseData }),
     created_at: new Date(),
     updated_at: new Date()
   });
@@ -367,32 +422,66 @@ const retryPurchaseOrder = async (id, user) => {
   const po = await dbNetsuite('purchase_orders').where('id', id).first();
   if (!po) throw { message: 'Purchase order not found', statusCode: 404 };
 
-  // Reset status
-  await dbNetsuite('purchase_orders').where('id', id).update({ po_status: 'pending' });
+  // Ambil payload dari outbox_events PERTAMA (CREATE event asli) milik PO ini
+  // Gunakan .asc() agar kita dapat payload original, bukan payload dari retry sebelumnya
+  const firstEvent = await dbNetsuite('outbox_events')
+    .where('aggregate_id', id)
+    .where('event_type', 'CREATE')
+    .where('status', 'FAILED')
+    .orderBy('created_at', 'desc')
+    .first();
 
-  const body = JSON.parse(po.lines);
-  // Add metadata for retry
-  body._retry_by = user?.email;
+  if (!firstEvent || !firstEvent.payload) {
+    throw { message: 'Tidak ada payload event yang bisa di-retry untuk PO ini', statusCode: 400 };
+  }
 
-  // Create new outbox event
+  // payload bisa string JSON atau sudah object (tergantung driver pg)
+  let rawPayload;
+  try {
+    rawPayload = typeof firstEvent.payload === 'string' ? JSON.parse(firstEvent.payload) : firstEvent.payload;
+  } catch (e) {
+    throw { message: `Payload event tidak valid: ${e.message}`, statusCode: 400 };
+  }
+
+  // Jika payload punya format { body: {...} }, ambil hanya bagian body-nya
+  const body = (rawPayload && typeof rawPayload === 'object' && rawPayload.body)
+    ? rawPayload.body
+    : rawPayload;
+
+  // Hapus key yang tidak relevan / stale dari payload sebelumnya
+  delete body.internalid;   // akan di-inject ulang oleh listener dengan ID yang benar
+  delete body._retry_by;    // akan di-set ulang di bawah
+
+  // Reset status ke pending
+  await dbNetsuite('purchase_orders').where('id', id).update({ po_status: 'pending', updated_at: new Date() });
+
+  // Tambahkan metadata retry
+  body._retry_by = user?.email || null;
+
+  // Create new outbox event untuk retry ini
   const [eventIdObj] = await dbNetsuite('outbox_events').insert({
     event_type: 'CREATE',
     payload: JSON.stringify(body),
     aggregate_id: id,
-    aggregate_type: 'purchase_orders',
+    aggregate_type: 'purchase_order_create',
     status: 'WAITING',
-    created_at: new Date()
+    retry_count: 0,
+    max_retry: 3,
+    last_error: null,
+    properties: JSON.stringify({ request: body }),
+    created_at: new Date(),
+    updated_at: new Date()
   }).returning('id');
   const eventId = typeof eventIdObj === 'object' ? eventIdObj.id : eventIdObj;
 
-  await logEvent(eventId, 'purchase_order_retry', 'Manual retry initiated', body);
+  await logEvent(eventId, 'purchase_order_retry', 'Manual retry initiated', { retried_by: body._retry_by });
 
   const { publishToRabbitMqQueueSingle } = require('../../config/rabbitmq');
   const { EXCHANGES, QUEUE } = require('../../utils/constant');
 
   await publishToRabbitMqQueueSingle(
-    EXCHANGES.PURCHASE_ORDER,
-    QUEUE.PURCHASE_ORDER_CREATE,
+    EXCHANGES.PURCHASE_ORDER_RETRY,
+    QUEUE.PURCHASE_ORDER_MANUAL_RETRY,
     {
       event_id: eventId,
       po_internal_id: id,
@@ -400,13 +489,11 @@ const retryPurchaseOrder = async (id, user) => {
     },
     {
       durable: true,
-      arguments: {
-        'x-dead-letter-exchange': `${EXCHANGES.PURCHASE_ORDER}-retry`
-      }
+      arguments: {}
     }
   );
 
-  return { success: true, message: 'Retry initiated successfully' };
+  return { success: true, message: 'Retry initiated successfully', event_id: eventId };
 };
 
 const approvePurchaseOrder = async (body) => {
@@ -473,52 +560,34 @@ const receiveItemPurchaseOrder = async (body) => {
 
 const getPurchaseOrderById = async (id) => {
   try {
-    // 1. Get token from auth module
-    const tokenResponse = await authService.getToken();
-    const token = tokenResponse.data.access_token;
+    // Cari dulu berdasarkan po_id (integer/netsuite ID), jika tidak ketemu cari berdasarkan id (UUID)
+    let record = await dbNetsuite('purchase_orders')
+      .where('po_id', id)
+      .first();
 
-    // 2. Hit bridge purchase orders get-list with po_ids filter
-    const baseUrl = process.env.BRIDGE_BASE_URL || 'https://api-bridge-sb.motorsights.com';
-    const url = `${baseUrl}/api/v1/bridge/purchase-orders/get-list`;
+    if (!record) {
+      // Fallback: cari berdasarkan UUID primary key
+      record = await dbNetsuite('purchase_orders')
+        .where('id', id)
+        .first();
+    }
 
-    const requestData = {
-      page: 1,
-      page_size: 20,
-      sort_by: 't.trandate',
-      sort_order: 'DESC',
-      filters: {
-        po_ids: [parseInt(id)],
-        lastmodified: '2025-03-16T23:59:00+07:00'
-      }
-    };
-
-    const response = await axios.post(url, requestData, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      }
-    });
-
-    const resData = response.data;
+    if (!record) {
+      throw { message: `Purchase order dengan id '${id}' tidak ditemukan`, statusCode: 404 };
+    }
 
     return {
       success: true,
-      message: '',
-      data: resData.data || resData.items || [],
+      data: record,
       timestamp: new Date().toISOString()
     };
 
   } catch (error) {
-    if (error.response) {
-      throw {
-        message: error.response.data?.message || 'Failed to fetch purchase order detail from bridge API',
-        statusCode: error.response.status,
-        errors: error.response.data
-      };
-    }
-    throw { message: error.message, statusCode: 500 };
+    if (error.statusCode) throw error;
+    throw { message: error.message || 'Failed to fetch purchase order detail', statusCode: 500 };
   }
 };
+
 
 /**
  * Get receive detail by ID (netsuite_id) from local database
@@ -588,6 +657,40 @@ const updatePurchaseOrder = async (body) => {
     if (error.response) {
       throw {
         message: error.response.data.message || 'Failed to update purchase order via bridge API',
+        statusCode: error.response.status,
+        errors: error.response.data
+      };
+    }
+    throw { message: error.message, statusCode: 500 };
+  }
+};
+
+/**
+ * Sync single purchase order by ID dari bridge API
+ * Hit: GET {BRIDGE_BASE_URL}/api/v1/bridge/purchase-orders/sync/{id}/{id}
+ */
+const syncPurchaseOrderByIdInternalId = async (id, internal_id) => {
+  try {
+    // 1. Get token
+    const tokenResponse = await authService.getToken();
+    const token = tokenResponse.data.access_token;
+
+    // 2. Hit bridge sync by netsuite_id + internal_id (POST)
+    const baseUrl = process.env.BRIDGE_BASE_URL || 'https://api-bridge-sb.motorsights.com';
+    const url = `${baseUrl}/api/v1/bridge/purchase-orders/sync/${id}/${internal_id}`;
+
+    const response = await axios.post(url, {}, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    return response.data;
+
+  } catch (error) {
+    if (error.response) {
+      throw {
+        message: error.response.data?.message || 'Failed to sync purchase order by ID from bridge API',
         statusCode: error.response.status,
         errors: error.response.data
       };
@@ -833,10 +936,14 @@ module.exports = {
   getPurchaseOrderById,
   updatePurchaseOrder,
   syncPurchaseOrderById,
+  syncPurchaseOrderByIdInternalId,
   createPurchaseOrderToBridge,
   logEvent,
   updateLocalPOId,
   updateLocalPOStatus,
   updateEventStatus,
+  incrementRetryCount,
+  canAutoRetry,
+  getEventStatus,
   retryPurchaseOrder
 };

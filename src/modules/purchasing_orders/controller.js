@@ -205,7 +205,8 @@ const receiveItem = async (req, res) => {
 };
 
 /**
- * Get purchase order by ID (via NetSuite RESTlet OAuth)
+ * Get purchase order by ID (po_id integer atau UUID)
+ * Jika po_status = failed, otomatis trigger retry queue
  */
 const getById = async (req, res) => {
   try {
@@ -213,8 +214,27 @@ const getById = async (req, res) => {
     if (!id) {
       return res.status(400).json({ success: false, message: 'Parameter id tidak boleh kosong' });
     }
+
     const result = await service.getPurchaseOrderById(id);
-    return baseResponse(res, { data: result });
+    const po = result.data;
+
+    // Jika po_status = failed, auto-trigger retry queue
+    let retryTriggered = false;
+    if (po && po.po_status === 'failed') {
+      try {
+        await service.retryPurchaseOrder(po.id, req.user);
+        retryTriggered = true;
+        console.info(`[Controller] Auto-triggered retry queue for failed PO: ${po.id}`);
+      } catch (retryErr) {
+        console.error(`[Controller] Failed to auto-trigger retry for PO ${po.id}:`, retryErr.message);
+      }
+    }
+
+    return baseResponse(res, {
+      data: po,
+      retry_triggered: retryTriggered,
+      message: retryTriggered ? 'Purchase order ditemukan dan retry queue sudah dijalankan' : undefined
+    });
   } catch (error) {
     const statusCode = error.statusCode || 500;
     return res.status(statusCode).json({

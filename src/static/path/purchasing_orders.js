@@ -664,16 +664,16 @@ const purchasingOrdersPaths = {
   '/purchasing-orders/{id}': {
     get: {
       tags: ['Purchasing Orders'],
-      summary: 'Get purchase order detail by ID',
-      description: 'Fetch a single purchase order detail from NetSuite RESTlet directly using OAuth 1.0. The `id` (po_id) is passed as a URL parameter.',
+      summary: 'Get purchase order detail by ID (po_id atau UUID)',
+      description: 'Fetch a single purchase order detail dari database lokal (bridge_sanbox.purchase_orders).\n\n**Lookup priority:**\n1. Cari berdasarkan `po_id` (NetSuite integer ID, contoh: `11798`)\n2. Jika tidak ditemukan, cari berdasarkan `id` (UUID internal, contoh: `3afc8c56-d5ec-4627-918a-752fce83961a`)',
       security: [{ bearerAuth: [] }],
       parameters: [
         {
           name: 'id',
           in: 'path',
           required: true,
-          description: 'The NetSuite internal ID of the purchase order (po_id)',
-          schema: { type: 'integer', example: 7102 }
+          description: 'NetSuite po_id (integer) atau internal UUID dari purchase order',
+          schema: { type: 'string', example: '11798' }
         }
       ],
       responses: {
@@ -681,25 +681,38 @@ const purchasingOrdersPaths = {
           description: 'Success',
           content: {
             'application/json': {
-              schema: { $ref: '#/components/schemas/PurchaseOrderDetailResponse' }
+              schema: {
+                type: 'object',
+                properties: {
+                  success: { type: 'boolean', example: true },
+                  data: { $ref: '#/components/schemas/PurchaseOrder' },
+                  retry_triggered: {
+                    type: 'boolean',
+                    example: true,
+                    description: 'true jika po_status = failed dan retry queue otomatis dijalankan'
+                  },
+                  message: {
+                    type: 'string',
+                    example: 'Purchase order ditemukan dan retry queue sudah dijalankan',
+                    description: 'Hanya ada jika retry_triggered = true'
+                  },
+                  timestamp: { type: 'string', example: '2026-04-21T06:00:00.000Z' }
+                }
+              }
             }
           }
         },
         400: {
           description: 'Bad Request - ID not provided',
-          content: {
-            'application/json': {
-              schema: { $ref: '#/components/schemas/ErrorResponse' }
-            }
-          }
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+        },
+        404: {
+          description: 'Not Found - purchase order tidak ditemukan',
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
         },
         500: {
           description: 'Internal Server Error',
-          content: {
-            'application/json': {
-              schema: { $ref: '#/components/schemas/ErrorResponse' }
-            }
-          }
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
         }
       }
     }

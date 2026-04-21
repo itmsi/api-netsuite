@@ -1,6 +1,7 @@
 const { logger, logDateFormat, fullDateFormat } = require('../utils')
 const { initEmailServices } = require('./email_listener')
 const { initPurchaseOrderServices } = require('./purchase_order_listener')
+const { initPurchaseOrderRetryServices } = require('./purchase_order_retry_listener')
 
 const initListener = async () => {
   const fileName = `listener-${logDateFormat()}.txt`
@@ -8,6 +9,7 @@ const initListener = async () => {
     console.info('Listener is working waiting for message')
     await initEmailServices()
     await initPurchaseOrderServices()
+    await initPurchaseOrderRetryServices()
     logger(fileName, 'listener').write(`Listener is working waiting for message ${fullDateFormat(new Date().toISOString())} \n`)
   } catch (error) {
     console.info('Listener is not working with error', error)

@@ -326,7 +326,8 @@ module.exports = {
     PRINT_CATALOG: 'exchanges-print-catalog',
     IMAGE_KTP: 'exchanges-ktp-processing',
     PUBLISH_CATALOG: 'exchanges-publish-catalog',
-    PURCHASE_ORDER: 'purchase-order'
+    PURCHASE_ORDER: 'purchase-order',
+    PURCHASE_ORDER_RETRY: 'purchase-order-manual-retry'
   },
   ACTION_TRX: {
     INSERT: 'insert',
@@ -342,7 +343,8 @@ module.exports = {
     PRINT_CATALOG: 'queue-print-catalog',
     PUBLISH_CATALOG: 'queue-publish-catalog',
     IMAGE_KTP: 'queue-ktp-processing',
-    PURCHASE_ORDER_CREATE: 'purchase-order-creation'
+    PURCHASE_ORDER_CREATE: 'purchase-order-creation',
+    PURCHASE_ORDER_MANUAL_RETRY: 'purchase-order-manual-retry'
   },
   ENUM: {
     Y: 'Y',

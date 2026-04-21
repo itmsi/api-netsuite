@@ -10,6 +10,18 @@ const purchasingService = require('../modules/purchasing_orders/service')
 const methodExecution = async (payload, channel, msg) => {
   const { event_id, po_internal_id, data } = payload
 
+  // Guard: cek status event di DB sebelum proses
+  // Jika sudah FAILED atau SUCCESS, ACK langsung (mencegah loop dari DLQ stale messages)
+  try {
+    const eventStatus = await purchasingService.getEventStatus(event_id)
+    if (eventStatus === 'FAILED' || eventStatus === 'SUCCESS') {
+      console.info(`[Worker] PO Event ${event_id} already ${eventStatus}, skipping (ACK to clear stale DLQ message)`)
+      return channel.ack(msg)
+    }
+  } catch (guardErr) {
+    console.warn(`[Worker] Could not check event status for ${event_id}:`, guardErr.message)
+  }
+
   try {
     // 4. Hit API Netsuite (existing bridge API)
     console.info(`[Worker] Creating PO for Event ID: ${event_id}`)
@@ -17,13 +29,15 @@ const methodExecution = async (payload, channel, msg) => {
     // Log start of process
     await purchasingService.logEvent(event_id, 'processing', 'Starting request to bridge API', data)
 
-    const result = await purchasingService.createPurchaseOrderToBridge(data)
+    // Inject internalid (UUID dari tabel purchase_orders lokal) ke payload
+    const dataWithInternalId = { ...data, internalid: po_internal_id }
+    const result = await purchasingService.createPurchaseOrderToBridge(dataWithInternalId)
 
     if (result && (result.success || result.poId || result.po_id)) {
       const poId = result.poId || result.po_id || result.data?.id
 
       // 5. Update po_id di tabel purchase_orders
-      await purchasingService.updateLocalPOId(po_internal_id, poId)
+      // await purchasingService.updateLocalPOId(po_internal_id, poId)
 
       // Update outbox event status
       await purchasingService.updateEventStatus(event_id, 'SUCCESS', result)
@@ -35,7 +49,7 @@ const methodExecution = async (payload, channel, msg) => {
       if (poId) {
         console.info(`[Worker] Triggering sync for PO ID: ${poId}`)
         try {
-          await purchasingService.syncPurchaseOrderById(poId)
+          await purchasingService.syncPurchaseOrderByIdInternalId(poId, po_internal_id)
           await purchasingService.logEvent(event_id, 'purchase_order_synced', 'Purchase order synced successfully', { po_id: poId })
         } catch (syncError) {
           console.error(`[Worker] Sync failed for PO ID ${poId}:`, syncError.message)
@@ -50,23 +64,27 @@ const methodExecution = async (payload, channel, msg) => {
   } catch (error) {
     console.error(`[Worker] Error processing PO Event ${event_id}:`, error.message)
 
-    // Check retry count from RabbitMQ headers
-    const deathHeader = msg.properties.headers && msg.properties.headers['x-death']
-    const retryCount = deathHeader ? deathHeader[0].count : 0
+    try {
+      // Cek apakah masih bisa auto-retry berdasarkan retry_count dan max_retry di DB
+      const allowRetry = await purchasingService.canAutoRetry(event_id)
 
-    if (retryCount < 3) {
-      console.info(`[Worker] Retrying PO Event ${event_id} (${retryCount + 1}/3)`)
-      // Reject without requeue will move it to DLX (which we will configure as a retry queue)
-      channel.nack(msg, false, false)
-    } else {
-      console.error(`[Worker] Max retries reached for PO Event ${event_id}`)
-
-      // 7. Jika gagal (max retries), update status menjadi 'FAILED'
-      await purchasingService.updateLocalPOStatus(po_internal_id, 'failed')
-      await purchasingService.updateEventStatus(event_id, 'FAILED', error.message)
-      await purchasingService.logEvent(event_id, 'failed', error.message, error)
-
-      channel.ack(msg) // Stop retrying in RabbitMQ
+      if (allowRetry) {
+        // Increment retry_count di DB dan nack ke DLQ
+        const updated = await purchasingService.incrementRetryCount(event_id, error.message)
+        console.info(`[Worker] Retrying PO Event ${event_id} (retry_count: ${updated?.retry_count}/${updated?.max_retry})`)
+        await purchasingService.logEvent(event_id, 'retry', `Retry attempt ${updated?.retry_count}: ${error.message}`, { error: error.message })
+        channel.nack(msg, false, false) // → ke DLX → DLQ (delay 30s) → balik ke main queue
+      } else {
+        // retry_count sudah mencapai max_retry → FAILED, harus manual retry
+        console.error(`[Worker] Max retries reached for PO Event ${event_id}, marking as FAILED (manual retry required)`)
+        await purchasingService.updateLocalPOStatus(po_internal_id, 'failed')
+        await purchasingService.updateEventStatus(event_id, 'FAILED')
+        await purchasingService.logEvent(event_id, 'failed', `Max retries reached: ${error.message}`, { error: error.message })
+        channel.ack(msg) // ACK agar tidak retry lagi di RabbitMQ
+      }
+    } catch (retryErr) {
+      console.error(`[Worker] Failed to handle retry logic for PO Event ${event_id}:`, retryErr.message)
+      channel.ack(msg) // ACK untuk mencegah loop tak terbatas
     }
   }
 }
