@@ -52,13 +52,14 @@ const create = async (req, res) => {
     }
 
     const result = await service.createPurchaseOrder(req.body, req.user);
-    return baseResponse(res, {
-      code: 201,
+    return res.status(201).json({
+      success: true,
       data: {
         success: true,
-        data: result,
-        message: 'Purchase order berhasil dibuat'
-      }
+        poId: result.data.poId,
+        local_id: result.data.event_id
+      },
+      message: 'Purchase order berhasil dibuat'
     });
   } catch (error) {
     const statusCode = error.statusCode || 500;
