@@ -733,7 +733,7 @@ const getPurchaseOrderById = async (id) => {
       .leftJoin('taxcodes as t_line', dbNetsuite.raw("(line->>'taxcode') = t_line.taxcode_id::text"))
 
       .select([
-        'po.id', 'po.po_id', 'po.po_date', 'po.po_status', 'po.po_status_label',
+        'po.id', 'po.po_id', 'po.po_number', 'po.po_date', 'po.po_status', 'po.po_status_label',
         'po.memo', 'po.vendor_id',
         dbNetsuite.raw("COALESCE(NULLIF(po.vendor_name, ''), v.name) AS vendor_name"),
         'po.currency_id',
