@@ -369,6 +369,7 @@ const purchasingOrdersPaths = {
                   items: {
                     type: 'object',
                     properties: {
+                      line_sequence: { type: 'integer', example: 1 },
                       item: { type: 'integer', example: 18113 },
                       quantity: { type: 'integer', example: 1 },
                       location: { type: 'integer', example: 19 },

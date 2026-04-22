@@ -24,27 +24,32 @@ const methodExecution = async (payload, channel, msg) => {
     // Log start of process
     await purchasingService.logEvent(event_id, 'processing', 'Starting request to bridge API', data);
 
-    const result = await purchasingService.receiveItemPurchaseOrderToBridge(data);
+    const result = await purchasingService.receiveItemPurchaseOrderToBridge(data, receive_internal_id);
 
     if (result && result.success) {
       // Update outbox event status
       await purchasingService.updateEventStatus(event_id, 'SUCCESS', result.message || 'Item receipt successful', { request: data, response: result });
       await purchasingService.logEvent(event_id, 'success', 'Item receipt processed successfully in NetSuite', result);
 
-      // Trigger sync logic if needed
-      if (result.goods_receipts && Array.isArray(result.goods_receipts)) {
+      // Point 6: Update data ke DB pakai param id internal dari DB
+      if (result.goods_receipts && Array.isArray(result.goods_receipts) && result.goods_receipts.length > 0) {
+        const firstGr = result.goods_receipts[0];
+        console.info(`[ReceiveWorker] Updating local receive record ${receive_internal_id} with NetSuite ID: ${firstGr.id}`);
+        await purchasingService.updateLocalReceive(receive_internal_id, firstGr);
+
+        // Optional: Trigger full sync for all GRs returned
         for (const gr of result.goods_receipts) {
           if (gr.id) {
-            console.info(`[ReceiveWorker] Triggering sync for Goods Receipt ID: ${gr.id}`);
+            console.info(`[ReceiveWorker] Triggering full sync for Goods Receipt ID: ${gr.id}`);
             try {
               await purchasingService.syncReceiveList({
                 filters: {
                   receipt_ids: [gr.id.toString()]
                 }
               });
-              await purchasingService.logEvent(event_id, 'sync_success', `Goods Receipt ${gr.id} synced to local DB`, { gr_id: gr.id });
+              await purchasingService.logEvent(event_id, 'sync_success', `Goods Receipt ${gr.id} fully synced from Bridge API`, { gr_id: gr.id });
             } catch (syncError) {
-              console.error(`[ReceiveWorker] Sync failed for GR ${gr.id}:`, syncError.message);
+              console.error(`[ReceiveWorker] Full sync failed for GR ${gr.id}:`, syncError.message);
               await purchasingService.logEvent(event_id, 'sync_failed', syncError.message, { gr_id: gr.id });
             }
           }

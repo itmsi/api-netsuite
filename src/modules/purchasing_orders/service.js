@@ -610,7 +610,11 @@ const receiveItemPurchaseOrder = async (body) => {
   try {
     // 1. create data ke DB netsuite tabel receives (initial state)
     const receiveData = {
-      createdfrom: body.purchase_order, // po_id integer
+      createdfrom: body.po_id, // po_id integer
+      customform: body.customform || null,
+      class: body.class || null,
+      location: body.location || null,
+      department: body.department || null,
       status: 'pending',
       memo: body.memo || null,
       lines: JSON.stringify(body.items),
@@ -693,14 +697,19 @@ const receiveItemPurchaseOrder = async (body) => {
 /**
  * Hits the actual bridge API for Item Receipt (used by worker)
  */
-const receiveItemPurchaseOrderToBridge = async (body) => {
+const receiveItemPurchaseOrderToBridge = async (body, internalId) => {
   const tokenResponse = await authService.getToken();
   const token = tokenResponse.data.access_token;
 
   const baseUrl = process.env.BRIDGE_BASE_URL || 'https://api-bridge-sb.motorsights.com';
   const url = `${baseUrl}/api/v1/bridge/purchase-orders/receive-item`;
 
-  const response = await axios.post(url, body, {
+  const payload = {
+    ...body,
+    internal_id: internalId
+  };
+
+  const response = await axios.post(url, payload, {
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`
@@ -761,6 +770,7 @@ const getPurchaseOrderById = async (id) => {
         dbNetsuite.raw(`
           jsonb_agg(
             jsonb_build_object(
+                'line_id', line->>'line_id',
                 'item', COALESCE(
                     NULLIF(line->>'item', ''),
                     line->>'itemId'
@@ -1417,6 +1427,46 @@ const syncReceiveList = async (body) => {
   }
 };
 
+const updateLocalReceive = async (internalId, data) => {
+  try {
+    const updateData = {
+      netsuite_id: data.id || data.netsuite_id,
+      tranid: data.tranid,
+      trandate: data.trandate,
+      status: data.status || 'success',
+      status_display: data.status_display,
+      memo: data.memo,
+      vendor_id: data.vendor_id,
+      vendor_name: data.vendor_name,
+      createdfrom: data.po_id || data.createdfrom,
+      createdfrom_display: data.po_number || data.createdfrom_display,
+      subsidiary: data.subsidiary,
+      subsidiary_display: data.subsidiary_display,
+      location: data.location,
+      location_display: data.location_display,
+      department: data.department,
+      department_display: data.department_display,
+      class: data.class,
+      class_display: data.class_display,
+      last_modified_netsuite: data.last_modified || data.last_modified_netsuite || new Date(),
+      datecreated_netsuite: data.datecreated || data.datecreated_netsuite || new Date(),
+      updated_at: new Date()
+    };
+
+    // Remove undefined fields
+    Object.keys(updateData).forEach(key => updateData[key] === undefined && delete updateData[key]);
+
+    await dbNetsuite('receives')
+      .where('id', internalId)
+      .update(updateData);
+
+    return true;
+  } catch (error) {
+    console.error(`[Service] Failed to update local receive ${internalId}:`, error.message);
+    return false;
+  }
+};
+
 module.exports = {
   getPurchaseOrders,
   printPurchaseOrder,
@@ -1441,5 +1491,6 @@ module.exports = {
   canAutoRetry,
   getEventStatus,
   retryPurchaseOrder,
-  receiveItemPurchaseOrderToBridge
+  receiveItemPurchaseOrderToBridge,
+  updateLocalReceive
 };
