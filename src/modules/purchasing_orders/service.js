@@ -33,32 +33,34 @@ const getPurchaseOrders = async (body) => {
     ];
     let orderCol = validSortColumns.includes(body.sort_by) ? body.sort_by : 'last_modified';
     if (orderCol === 'created_at') {
-      orderCol = 'datecreated';
+      orderCol = dbNetsuite.raw("COALESCE(NULLIF(po.datecreated, '')::timestamp, po.created_at)");
+    } else {
+      orderCol = `po.${orderCol}`;
     }
 
-    let query = dbNetsuite('purchase_orders');
+    let query = dbNetsuite('purchase_orders as po');
 
     // Filter opsional
     if (body.search) {
       query = query.where(function () {
-        this.whereILike('po_number', `%${body.search}%`)
-          .orWhereILike('vendor_name', `%${body.search}%`)
-          .orWhereILike('memo', `%${body.search}%`);
+        this.whereILike('po.po_number', `%${body.search}%`)
+          .orWhereILike('po.vendor_name', `%${body.search}%`)
+          .orWhereILike('po.memo', `%${body.search}%`);
       });
     }
     if (body.subsidiary) {
-      query = query.where('subsidiary', body.subsidiary);
+      query = query.where('po.subsidiary', body.subsidiary);
     }
     if (body.location) {
-      query = query.where('location', body.location);
+      query = query.where('po.location', body.location);
     }
 
     if (body.po_status) {
-      query = query.where('po_status', body.po_status);
+      query = query.where('po.po_status', body.po_status);
     }
 
     if (body.approvalstatus) {
-      query = query.where('approvalstatus', body.approvalstatus);
+      query = query.where('po.approvalstatus', body.approvalstatus);
     }
 
     // Handle classes filter (parent and children)
@@ -84,7 +86,7 @@ const getPurchaseOrders = async (body) => {
 
     // Step 6: Apply class filter
     if (classIds.length > 0) {
-      query = query.whereIn('class', classIds);
+      query = query.whereIn('po.class', classIds);
     }
 
     // Hitung total
@@ -92,22 +94,33 @@ const getPurchaseOrders = async (body) => {
     const total = parseInt(countResult.total) || 0;
     const totalPages = Math.ceil(total / limit);
 
-    // Select kolom eksplisit sesuai format response (exclude raw_request, raw_response, id internal)
+    // Select kolom sesuai SQL user
     const items = await query
       .clone()
+      .leftJoin('vendors as v', dbNetsuite.raw('po.vendor_id = v.netsuite_id::integer'))
+      .leftJoin('subsidiarys as s', 'po.subsidiary', 's.subsidiary_id')
+      .leftJoin('locations as l', dbNetsuite.raw('po.location = l.netsuite_id::integer'))
+      .leftJoin('class as c2', dbNetsuite.raw('po.class::text = c2.netsuite_id::text'))
       .select([
-        'po_id', 'po_number', 'po_date', 'po_status', 'po_status_label',
-        'memo', 'vendor_id', 'vendor_name', 'currency_id', 'currency_symbol',
-        'foreigntotal', 'total', 'last_modified', 'approvalstatus', 'approvalstatus_display',
-        'custbody_me_wf_created_by', 'custbody_me_wf_in_delegation',
-        'custbody_me_delegate_approver', 'custbody_msi_createdby_api',
-        'custbody_me_pr_date', 'custbody_me_project_location', 'custbody_me_pr_type',
-        'custbody_me_saving_type', 'custbody_me_pr_number', 'custbody_me_description',
-        'intercotransaction', 'terms', 'terms_display', 'duedate', 'otherrefnum',
-        'subsidiary', 'subsidiary_display', 'location', 'location_display',
-        'customform', 'customform_display', 'class', 'class_display',
-        'nextapprover', 'custbody_me_validity_date', 'department', 'department_display',
-        'datecreated as created_at', 'lines'
+        'po.id',
+        'po.po_id',
+        dbNetsuite.raw("COALESCE(NULLIF(po.subsidiary_display, ''), s.subsidiary_name) AS subsidiary_display"),
+        'po.po_number',
+        'po.po_date',
+        dbNetsuite.raw("COALESCE(NULLIF(po.vendor_name, ''), v.name) AS vendor_name"),
+        'po.custbody_me_pr_number',
+        dbNetsuite.raw("COALESCE(NULLIF(po.location_display, ''), l.name) AS location_display"),
+        dbNetsuite.raw("COALESCE(NULLIF(po.class_display, ''), c2.name) AS class_display"),
+        'po.approvalstatus',
+        'po.approvalstatus_display',
+        'po.nextapprover',
+        'po.po_status',
+        'po.po_status_label',
+        'po.memo',
+        'po.total',
+        'po.custbody_msi_createdby_api',
+        'po.last_modified',
+        dbNetsuite.raw("COALESCE(NULLIF(po.datecreated, '')::timestamp, po.created_at) AS created_at")
       ])
       .orderBy(orderCol, sortOrder)
       .limit(limit)
@@ -366,8 +379,9 @@ const updateEventStatus = async (id, status, result, properties) => {
     updated_at: new Date()
   };
 
-  if (result) {
-    updateData.properties = JSON.stringify(result);
+  const finalProperties = properties || result;
+  if (finalProperties) {
+    updateData.properties = typeof finalProperties === 'string' ? JSON.stringify({ message: finalProperties }) : JSON.stringify(finalProperties);
   }
 
   await dbNetsuite('outbox_events')
@@ -590,34 +604,108 @@ const approvePurchaseOrder = async (body) => {
 };
 
 const receiveItemPurchaseOrder = async (body) => {
+  const trx = await dbNetsuite.transaction();
   try {
-    // 1. Get token from auth module
-    const tokenResponse = await authService.getToken();
-    const token = tokenResponse.data.access_token;
+    // 1. create data ke DB netsuite tabel receives (initial state)
+    const receiveData = {
+      createdfrom: body.purchase_order, // po_id integer
+      status: 'pending',
+      memo: body.memo || null,
+      lines: JSON.stringify(body.items),
+      created_at: new Date(),
+      updated_at: new Date()
+    };
 
-    // 2. Hit bridge receive item purchase order endpoint
-    const baseUrl = process.env.BRIDGE_BASE_URL || 'https://api-bridge-sb.motorsights.com';
-    const url = `${baseUrl}/api/v1/bridge/purchase-orders/receive-item`;
+    const [receiveInternal] = await trx('receives').insert(receiveData).returning('id');
+    const receiveInternalId = typeof receiveInternal === 'object' ? receiveInternal.id : receiveInternal;
 
-    const response = await axios.post(url, body, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      }
+    // 2. create satu data ke outbox_events dan satu log awal
+    const eventData = {
+      event_type: 'CREATE',
+      payload: JSON.stringify(body),
+      aggregate_id: receiveInternalId,
+      aggregate_type: 'purchase_order_receive_item',
+      status: 'WAITING',
+      retry_count: 0,
+      max_retry: 3,
+      last_error: null,
+      properties: JSON.stringify({
+        request: body
+      }),
+      created_at: new Date(),
+      updated_at: new Date()
+    };
+
+    const [eventIdObj] = await trx('outbox_events').insert(eventData).returning('id');
+    const eventId = typeof eventIdObj === 'object' ? eventIdObj.id : eventIdObj;
+
+    await trx('outbox_event_logs').insert({
+      outbox_event_id: eventId,
+      properties: JSON.stringify({
+        response: {
+          message: 'Item receipt queued for processing',
+          status: 'WAITING'
+        }
+      }),
+      created_at: new Date(),
+      updated_at: new Date()
     });
 
-    return response.data;
+    await trx.commit();
+
+    // 3. buatkan queue untuk rabbit mq
+    const { publishToRabbitMqQueueSingle } = require('../../config/rabbitmq');
+    const { EXCHANGES, QUEUE } = require('../../utils/constant');
+
+    await publishToRabbitMqQueueSingle(
+      EXCHANGES.PURCHASE_ORDER_RECEIVE,
+      QUEUE.PURCHASE_ORDER_RECEIVE,
+      {
+        event_id: eventId,
+        receive_internal_id: receiveInternalId,
+        data: body
+      },
+      {
+        durable: true,
+        arguments: {
+          'x-dead-letter-exchange': `${EXCHANGES.PURCHASE_ORDER_RECEIVE}-retry`
+        }
+      }
+    );
+
+    return {
+      success: true,
+      message: 'Item receipt is being processed',
+      data: {
+        receiptId: receiveInternalId,
+        event_id: eventId
+      }
+    };
 
   } catch (error) {
-    if (error.response) {
-      throw {
-        message: error.response.data?.message || 'Failed to receive item purchase order via bridge API',
-        statusCode: error.response.status,
-        errors: error.response.data
-      };
-    }
-    throw { message: error.message, statusCode: 500 };
+    if (trx) await trx.rollback();
+    throw { message: error.message || 'Failed to initiate item receipt', statusCode: 500 };
   }
+};
+
+/**
+ * Hits the actual bridge API for Item Receipt (used by worker)
+ */
+const receiveItemPurchaseOrderToBridge = async (body) => {
+  const tokenResponse = await authService.getToken();
+  const token = tokenResponse.data.access_token;
+
+  const baseUrl = process.env.BRIDGE_BASE_URL || 'https://api-bridge-sb.motorsights.com';
+  const url = `${baseUrl}/api/v1/bridge/purchase-orders/receive-item`;
+
+  const response = await axios.post(url, body, {
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    }
+  });
+
+  return response.data;
 };
 
 const getPurchaseOrderById = async (id) => {
@@ -1096,5 +1184,6 @@ module.exports = {
   incrementRetryCount,
   canAutoRetry,
   getEventStatus,
-  retryPurchaseOrder
+  retryPurchaseOrder,
+  receiveItemPurchaseOrderToBridge
 };

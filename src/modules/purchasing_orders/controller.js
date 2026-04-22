@@ -176,22 +176,6 @@ const receiveItem = async (req, res) => {
   try {
     const result = await service.receiveItemPurchaseOrder(req.body);
 
-    // Jika sukses, trigger sync untuk record yang baru dibuat
-    if (result && result.success && result.goods_receipts && Array.isArray(result.goods_receipts)) {
-      for (const gr of result.goods_receipts) {
-        if (gr.id) {
-          // Sync record baru ke database lokal
-          await service.syncReceiveList({
-            filters: {
-              receipt_ids: [gr.id.toString()]
-            }
-          }).catch(err => {
-            console.error(`Auto-sync failed for GR ${gr.id}:`, err.message);
-          });
-        }
-      }
-    }
-
     return baseResponse(res, {
       code: 200,
       data: result

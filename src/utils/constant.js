@@ -328,7 +328,8 @@ module.exports = {
     PUBLISH_CATALOG: 'exchanges-publish-catalog',
     PURCHASE_ORDER_CREATE: 'purchase-order-create-v2',
     PURCHASE_ORDER_UPDATE: 'purchase-order-update-v2',
-    PURCHASE_ORDER_RETRY: 'purchase-order-manual-retry'
+    PURCHASE_ORDER_RETRY: 'purchase-order-manual-retry',
+    PURCHASE_ORDER_RECEIVE: 'purchase-order-receive-v2'
   },
   ACTION_TRX: {
     INSERT: 'insert',
@@ -346,7 +347,9 @@ module.exports = {
     IMAGE_KTP: 'queue-ktp-processing',
     PURCHASE_ORDER_CREATE: 'purchase-order-creation-v2',
     PURCHASE_ORDER_MANUAL_RETRY: 'purchase-order-manual-retry',
-    PURCHASE_ORDER_UPDATE: 'purchase-order-update-v2'
+    PURCHASE_ORDER_MANUAL_UPDATE: 'purchase-order-manual-update',
+    PURCHASE_ORDER_UPDATE: 'purchase-order-update-v2',
+    PURCHASE_ORDER_RECEIVE: 'purchase-order-receive-v2'
   },
   ENUM: {
     Y: 'Y',
