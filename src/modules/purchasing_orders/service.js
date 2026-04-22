@@ -711,6 +711,7 @@ const receiveItemPurchaseOrderToBridge = async (body) => {
 const getPurchaseOrderById = async (id) => {
   try {
     const baseQuery = () => dbNetsuite('purchase_orders as po')
+      // JOIN HEADER MASTER
       .leftJoin('vendors as v', dbNetsuite.raw('po.vendor_id = v.netsuite_id::integer'))
       .leftJoin('terms as t', dbNetsuite.raw('po.terms = t.netsuite_id::integer'))
       .leftJoin('subsidiarys as s', 'po.subsidiary', 's.subsidiary_id')
@@ -718,6 +719,14 @@ const getPurchaseOrderById = async (id) => {
       .leftJoin('customforms as c', dbNetsuite.raw('po.customform::integer = c.customform_id'))
       .leftJoin('class as c2', dbNetsuite.raw('po.class::text = c2.netsuite_id::text'))
       .leftJoin('departments as d', dbNetsuite.raw('po.department::text = d.netsuite_id::text'))
+      
+      // EXPLODE JSON & JOIN MASTER DARI JSON
+      .leftJoin(dbNetsuite.raw("LATERAL jsonb_array_elements(COALESCE(po.lines, '[]'::jsonb)) AS line ON TRUE"))
+      .leftJoin('items as i', dbNetsuite.raw("(line->>'item') = i.netsuite_id::text"))
+      .leftJoin('class as c_line', dbNetsuite.raw("(line->>'class') = c_line.netsuite_id::text"))
+      .leftJoin('locations as l_line', dbNetsuite.raw("(line->>'location') = l_line.netsuite_id::text"))
+      .leftJoin('departments as d_line', dbNetsuite.raw("(line->>'department') = d_line.netsuite_id::text"))
+      
       .select([
         'po.id', 'po.po_id', 'po.po_date', 'po.po_status', 'po.po_status_label',
         'po.memo', 'po.vendor_id',
@@ -742,7 +751,38 @@ const getPurchaseOrderById = async (id) => {
         dbNetsuite.raw("COALESCE(NULLIF(po.department_display, ''), d.name) AS department_display"),
         dbNetsuite.raw("COALESCE(NULLIF(po.datecreated, '')::timestamp, po.created_at) AS created_at"),
         'po.custbody_me_wf_next_approver_blank', 'po.custbody_me_wf_next_approver_blank_display',
-        'po.lines'
+        dbNetsuite.raw(`
+          jsonb_agg(
+            jsonb_build_object(
+                'line_id', line->>'line_id',
+                'item_id', line->>'item',
+                'quantity', line->>'quantity',
+                'rate', line->>'rate',
+                'gross_amount', line->>'grossamt',
+                'net_amount', line->>'netamount',
+                'tax_amount', line->>'tax1amt',
+                'description', line->>'description',
+                'item_display', line->>'item_display',
+                'class_display', line->>'class_display',
+                'location_display', line->>'location_display',
+                'department_display', line->>'department_display',
+                'item_name', i.display_name,
+                'class_name', c_line.name,
+                'location_name', l_line.name,
+                'department_name', d_line.name
+            )
+          ) FILTER (WHERE line IS NOT NULL) AS lines
+        `)
+      ])
+      .groupBy([
+        'po.id',
+        'v.name',
+        't.name',
+        's.subsidiary_name',
+        'l.name',
+        'c.customform_name',
+        'c2.name',
+        'd.name'
       ]);
 
     // Cari dulu berdasarkan po_id (integer/netsuite ID), jika tidak ketemu cari berdasarkan id (UUID)
