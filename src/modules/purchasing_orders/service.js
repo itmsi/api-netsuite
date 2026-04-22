@@ -1196,6 +1196,8 @@ const getReceiveList = async (body) => {
 
     let query = dbNetsuite('receives as r');
 
+    query = query.whereNotNull('r.netsuite_id');
+
     // 1. New Search Logic (Search across multiple columns)
     if (body.search) {
       query = query.where(function () {
