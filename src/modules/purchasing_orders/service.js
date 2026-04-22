@@ -771,6 +771,10 @@ const getPurchaseOrderById = async (id) => {
           jsonb_agg(
             jsonb_build_object(
                 'line_id', line->>'line_id',
+                'linesequencenumber', line->>'linesequencenumber',
+                'inbound_shipment_number', line->>'inbound_shipment_number',
+                'inbound_shipment_line_id', line->>'inbound_shipment_line_id',
+                'has_inbound', line->>'has_inbound',
                 'item', COALESCE(
                     NULLIF(line->>'item', ''),
                     line->>'itemId'
