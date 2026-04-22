@@ -710,15 +710,50 @@ const receiveItemPurchaseOrderToBridge = async (body) => {
 
 const getPurchaseOrderById = async (id) => {
   try {
+    const baseQuery = () => dbNetsuite('purchase_orders as po')
+      .leftJoin('vendors as v', dbNetsuite.raw('po.vendor_id = v.netsuite_id::integer'))
+      .leftJoin('terms as t', dbNetsuite.raw('po.terms = t.netsuite_id::integer'))
+      .leftJoin('subsidiarys as s', 'po.subsidiary', 's.subsidiary_id')
+      .leftJoin('locations as l', dbNetsuite.raw('po.location = l.netsuite_id::integer'))
+      .leftJoin('customforms as c', dbNetsuite.raw('po.customform::integer = c.customform_id'))
+      .leftJoin('class as c2', dbNetsuite.raw('po.class::text = c2.netsuite_id::text'))
+      .leftJoin('departments as d', dbNetsuite.raw('po.department::text = d.netsuite_id::text'))
+      .select([
+        'po.id', 'po.po_id', 'po.po_date', 'po.po_status', 'po.po_status_label',
+        'po.memo', 'po.vendor_id',
+        dbNetsuite.raw("COALESCE(NULLIF(po.vendor_name, ''), v.name) AS vendor_name"),
+        'po.currency_id', 'po.currency_symbol', 'po.foreigntotal', 'po.total',
+        'po.last_modified', 'po.approvalstatus', 'po.approvalstatus_display',
+        'po.custbody_me_wf_created_by', 'po.custbody_me_wf_in_delegation',
+        'po.custbody_me_delegate_approver', 'po.custbody_msi_createdby_api',
+        'po.custbody_me_pr_date', 'po.custbody_me_project_location', 'po.custbody_me_pr_type',
+        'po.custbody_me_saving_type', 'po.custbody_me_pr_number', 'po.custbody_me_description',
+        'po.intercotransaction', 'po.terms',
+        dbNetsuite.raw("COALESCE(NULLIF(po.terms_display, ''), t.name) AS terms_display"),
+        'po.duedate', 'po.otherrefnum', 'po.subsidiary',
+        dbNetsuite.raw("COALESCE(NULLIF(po.subsidiary_display, ''), s.subsidiary_name) AS subsidiary_display"),
+        'po.location',
+        dbNetsuite.raw("COALESCE(NULLIF(po.location_display, ''), l.name) AS location_display"),
+        'po.customform',
+        dbNetsuite.raw("COALESCE(NULLIF(po.customform_display, ''), c.customform_name) AS customform_display"),
+        'po.class',
+        dbNetsuite.raw("COALESCE(NULLIF(po.class_display, ''), c2.name) AS class_display"),
+        'po.nextapprover', 'po.custbody_me_validity_date', 'po.department',
+        dbNetsuite.raw("COALESCE(NULLIF(po.department_display, ''), d.name) AS department_display"),
+        dbNetsuite.raw("COALESCE(NULLIF(po.datecreated, '')::timestamp, po.created_at) AS created_at"),
+        'po.custbody_me_wf_next_approver_blank', 'po.custbody_me_wf_next_approver_blank_display',
+        'po.lines'
+      ]);
+
     // Cari dulu berdasarkan po_id (integer/netsuite ID), jika tidak ketemu cari berdasarkan id (UUID)
-    let record = await dbNetsuite('purchase_orders')
-      .where('po_id', id)
+    let record = await baseQuery()
+      .where('po.po_id', id)
       .first();
 
     if (!record) {
       // Fallback: cari berdasarkan UUID primary key
-      record = await dbNetsuite('purchase_orders')
-        .where('id', id)
+      record = await baseQuery()
+        .where('po.id', id)
         .first();
     }
 
