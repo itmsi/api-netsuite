@@ -1192,7 +1192,7 @@ const getReceiveList = async (body) => {
 
     // 2. Specialized filters (support both root and legacy body.filters)
     const filters = body.filters || {};
-    
+
     // Receipt IDs
     const receiptIds = body.receipt_ids || filters.receipt_ids;
     if (receiptIds && Array.isArray(receiptIds)) {
@@ -1223,12 +1223,6 @@ const getReceiveList = async (body) => {
       query = query.where('r.vendor_id', vendorId);
     }
 
-    // Classes / Class
-    const classes = body.classes || filters.classes;
-    if (classes) {
-      query = query.where('r.class', classes);
-    }
-
     // Subsidiary
     const subsidiary = body.subsidiary || filters.subsidiary;
     if (subsidiary) {
@@ -1239,6 +1233,33 @@ const getReceiveList = async (body) => {
     const location = body.location || filters.location;
     if (location) {
       query = query.where('r.location', location);
+    }
+
+    // Handle classes filter (parent and children)
+    let classIds = [];
+    const classes = body.classes || filters.classes;
+    if (classes) {
+      const parentIdStr = body.classes.toString();
+      classIds.push(parentIdStr);
+
+      // Step 2 & 3: Cek ke tabel class untuk child yang memiliki parent_id tersebut
+      const children = await dbNetsuite('class')
+        .select('netsuite_id')
+        .where('parent_id', parentIdStr)
+        .andWhere('is_delete', false)
+        .whereNull('deleted_at');
+
+      // Step 4 & 5: Masukan daftar netsuite_id tersebut
+      if (children && children.length > 0) {
+        children.forEach(child => {
+          if (child.netsuite_id) classIds.push(child.netsuite_id.toString());
+        });
+      }
+    }
+
+    // Step 6: Apply class filter
+    if (classIds.length > 0) {
+      query = query.whereIn('r.class', classIds);
     }
 
     // Last Modified (Date)
@@ -1259,12 +1280,7 @@ const getReceiveList = async (body) => {
       .leftJoin('locations as l', dbNetsuite.raw('l.netsuite_id::integer = r.location::integer'))
       .leftJoin('departments as d', dbNetsuite.raw('d.netsuite_id::integer = r.department::integer'))
       .leftJoin('class as c2', dbNetsuite.raw('c2.netsuite_id::integer = r.class::integer'))
-      // Joins for lines lines enrichment
-      .leftJoin(dbNetsuite.raw("LATERAL jsonb_array_elements(COALESCE(r.lines, '[]'::jsonb)) AS line ON TRUE"))
-      .leftJoin('items as i', dbNetsuite.raw("(line->>'item') = i.netsuite_id::text"))
-      .leftJoin('class as c_line', dbNetsuite.raw("(line->>'class') = c_line.netsuite_id::text"))
-      .leftJoin('locations as l_line', dbNetsuite.raw("(line->>'location') = l_line.netsuite_id::text"))
-      .leftJoin('departments as d_line', dbNetsuite.raw("(line->>'department') = d_line.netsuite_id::text"))
+
       .select([
         'r.id',
         'r.netsuite_id as receipt_id',
@@ -1288,30 +1304,7 @@ const getReceiveList = async (body) => {
         'r.last_modified_netsuite',
         'r.datecreated_netsuite',
         'r.created_at',
-        'r.updated_at',
-        dbNetsuite.raw(`
-          jsonb_agg(
-            jsonb_build_object(
-                'item', line->>'item',
-                'line', COALESCE(
-                    NULLIF(line->>'line', ''),
-                    line->>'line_sequence'
-                ),
-                'memo', line->>'memo',
-                'rate', line->>'rate',
-                'class', line->>'class',
-                'amount', line->>'amount',
-                'location', line->>'location',
-                'quantity', line->>'quantity',
-                'department', line->>'department',
-                'item_display', COALESCE(NULLIF(line->>'item_display', ''), i.display_name),
-                'class_display', COALESCE(NULLIF(line->>'class_display', ''), c_line.name),
-                'inventorydetail', line->>'inventorydetail',
-                'location_display', COALESCE(NULLIF(line->>'location_display', ''), l_line.name),
-                'department_display', COALESCE(NULLIF(line->>'department_display', ''), d_line.name)
-            )
-          ) FILTER (WHERE line IS NOT NULL) AS lines
-        `)
+        'r.updated_at'
       ])
       .groupBy([
         'r.id', 'v.name', 'c.customform_name', 's.subsidiary_name', 'l.name', 'd.name', 'c2.name'
