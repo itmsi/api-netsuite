@@ -175,6 +175,24 @@ const purchasingOrdersSchemas = {
       },
       timestamp: { type: 'string', format: 'date-time', example: '2026-04-01T06:26:20.856Z' }
     }
+  },
+  ReceiveListRequest: {
+    type: 'object',
+    properties: {
+      page: { type: 'integer', default: 1, example: 1 },
+      limit: { type: 'integer', default: 10, example: 10 },
+      sort_by: { type: 'string', default: 'created_at', example: 'created_at' },
+      sort_order: { type: 'string', default: 'desc', example: 'desc' },
+      search: { type: 'string', default: '', example: '', description: 'Filter untuk tranid, vendor_name, subsidiary_display, location_display' },
+      classes: { type: 'string', default: '', example: '', description: 'Filter untuk kolom class' },
+      subsidiary: { type: 'string', default: '', example: '', description: 'Filter untuk kolom subsidiary' },
+      location: { type: 'string', default: '', example: '', description: 'Filter untuk kolom location' },
+      vendor_id: { type: 'string', default: '', example: '', description: 'Filter untuk kolom vendor_id' },
+      receipt_ids: { type: 'array', items: { type: 'string' }, example: ['10361'], description: 'Filter untuk list receipt ID' },
+      tranid: { type: 'string', default: '', example: '', description: 'Filter untuk kolom tranid' },
+      createdfrom_text: { type: 'string', default: '', example: 'PO-', description: 'Filter untuk kolom createdfrom_text' },
+      createdfrom: { type: 'integer', default: 5512, example: 5512, description: 'Filter untuk kolom createdfrom' }
+    }
   }
 };
 

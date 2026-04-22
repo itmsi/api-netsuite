@@ -854,35 +854,95 @@ const getPurchaseOrderById = async (id) => {
  */
 const getReceiveById = async (id) => {
   try {
-    const item = await dbNetsuite('receives')
+    const baseQuery = () => dbNetsuite('receives as r')
+      .leftJoin('vendors as v', dbNetsuite.raw('r.vendor_id::integer = v.netsuite_id::integer'))
+      .leftJoin('customforms as c', dbNetsuite.raw('c.customform_id::integer = r.createdfrom::integer'))
+      .leftJoin('subsidiarys as s', dbNetsuite.raw('s.subsidiary_id::integer = r.subsidiary::integer'))
+      .leftJoin('locations as l', dbNetsuite.raw('l.netsuite_id::integer = r.location::integer'))
+      .leftJoin('departments as d', dbNetsuite.raw('d.netsuite_id::integer = r.department::integer'))
+      .leftJoin('class as c2', dbNetsuite.raw('c2.netsuite_id::integer = r.class::integer'))
+      // Joins for lines lines enrichment
+      .leftJoin(dbNetsuite.raw("LATERAL jsonb_array_elements(COALESCE(r.lines, '[]'::jsonb)) AS line ON TRUE"))
+      .leftJoin('items as i', dbNetsuite.raw("(line->>'item') = i.netsuite_id::text"))
+      .leftJoin('class as c_line', dbNetsuite.raw("(line->>'class') = c_line.netsuite_id::text"))
+      .leftJoin('locations as l_line', dbNetsuite.raw("(line->>'location') = l_line.netsuite_id::text"))
+      .leftJoin('departments as d_line', dbNetsuite.raw("(line->>'department') = d_line.netsuite_id::text"))
       .select([
-        'netsuite_id as receipt_id', 'tranid', 'trandate', 'status', 'status_display',
-        'memo', 'vendor_id', 'vendor_name', 'createdfrom', 'createdfrom_display',
-        'subsidiary', 'subsidiary_display', 'location', 'location_display',
-        'department', 'department_display', 'class', 'class_display',
-        'last_modified_netsuite', 'datecreated_netsuite', 'lines'
+        'r.id',
+        'r.netsuite_id as receipt_id',
+        'r.tranid',
+        'r.trandate',
+        'r.status',
+        'r.status_display',
+        'r.memo',
+        'r.vendor_id',
+        dbNetsuite.raw("COALESCE(NULLIF(r.vendor_name, ''), v.name) AS vendor_name"),
+        'r.createdfrom',
+        dbNetsuite.raw("COALESCE(NULLIF(r.createdfrom_display, ''), c.customform_name) AS createdfrom_display"),
+        'r.subsidiary',
+        dbNetsuite.raw("COALESCE(NULLIF(r.subsidiary_display, ''), s.subsidiary_name) AS subsidiary_display"),
+        'r.location',
+        dbNetsuite.raw("COALESCE(NULLIF(r.location_display, ''), l.name) AS location_display"),
+        'r.department',
+        dbNetsuite.raw("COALESCE(NULLIF(r.department_display, ''), d.name) AS department_display"),
+        'r.class',
+        dbNetsuite.raw("COALESCE(NULLIF(r.class_display, ''), c2.name) AS class_display"),
+        'r.last_modified_netsuite',
+        'r.datecreated_netsuite',
+        'r.created_at',
+        'r.updated_at',
+        dbNetsuite.raw(`
+          jsonb_agg(
+            jsonb_build_object(
+                'item', line->>'item',
+                'line', COALESCE(
+                    NULLIF(line->>'line', ''),
+                    line->>'line_sequence'
+                ),
+                'memo', line->>'memo',
+                'rate', line->>'rate',
+                'class', line->>'class',
+                'amount', line->>'amount',
+                'location', line->>'location',
+                'quantity', line->>'quantity',
+                'department', line->>'department',
+                'item_display', COALESCE(NULLIF(line->>'item_display', ''), i.display_name),
+                'class_display', COALESCE(NULLIF(line->>'class_display', ''), c_line.name),
+                'inventorydetail', line->>'inventorydetail',
+                'location_display', COALESCE(NULLIF(line->>'location_display', ''), l_line.name),
+                'department_display', COALESCE(NULLIF(line->>'department_display', ''), d_line.name)
+            )
+          ) FILTER (WHERE line IS NOT NULL) AS lines
+        `)
       ])
-      .where('netsuite_id', id)
-      .first();
+      .groupBy([
+        'r.id', 'v.name', 'c.customform_name', 's.subsidiary_name', 'l.name', 'd.name', 'c2.name'
+      ]);
+
+    // Cari dulu berdasarkan receipt_id (netsuite ID) jika numeric, lalu fallback ke UUID (id)
+    let item;
+    if (/^\d+$/.test(id)) {
+      item = await baseQuery()
+        .where('r.netsuite_id', id)
+        .first();
+    }
+
+    if (!item) {
+      // Fallback: cari berdasarkan UUID primary key atau ID string
+      item = await baseQuery()
+        .where('r.id', id)
+        .first();
+    }
 
     if (!item) {
       throw { message: 'Data receive tidak ditemukan', statusCode: 404 };
-    }
-
-    // Parse lines if it's a string
-    if (item.lines && typeof item.lines === 'string') {
-      try {
-        item.lines = JSON.parse(item.lines);
-      } catch (e) {
-        item.lines = [];
-      }
     }
 
     return {
       items: [item],
       pagination: {
         page: 1,
-        limit: 20,
+        limit: 1,
         total: 1,
         totalPages: 1
       }
@@ -1110,48 +1170,151 @@ const getReceiveList = async (body) => {
     }
 
     const page = parseInt(body.page) || 1;
-    const limit = parseInt(body.page_size || body.limit) || 20;
+    const limit = parseInt(body.limit || body.page_size) || 20;
     const sortOrder = body.sort_order ? body.sort_order.toUpperCase() : 'DESC';
     const offset = (page - 1) * limit;
 
-    const validSortColumns = ['last_modified_netsuite', 'tranid', 'trandate'];
-    const orderCol = validSortColumns.includes(body.sort_by) ? body.sort_by : 'last_modified_netsuite';
+    const validSortColumns = ['last_modified_netsuite', 'tranid', 'trandate', 'created_at', 'updated_at'];
+    let orderCol = validSortColumns.includes(body.sort_by) ? body.sort_by : 'last_modified_netsuite';
+    orderCol = `r.${orderCol}`;
 
-    let query = dbNetsuite('receives');
+    let query = dbNetsuite('receives as r');
 
-    if (body.filters) {
-      if (body.filters.receipt_ids && Array.isArray(body.filters.receipt_ids)) {
-        query = query.whereIn('netsuite_id', body.filters.receipt_ids);
-      }
-      if (body.filters.tranid) {
-        query = query.whereILike('tranid', `%${body.filters.tranid}%`);
-      }
-      if (body.filters.createdfrom_text) {
-        query = query.whereILike('createdfrom_display', `%${body.filters.createdfrom_text}%`);
-      }
-      if (body.filters.createdfrom) {
-        query = query.where('createdfrom', body.filters.createdfrom);
-      }
-      if (body.filters.vendor_id) {
-        query = query.where('vendor_id', body.filters.vendor_id);
-      }
-      if (body.filters.lastmodified) {
-        query = query.where('last_modified_netsuite', '>=', body.filters.lastmodified);
-      }
+    // 1. New Search Logic (Search across multiple columns)
+    if (body.search) {
+      query = query.where(function () {
+        this.whereILike('r.tranid', `%${body.search}%`)
+          .orWhereILike('r.vendor_name', `%${body.search}%`)
+          .orWhereILike('r.subsidiary_display', `%${body.search}%`)
+          .orWhereILike('r.location_display', `%${body.search}%`);
+      });
     }
 
-    const countResult = await query.clone().count('* as total').first();
+    // 2. Specialized filters (support both root and legacy body.filters)
+    const filters = body.filters || {};
+    
+    // Receipt IDs
+    const receiptIds = body.receipt_ids || filters.receipt_ids;
+    if (receiptIds && Array.isArray(receiptIds)) {
+      query = query.whereIn('r.netsuite_id', receiptIds);
+    }
+
+    // Tran ID
+    const tranid = body.tranid || filters.tranid;
+    if (tranid) {
+      query = query.whereILike('r.tranid', `%${tranid}%`);
+    }
+
+    // Created From Display (text)
+    const createdFromText = body.createdfrom_text || filters.createdfrom_text;
+    if (createdFromText) {
+      query = query.whereILike('r.createdfrom_display', `%${createdFromText}%`);
+    }
+
+    // Created From (ID)
+    const createdFrom = body.createdfrom || filters.createdfrom;
+    if (createdFrom) {
+      query = query.where('r.createdfrom', createdFrom);
+    }
+
+    // Vendor ID
+    const vendorId = body.vendor_id || filters.vendor_id;
+    if (vendorId) {
+      query = query.where('r.vendor_id', vendorId);
+    }
+
+    // Classes / Class
+    const classes = body.classes || filters.classes;
+    if (classes) {
+      query = query.where('r.class', classes);
+    }
+
+    // Subsidiary
+    const subsidiary = body.subsidiary || filters.subsidiary;
+    if (subsidiary) {
+      query = query.where('r.subsidiary', subsidiary);
+    }
+
+    // Location
+    const location = body.location || filters.location;
+    if (location) {
+      query = query.where('r.location', location);
+    }
+
+    // Last Modified (Date)
+    const lastModified = body.lastmodified || filters.lastmodified;
+    if (lastModified) {
+      query = query.where('r.last_modified_netsuite', '>=', lastModified);
+    }
+
+    const countResult = await query.clone().count('r.id as total').first();
     const total = parseInt(countResult.total) || 0;
     const totalPages = Math.ceil(total / limit);
 
     const items = await query
       .clone()
+      .leftJoin('vendors as v', dbNetsuite.raw('r.vendor_id::integer = v.netsuite_id::integer'))
+      .leftJoin('customforms as c', dbNetsuite.raw('c.customform_id::integer = r.createdfrom::integer'))
+      .leftJoin('subsidiarys as s', dbNetsuite.raw('s.subsidiary_id::integer = r.subsidiary::integer'))
+      .leftJoin('locations as l', dbNetsuite.raw('l.netsuite_id::integer = r.location::integer'))
+      .leftJoin('departments as d', dbNetsuite.raw('d.netsuite_id::integer = r.department::integer'))
+      .leftJoin('class as c2', dbNetsuite.raw('c2.netsuite_id::integer = r.class::integer'))
+      // Joins for lines lines enrichment
+      .leftJoin(dbNetsuite.raw("LATERAL jsonb_array_elements(COALESCE(r.lines, '[]'::jsonb)) AS line ON TRUE"))
+      .leftJoin('items as i', dbNetsuite.raw("(line->>'item') = i.netsuite_id::text"))
+      .leftJoin('class as c_line', dbNetsuite.raw("(line->>'class') = c_line.netsuite_id::text"))
+      .leftJoin('locations as l_line', dbNetsuite.raw("(line->>'location') = l_line.netsuite_id::text"))
+      .leftJoin('departments as d_line', dbNetsuite.raw("(line->>'department') = d_line.netsuite_id::text"))
       .select([
-        'netsuite_id as receipt_id', 'tranid', 'trandate', 'status', 'status_display',
-        'memo', 'vendor_id', 'vendor_name', 'createdfrom', 'createdfrom_display',
-        'subsidiary', 'subsidiary_display', 'location', 'location_display',
-        'department', 'department_display', 'class', 'class_display',
-        'last_modified_netsuite', 'datecreated_netsuite', 'lines'
+        'r.id',
+        'r.netsuite_id as receipt_id',
+        'r.tranid',
+        'r.trandate',
+        'r.status',
+        'r.status_display',
+        'r.memo',
+        'r.vendor_id',
+        dbNetsuite.raw("COALESCE(NULLIF(r.vendor_name, ''), v.name) AS vendor_name"),
+        'r.createdfrom',
+        dbNetsuite.raw("COALESCE(NULLIF(r.createdfrom_display, ''), c.customform_name) AS createdfrom_display"),
+        'r.subsidiary',
+        dbNetsuite.raw("COALESCE(NULLIF(r.subsidiary_display, ''), s.subsidiary_name) AS subsidiary_display"),
+        'r.location',
+        dbNetsuite.raw("COALESCE(NULLIF(r.location_display, ''), l.name) AS location_display"),
+        'r.department',
+        dbNetsuite.raw("COALESCE(NULLIF(r.department_display, ''), d.name) AS department_display"),
+        'r.class',
+        dbNetsuite.raw("COALESCE(NULLIF(r.class_display, ''), c2.name) AS class_display"),
+        'r.last_modified_netsuite',
+        'r.datecreated_netsuite',
+        'r.created_at',
+        'r.updated_at',
+        dbNetsuite.raw(`
+          jsonb_agg(
+            jsonb_build_object(
+                'item', line->>'item',
+                'line', COALESCE(
+                    NULLIF(line->>'line', ''),
+                    line->>'line_sequence'
+                ),
+                'memo', line->>'memo',
+                'rate', line->>'rate',
+                'class', line->>'class',
+                'amount', line->>'amount',
+                'location', line->>'location',
+                'quantity', line->>'quantity',
+                'department', line->>'department',
+                'item_display', COALESCE(NULLIF(line->>'item_display', ''), i.display_name),
+                'class_display', COALESCE(NULLIF(line->>'class_display', ''), c_line.name),
+                'inventorydetail', line->>'inventorydetail',
+                'location_display', COALESCE(NULLIF(line->>'location_display', ''), l_line.name),
+                'department_display', COALESCE(NULLIF(line->>'department_display', ''), d_line.name)
+            )
+          ) FILTER (WHERE line IS NOT NULL) AS lines
+        `)
+      ])
+      .groupBy([
+        'r.id', 'v.name', 'c.customform_name', 's.subsidiary_name', 'l.name', 'd.name', 'c2.name'
       ])
       .orderBy(orderCol, sortOrder)
       .limit(limit)

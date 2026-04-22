@@ -121,26 +121,7 @@ const purchasingOrdersPaths = {
         required: true,
         content: {
           'application/json': {
-            schema: {
-              type: 'object',
-              properties: {
-                page: { type: 'integer', example: 1 },
-                page_size: { type: 'integer', example: 20 },
-                sort_by: { type: 'string', example: 'last_modified' },
-                sort_order: { type: 'string', example: 'DESC' },
-                filters: {
-                  type: 'object',
-                  properties: {
-                    receipt_ids: { type: 'array', items: { type: 'string' }, example: ['10361'] },
-                    tranid: { type: 'string', example: 'IR-2026-001' },
-                    createdfrom_text: { type: 'string', example: 'PO-' },
-                    createdfrom: { type: 'integer', example: 5512 },
-                    vendor_id: { type: 'integer', example: 10 },
-                    lastmodified: { type: 'string', example: '2026-03-31T23:59:00+07:00' }
-                  }
-                }
-              }
-            }
+            schema: { $ref: '#/components/schemas/ReceiveListRequest' }
           }
         }
       },
@@ -317,21 +298,7 @@ const purchasingOrdersPaths = {
         required: true,
         content: {
           'application/json': {
-            schema: {
-              type: 'object',
-              properties: {
-                page: { type: 'integer', example: 1 },
-                page_size: { type: 'integer', example: 20 },
-                sort_by: { type: 'string', example: 'last_modified' },
-                sort_order: { type: 'string', example: 'DESC' },
-                filters: {
-                  type: 'object',
-                  properties: {
-                    lastmodified: { type: 'string', example: '2026-03-31T23:59:00+07:00' }
-                  }
-                }
-              }
-            }
+            schema: { $ref: '#/components/schemas/ReceiveListRequest' }
           }
         }
       },
