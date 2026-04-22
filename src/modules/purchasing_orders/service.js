@@ -768,8 +768,8 @@ const getPurchaseOrderById = async (id) => {
                 'item_display', COALESCE(
                     NULLIF(line->>'item_display', ''),
                     COALESCE(
-                        NULLIF(i.display_name, ''),
-                        i2.display_name
+                        NULLIF(i.item_id, ''),
+                        i2.item_id
                     )
                 ),
                 'quantity', COALESCE(
