@@ -776,6 +776,8 @@ const getPurchaseOrderById = async (id) => {
                     NULLIF(line->>'quantity', ''),
                     line->>'qty'
                 ),
+                'quantityreceived', line->>'quantityreceived',
+                'quantitypending',  (COALESCE(NULLIF(line->>'quantity', ''), line->>'qty')::numeric - COALESCE(NULLIF(line->>'quantityreceived', ''), '0')::numeric),
                 'rate', line->>'rate',
                 'netamount', line->>'netamount',
                 'grossamt', line->>'grossamt',
