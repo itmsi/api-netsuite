@@ -217,6 +217,8 @@ const createPurchaseOrder = async (body, user) => {
       vendor_name: body.vendor_name || '', // optional
       subsidiary: body.subsidiary,
       location: body.location,
+      department: body.department,
+      customform: body.customform,
       currency_id: body.currency,
       terms: body.terms,
       class: body.class,
@@ -724,6 +726,7 @@ const getPurchaseOrderById = async (id) => {
       // EXPLODE JSON & JOIN MASTER DARI JSON
       .leftJoin(dbNetsuite.raw("LATERAL jsonb_array_elements(COALESCE(po.lines, '[]'::jsonb)) AS line ON TRUE"))
       .leftJoin('items as i', dbNetsuite.raw("(line->>'item') = i.netsuite_id::text"))
+      .leftJoin('items as i2', dbNetsuite.raw("(line->>'itemId') = i2.netsuite_id::text"))
       .leftJoin('class as c_line', dbNetsuite.raw("(line->>'class') = c_line.netsuite_id::text"))
       .leftJoin('locations as l_line', dbNetsuite.raw("(line->>'location') = l_line.netsuite_id::text"))
       .leftJoin('departments as d_line', dbNetsuite.raw("(line->>'department') = d_line.netsuite_id::text"))
@@ -758,10 +761,21 @@ const getPurchaseOrderById = async (id) => {
         dbNetsuite.raw(`
           jsonb_agg(
             jsonb_build_object(
-                
-                'item', line->>'item',
-                'item_display', i.display_name,
-                'quantity', line->>'quantity',
+                'item', COALESCE(
+                    NULLIF(line->>'item', ''),
+                    line->>'itemId'
+                ),
+                'item_display', COALESCE(
+                    NULLIF(line->>'item_display', ''),
+                    COALESCE(
+                        NULLIF(i.display_name, ''),
+                        i2.display_name
+                    )
+                ),
+                'quantity', COALESCE(
+                    NULLIF(line->>'quantity', ''),
+                    line->>'qty'
+                ),
                 'rate', line->>'rate',
                 'netamount', line->>'netamount',
                 'grossamt', line->>'grossamt',
