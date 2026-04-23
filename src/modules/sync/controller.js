@@ -85,10 +85,27 @@ const remove = async (req, res) => {
   }
 };
 
+/**
+ * POST /api/netsuite/sync/modules
+ * Sync specific module (trigger background process)
+ */
+const syncModules = async (req, res) => {
+  try {
+    const data = await service.syncModules(req.body, req.user);
+    return baseResponse(res, {
+      data,
+      message: `Sync module ${req.body.module} berhasil diinisiasi`
+    });
+  } catch (error) {
+    return errorResponse(res, error.message || 'Internal Server Error', error.statusCode || 500);
+  }
+};
+
 module.exports = {
   getList,
   getById,
   create,
   update,
-  remove
+  remove,
+  syncModules
 };

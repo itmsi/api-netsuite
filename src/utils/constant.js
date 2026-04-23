@@ -329,7 +329,8 @@ module.exports = {
     PURCHASE_ORDER_CREATE: 'purchase-order-create-v2',
     PURCHASE_ORDER_UPDATE: 'purchase-order-update-v2',
     PURCHASE_ORDER_RETRY: 'purchase-order-manual-retry',
-    PURCHASE_ORDER_RECEIVE: 'purchase-order-receive-v2'
+    PURCHASE_ORDER_RECEIVE: 'purchase-order-receive-v2',
+    SYNC_MODULE: 'sync-module'
   },
   ACTION_TRX: {
     INSERT: 'insert',
@@ -349,7 +350,8 @@ module.exports = {
     PURCHASE_ORDER_MANUAL_RETRY: 'purchase-order-manual-retry',
     PURCHASE_ORDER_MANUAL_UPDATE: 'purchase-order-manual-update',
     PURCHASE_ORDER_UPDATE: 'purchase-order-update-v2',
-    PURCHASE_ORDER_RECEIVE: 'purchase-order-receive-v2'
+    PURCHASE_ORDER_RECEIVE: 'purchase-order-receive-v2',
+    SYNC_MODULE: 'sync-module'
   },
   ENUM: {
     Y: 'Y',

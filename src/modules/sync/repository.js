@@ -149,11 +149,21 @@ const findLatestByModuleWithEmployee = async (syncModule) => {
     .first();
 };
 
+/**
+ * Find sync record by module and status
+ */
+const findByModuleAndStatus = async (syncModule, status) => {
+  return await pgCore(TABLE_NAME)
+    .where({ sync_module: syncModule, sync_status: status, is_delete: false })
+    .first();
+};
+
 module.exports = {
   findAll,
   findById,
   create,
   update,
   remove,
-  findLatestByModuleWithEmployee
+  findLatestByModuleWithEmployee,
+  findByModuleAndStatus
 };

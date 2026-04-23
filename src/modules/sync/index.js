@@ -75,4 +75,16 @@ router.delete(
   controller.remove
 );
 
+/**
+ * @route   POST /api/netsuite/sync/modules
+ * @desc    Sync specific module (trigger background process)
+ * @access  Private
+ */
+router.post(
+  '/modules',
+  verifyToken,
+  validateMiddleware,
+  controller.syncModules
+);
+
 module.exports = router;

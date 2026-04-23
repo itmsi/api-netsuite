@@ -93,11 +93,55 @@ const getLatestSyncInfo = async (syncModule) => {
   };
 };
 
+/**
+ * Sync specific module (trigger background process)
+ */
+const syncModules = async (body, user) => {
+  const { module: moduleName } = body;
+  if (!moduleName) {
+    throw { message: 'Parameter module tidak boleh kosong', statusCode: 400 };
+  }
+
+  // 1. Check if sync is already onproses
+  const existingSync = await repository.findByModuleAndStatus(moduleName, 'onproses');
+  if (existingSync) {
+    throw { message: 'Sync sedang berjalan', statusCode: 400 };
+  }
+
+  const userId = user?.employee_id || user?.user_id || user?.sub || null;
+
+  // 2. Create sync record with onproses status
+  const syncData = {
+    sync_module: moduleName,
+    sync_status: 'onproses',
+    created_by: userId,
+    updated_by: userId
+  };
+  const createdSync = await repository.create(syncData);
+
+  // 3. Trigger RabbitMQ queue
+  const { publishToRabbitMqQueueSingle } = require('../../config/rabbitmq');
+  const { EXCHANGES, QUEUE } = require('../../utils/constant');
+
+  await publishToRabbitMqQueueSingle(
+    EXCHANGES.SYNC_MODULE,
+    QUEUE.SYNC_MODULE,
+    {
+      sync_id: createdSync.sync_id,
+      module: moduleName,
+      user: user
+    }
+  );
+
+  return createdSync;
+};
+
 module.exports = {
   getSyncList,
   getSyncById,
   createSync,
   updateSync,
   deleteSync,
-  getLatestSyncInfo
+  getLatestSyncInfo,
+  syncModules
 };

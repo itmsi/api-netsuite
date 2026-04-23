@@ -46,6 +46,67 @@ const syncPaths = {
     }
   },
 
+  '/sync/modules': {
+    post: {
+      tags: ['Sync'],
+      summary: 'Sync specific module',
+      description: 'Trigger background synchronization for a specific module.',
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: ['module'],
+              properties: {
+                module: {
+                  type: 'string',
+                  enum: ['classes', 'department', 'invoice_sales_orders', 'items', 'locations', 'purchasing_orders', 'sales_orders', 'terms', 'vendors'],
+                  example: 'classes'
+                }
+              }
+            }
+          }
+        }
+      },
+      responses: {
+        200: {
+          description: 'Success',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/SyncItemResponse' }
+            }
+          }
+        },
+        400: {
+          description: 'Bad Request - Sync sedang berjalan atau parameter tidak lengkap',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+            }
+          }
+        },
+        401: {
+          description: 'Unauthorized',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+            }
+          }
+        },
+        500: {
+          description: 'Internal Server Error',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+            }
+          }
+        }
+      }
+    }
+  },
+
   '/sync/create': {
     post: {
       tags: ['Sync'],
