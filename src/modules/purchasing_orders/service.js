@@ -43,7 +43,8 @@ const getPurchaseOrders = async (body) => {
     // Filter opsional
     if (body.search) {
       query = query.where(function () {
-        this.whereILike('po.po_number', `%${body.search}%`)
+        this.whereILike('po.po_id', `%${body.search}%`)
+          .orWhereILike('po.po_number', `%${body.search}%`)
           .orWhereILike('po.vendor_name', `%${body.search}%`)
           .orWhereILike('po.memo', `%${body.search}%`);
       });
