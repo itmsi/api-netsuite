@@ -1544,6 +1544,7 @@ const getReceiveHistoryLogs = async (body) => {
     const results = await dbNetsuite('receives as r')
       .join('outbox_events as oe', 'oe.aggregate_id', 'r.id')
       .select([
+        'r.id',
         'r.trandate',
         'oe.last_error as msg_error',
         'r.created_at',
@@ -1551,7 +1552,8 @@ const getReceiveHistoryLogs = async (body) => {
       ])
       .where('oe.status', 'FAILED')
       .where('oe.aggregate_type', 'purchase_order_receive_item')
-      .where('r.createdfrom', createdfrom.toString());
+      .where('r.createdfrom', createdfrom.toString())
+      .groupBy(['r.id', 'oe.last_error']);
 
     return results;
   } catch (error) {

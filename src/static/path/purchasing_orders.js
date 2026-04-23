@@ -376,8 +376,9 @@ const purchasingOrdersPaths = {
                     items: {
                       type: 'object',
                       properties: {
+                        id: { type: 'string', example: 'uuid' },
                         trandate: { type: 'string', example: '21/4/2026' },
-                        msg_error: { type: 'string', example: 'Error message here' },
+                        last_error: { type: 'string', example: 'Error message here' },
                         created_at: { type: 'string', example: '2026-04-23T10:00:00Z' },
                         created_by_name: { type: 'string', example: 'User Name' }
                       }
