@@ -613,12 +613,14 @@ const receiveItemPurchaseOrder = async (body, user) => {
     const receiveData = {
       createdfrom: body.po_id, // po_id integer
       customform: body.customform || null,
+      trandate: body.trandate || null,
       class: body.class || null,
       location: body.location || null,
       department: body.department || null,
       status: 'pending',
       memo: body.memo || null,
       created_by_name: body.created_by_name || user?.name || user?.full_name || user?.email || null,
+      created_by: body.created_by || user?.id || null,
       lines: JSON.stringify(body.items),
       created_at: new Date(),
       updated_at: new Date()
@@ -1532,6 +1534,31 @@ const updateLocalReceive = async (internalId, data) => {
   }
 };
 
+const getReceiveHistoryLogs = async (body) => {
+  try {
+    const { createdfrom } = body;
+    if (!createdfrom) {
+      throw { message: 'Parameter createdfrom tidak boleh kosong', statusCode: 400 };
+    }
+
+    const results = await dbNetsuite('receives as r')
+      .join('outbox_events as oe', 'oe.aggregate_id', 'r.id')
+      .select([
+        'r.trandate',
+        'oe.last_error as msg_error',
+        'r.created_at',
+        'r.created_by_name'
+      ])
+      .where('oe.status', 'FAILED')
+      .where('oe.aggregate_type', 'purchase_order_receive_item')
+      .where('r.createdfrom', createdfrom.toString());
+
+    return results;
+  } catch (error) {
+    throw { message: error.message || 'Failed to fetch receive history logs', statusCode: error.statusCode || 500 };
+  }
+};
+
 module.exports = {
   getPurchaseOrders,
   printPurchaseOrder,
@@ -1558,5 +1585,6 @@ module.exports = {
   getEventStatus,
   retryPurchaseOrder,
   receiveItemPurchaseOrderToBridge,
-  updateLocalReceive
+  updateLocalReceive,
+  getReceiveHistoryLogs
 };

@@ -463,6 +463,27 @@ const retry = async (req, res) => {
   }
 };
 
+/**
+ * Get receive history logs (FAILED events)
+ * POST /purchasing-orders/receive-list/history-logs
+ */
+const getReceiveHistoryLogs = async (req, res) => {
+  try {
+    const result = await service.getReceiveHistoryLogs(req.body);
+    return baseResponse(res, {
+      data: result,
+      message: 'Data history logs berhasil diambil'
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || 'Internal Server Error',
+      errors: error.errors || error
+    });
+  }
+};
+
 module.exports = {
 
   getList,
@@ -478,5 +499,6 @@ module.exports = {
   getById,
   syncById,
   syncByIdAll,
-  retry
+  retry,
+  getReceiveHistoryLogs
 };

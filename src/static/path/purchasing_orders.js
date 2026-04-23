@@ -288,7 +288,6 @@ const purchasingOrdersPaths = {
     }
   },
   '/purchasing-orders/receive-list/sync': {
-
     post: {
       tags: ['Purchasing Orders (Receives)'],
       summary: 'Sync receives list dari bridge API',
@@ -343,6 +342,72 @@ const purchasingOrdersPaths = {
       }
     }
   },
+  '/purchasing-orders/receive-list/history-logs': {
+    post: {
+      tags: ['Purchasing Orders (Receives)'],
+      summary: 'Get receive history logs (FAILED events)',
+      description: 'Fetch failed receive events from outbox_events table based on createdfrom (NetSuite ID).',
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: ['createdfrom'],
+              properties: {
+                createdfrom: { type: 'string', example: '12488' }
+              }
+            }
+          }
+        }
+      },
+      responses: {
+        200: {
+          description: 'Success',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  success: { type: 'boolean', example: true },
+                  data: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        trandate: { type: 'string', example: '21/4/2026' },
+                        msg_error: { type: 'string', example: 'Error message here' },
+                        created_at: { type: 'string', example: '2026-04-23T10:00:00Z' },
+                        created_by_name: { type: 'string', example: 'User Name' }
+                      }
+                    }
+                  },
+                  message: { type: 'string', example: 'Data history logs berhasil diambil' }
+                }
+              }
+            }
+          }
+        },
+        400: {
+          description: 'Bad Request',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+            }
+          }
+        },
+        500: {
+          description: 'Internal Server Error',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+            }
+          }
+        }
+      }
+    }
+  },
   '/purchasing-orders/receive-item': {
     post: {
       tags: ['Purchasing Orders (Receives)'],
@@ -365,6 +430,7 @@ const purchasingOrdersPaths = {
                 location: { type: 'integer', example: 19 },
                 department: { type: 'integer', example: 6 },
                 created_by_name: { type: 'string', example: 'User MSI' },
+                created_by: { type: 'string', example: 'uuid' },
                 items: {
                   type: 'array',
                   items: {
