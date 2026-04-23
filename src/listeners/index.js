@@ -5,6 +5,7 @@ const { initPurchaseOrderRetryServices } = require('./purchase_order_retry_liste
 const { initPurchaseOrderUpdateServices } = require('./purchase_order_update_listener')
 const { initPurchaseOrderReceiveServices } = require('./purchase_order_receive_listener')
 const { initSyncModuleServices } = require('./sync_listener')
+const { initCustomerServices } = require('./customer_listener')
 
 const initListener = async () => {
   const fileName = `listener-${logDateFormat()}.txt`
@@ -16,6 +17,7 @@ const initListener = async () => {
     await initPurchaseOrderUpdateServices()
     await initPurchaseOrderReceiveServices()
     await initSyncModuleServices()
+    await initCustomerServices()
     logger(fileName, 'listener').write(`Listener is working waiting for message ${fullDateFormat(new Date().toISOString())} \n`)
   } catch (error) {
     console.info('Listener is not working with error', error)
