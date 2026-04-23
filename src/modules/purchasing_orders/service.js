@@ -770,7 +770,7 @@ const getPurchaseOrderById = async (id) => {
         'po.nextapprover', 'po.custbody_me_validity_date', 'po.department',
         dbNetsuite.raw("COALESCE(NULLIF(po.department_display, ''), d.name) AS department_display"),
         dbNetsuite.raw("COALESCE(NULLIF(po.datecreated, '')::timestamp, po.created_at) AS created_at"),
-        'po.custbody_me_wf_next_approver_blank', 'po.custbody_me_wf_next_approver_blank_display',
+        'po.custbody_me_wf_next_approver_blank', 'po.custbody_me_wf_next_approver_blank_display', 'po.user_notes',
         dbNetsuite.raw(`
           jsonb_agg(
             jsonb_build_object(
