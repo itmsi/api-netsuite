@@ -87,7 +87,7 @@ const createCustomer = async (body, user) => {
       customerData.created_at = new Date();
       // Use timestamp as a temporary unique netsuite_id to satisfy not-null & unique constraints
       customerData.netsuite_id = body.netsuite_id || Math.floor(Date.now() / 1000);
-      
+
       const [customerInternal] = await trx('customers').insert(customerData).returning('id');
       customerInternalId = typeof customerInternal === 'object' ? customerInternal.id : customerInternal;
     }
@@ -185,15 +185,15 @@ const createCustomerToBridge = async (body) => {
  * Helper: Update local customer record after bridge success
  */
 const updateLocalCustomer = async (id, bridgeData, gate_sso_customer_internal_id = null) => {
-  const netsuiteId = bridgeData.id || bridgeData.netsuite_id || (bridgeData.data && bridgeData.data.customerId);
+  const netsuiteId = bridgeData.customerId || bridgeData.netsuite_id;
 
   // 1. Update di db bridge (dbNetsuite)
-  await dbNetsuite('customers')
-    .where({ id })
-    .update({
-      netsuite_id: netsuiteId,
-      updated_at: new Date()
-    });
+  // await dbNetsuite('customers')
+  //   .where({ id })
+  //   .update({
+  //     netsuite_id: netsuiteId,
+  //     updated_at: new Date()
+  //   });
 
   // 2. Update di db gate_sso (pgCore) jika ada internal id
   if (gate_sso_customer_internal_id) {

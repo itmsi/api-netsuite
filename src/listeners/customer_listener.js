@@ -6,7 +6,7 @@ const { connectRabbitMQ } = require('../config/rabbitmq');
  * Worker logic for processing customer creation
  */
 const methodExecution = async (payload, channel, msg) => {
-  const { event_id, customer_internal_id, gate_sso_customer_internal_id, data } = payload;
+  let { event_id, customer_internal_id, gate_sso_customer_internal_id, data } = payload;
 
   // Guard: cek status event di DB sebelum proses
   try {
