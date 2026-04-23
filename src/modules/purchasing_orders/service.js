@@ -1204,6 +1204,7 @@ const getReceiveList = async (body) => {
       query = query.where(function () {
         this.whereILike('r.tranid', `%${body.search}%`)
           .orWhereILike('r.vendor_name', `%${body.search}%`)
+          .orWhereILike('r.createdfrom', `%${body.search}%`)
           .orWhereILike('r.subsidiary_display', `%${body.search}%`)
           .orWhereILike('r.location_display', `%${body.search}%`);
       });
