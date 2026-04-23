@@ -330,7 +330,8 @@ module.exports = {
     PURCHASE_ORDER_UPDATE: 'purchase-order-update-v2',
     PURCHASE_ORDER_RETRY: 'purchase-order-manual-retry',
     PURCHASE_ORDER_RECEIVE: 'purchase-order-receive-v2',
-    SYNC_MODULE: 'sync-module'
+    SYNC_MODULE: 'sync-module',
+    CUSTOMER_CREATE: 'customer-create-v2'
   },
   ACTION_TRX: {
     INSERT: 'insert',
@@ -351,7 +352,8 @@ module.exports = {
     PURCHASE_ORDER_MANUAL_UPDATE: 'purchase-order-manual-update',
     PURCHASE_ORDER_UPDATE: 'purchase-order-update-v2',
     PURCHASE_ORDER_RECEIVE: 'purchase-order-receive-v2',
-    SYNC_MODULE: 'sync-module'
+    SYNC_MODULE: 'sync-module',
+    CUSTOMER_CREATE: 'customer-creation-v2'
   },
   ENUM: {
     Y: 'Y',

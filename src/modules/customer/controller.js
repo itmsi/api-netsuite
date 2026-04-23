@@ -29,7 +29,7 @@ const getList = async (req, res) => {
  */
 const create = async (req, res) => {
   try {
-    const result = await service.createCustomer(req.body);
+    const result = await service.createCustomer(req.body, req.user);
     return baseResponse(res, { 
       data: {
         success: true,
