@@ -471,8 +471,11 @@ const getReceiveHistoryLogs = async (req, res) => {
   try {
     const result = await service.getReceiveHistoryLogs(req.body);
     return baseResponse(res, {
-      data: result,
-      message: 'Data history logs berhasil diambil'
+      data: {
+        success: true,
+        data: result,
+        message: 'Data history logs berhasil diambil'
+      }
     });
   } catch (error) {
     const statusCode = error.statusCode || 500;
