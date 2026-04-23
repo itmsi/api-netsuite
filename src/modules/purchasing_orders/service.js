@@ -1236,11 +1236,11 @@ const printPurchaseOrder = async (body) => {
 const getReceiveList = async (body) => {
   try {
     // Jalankan perintah sync ke bridge API terlebih dahulu sesuai instruksi
-    try {
-      await syncReceiveList(body);
-    } catch (syncError) {
-      console.warn('Sync failed before fetching getReceiveList:', syncError.message);
-    }
+    // try {
+    //   await syncReceiveList(body);
+    // } catch (syncError) {
+    //   console.warn('Sync failed before fetching getReceiveList:', syncError.message);
+    // }
 
     const page = parseInt(body.page) || 1;
     const limit = parseInt(body.limit || body.page_size) || 20;
@@ -1380,6 +1380,7 @@ const getReceiveList = async (body) => {
         'r.last_modified_netsuite',
         'r.datecreated_netsuite',
         'r.created_at',
+        'r.created_by_name',
         'r.updated_at'
       ])
       .groupBy([
