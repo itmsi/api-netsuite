@@ -364,6 +364,7 @@ const purchasingOrdersPaths = {
                 class: { type: 'integer', example: 2 },
                 location: { type: 'integer', example: 19 },
                 department: { type: 'integer', example: 6 },
+                created_by_name: { type: 'string', example: 'User MSI' },
                 items: {
                   type: 'array',
                   items: {
@@ -607,6 +608,48 @@ const purchasingOrdersPaths = {
           content: {
             'application/json': {
               schema: { $ref: '#/components/schemas/ErrorResponse' }
+            }
+          }
+        },
+        401: {
+          description: 'Unauthorized',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+            }
+          }
+        },
+        500: {
+          description: 'Internal Server Error',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+            }
+          }
+        }
+      }
+    }
+  },
+  '/purchasing-orders/sync/byidall': {
+    post: {
+      tags: ['Purchasing Orders'],
+      summary: 'Sync all purchase orders with status pendingBillPartReceived',
+      description: 'Cari semua purchase orders di database lokal dengan status `pendingBillPartReceived`, lalu sync ke bridge API via `POST /api/v1/bridge/purchase-orders/sync/findById`.',
+      security: [{ bearerAuth: [] }],
+      responses: {
+        200: {
+          description: 'Success',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  success: { type: 'boolean', example: true },
+                  data: { type: 'object', description: 'Raw response dari bridge API' },
+                  sync_info: { $ref: '#/components/schemas/SyncInfo' },
+                  message: { type: 'string', example: 'Sync all purchase orders by status pendingBillPartReceived berhasil' }
+                }
+              }
             }
           }
         },

@@ -174,7 +174,7 @@ const approve = async (req, res) => {
  */
 const receiveItem = async (req, res) => {
   try {
-    const result = await service.receiveItemPurchaseOrder(req.body);
+    const result = await service.receiveItemPurchaseOrder(req.body, req.user);
 
     return baseResponse(res, {
       code: 200,
@@ -266,6 +266,44 @@ const syncById = async (req, res) => {
         data: result,
         sync_info: syncInfo,
         message: `Purchase order ID ${id} berhasil di-sync dari bridge API`
+      }
+    });
+  } catch (error) {
+    await syncService.createSync(
+      { sync_module: 'purchasing_orders', sync_status: 'failed' },
+      req.user
+    ).catch(() => { });
+
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || 'Internal Server Error',
+      errors: error.errors || error
+    });
+  }
+};
+
+/**
+ * Batch sync purchase orders by status 'pendingBillPartReceived'
+ * POST /purchasing-orders/sync/byidall
+ */
+const syncByIdAll = async (req, res) => {
+  try {
+    const result = await service.syncPurchaseOrdersByIdAll();
+
+    await syncService.createSync(
+      { sync_module: 'purchasing_orders', sync_status: 'success' },
+      req.user
+    );
+
+    const syncInfo = await syncService.getLatestSyncInfo('purchasing_orders').catch(() => null);
+
+    return baseResponse(res, {
+      data: {
+        success: true,
+        data: result,
+        sync_info: syncInfo,
+        message: 'Sync all purchase orders by status pendingBillPartReceived berhasil'
       }
     });
   } catch (error) {
@@ -439,5 +477,6 @@ module.exports = {
   syncReceiveList,
   getById,
   syncById,
+  syncByIdAll,
   retry
 };

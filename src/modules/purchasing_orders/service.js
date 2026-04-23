@@ -606,7 +606,7 @@ const approvePurchaseOrder = async (body) => {
   }
 };
 
-const receiveItemPurchaseOrder = async (body) => {
+const receiveItemPurchaseOrder = async (body, user) => {
   const trx = await dbNetsuite.transaction();
   try {
     // 1. create data ke DB netsuite tabel receives (initial state)
@@ -618,6 +618,7 @@ const receiveItemPurchaseOrder = async (body) => {
       department: body.department || null,
       status: 'pending',
       memo: body.memo || null,
+      created_by_name: body.created_by_name || user?.name || user?.full_name || user?.email || null,
       lines: JSON.stringify(body.items),
       created_at: new Date(),
       updated_at: new Date()
@@ -1146,6 +1147,61 @@ const syncPurchaseOrderById = async (id) => {
   }
 };
 
+/**
+ * Batch sync purchase orders by ID based on status 'pendingBillPartReceived'
+ * POST /api/purchasing-orders/sync/byidall
+ */
+const syncPurchaseOrdersByIdAll = async () => {
+  try {
+    // 1. Ambil po_id dari tabel purchase_orders yang po_status = pendingBillPartReceived
+    const pendingPOs = await dbNetsuite('purchase_orders')
+      .where('po_status', 'pendingBillPartReceived')
+      .select('po_id');
+
+    const poIds = pendingPOs
+      .map(po => po.po_id)
+      .filter(id => id !== null && id !== '');
+
+    if (poIds.length === 0) {
+      return {
+        success: true,
+        message: 'Tidak ada purchase order dengan status pendingBillPartReceived untuk di-sync.',
+        data: {
+          success: true,
+          po_ids: []
+        }
+      };
+    }
+
+    // 2. Get token
+    const tokenResponse = await authService.getToken();
+    const token = tokenResponse.data.access_token;
+
+    // 3. Hit bridge API: POST /api/v1/bridge/purchase-orders/sync/findById
+    const baseUrl = process.env.BRIDGE_BASE_URL || 'https://api-bridge-sb.motorsights.com';
+    const url = `${baseUrl}/api/v1/bridge/purchase-orders/sync/findById`;
+
+    const response = await axios.post(url, { po_ids: poIds }, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    return response.data;
+
+  } catch (error) {
+    if (error.response) {
+      throw {
+        message: error.response.data?.message || 'Failed to sync all purchase orders from bridge API',
+        statusCode: error.response.status,
+        errors: error.response.data
+      };
+    }
+    throw { message: error.message, statusCode: 500 };
+  }
+};
+
 const printPurchaseOrder = async (body) => {
   try {
     // 1. Get token from auth module
@@ -1488,6 +1544,7 @@ module.exports = {
   getPurchaseOrderById,
   updatePurchaseOrder,
   syncPurchaseOrderById,
+  syncPurchaseOrdersByIdAll,
   syncPurchaseOrderByIdInternalId,
   updatePurchaseOrderToBridge,
   createPurchaseOrderToBridge,

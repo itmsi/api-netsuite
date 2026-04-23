@@ -113,15 +113,21 @@ router.post(
   controller.print
 );
 
-/**
- * @route   GET /api/purchasing-orders/sync/:id
- * @desc    Sync a single purchase order by ID dari bridge API
- * @access  Private
- */
 router.get(
   '/sync/:id',
   verifyToken,
   controller.syncById
+);
+
+/**
+ * @route   POST /api/purchasing-orders/sync/byidall
+ * @desc    Sync all purchase orders with status pendingBillPartReceived dari bridge API
+ * @access  Private
+ */
+router.post(
+  '/sync/byidall',
+  verifyToken,
+  controller.syncByIdAll
 );
 
 /**
