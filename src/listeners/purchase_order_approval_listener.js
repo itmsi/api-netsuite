@@ -25,7 +25,7 @@ const methodExecution = async (payload, channel, msg) => {
     // Log start of process
     await purchasingService.logEvent(event_id, 'processing', 'Starting request to bridge API', data);
 
-    const result = await purchasingService.approvePurchaseOrderToBridge(data);
+    const result = await purchasingService.approvePurchaseOrderToBridge(noted_internal_id, data);
 
     if (result && result.success !== false) { // the api might return success: true or just result
       // Update outbox event status

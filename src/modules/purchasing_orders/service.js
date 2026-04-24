@@ -252,8 +252,8 @@ const createPurchaseOrder = async (body, user) => {
       properties: JSON.stringify({
         request: body
       }),
-      created_at: new Date(),
-      updated_at: new Date()
+      created_at: poData.created_at,
+      updated_at: poData.updated_at
     };
 
     const [eventIdObj] = await trx('outbox_events').insert(eventData).returning('id');
@@ -268,8 +268,8 @@ const createPurchaseOrder = async (body, user) => {
           status: 'WAITING'
         }
       }),
-      created_at: new Date(),
-      updated_at: new Date()
+      created_at: poData.created_at,
+      updated_at: poData.updated_at
     });
 
     await trx.commit();
@@ -590,11 +590,16 @@ const approvePurchaseOrder = async (body) => {
     }
 
     // 1. create data ke DB netsuite tabel purchase_order_noteds
+    let transactionType = null;
+    if (body.custbody_msi_submit_app_api === true) transactionType = 'custbody_msi_submit_app_api';
+    else if (body.custbody_msi_reopen_api === true) transactionType = 'custbody_msi_reopen_api';
+    else if (body.custbody_msi_resubmit_api === true) transactionType = 'custbody_msi_resubmit_api';
+
     const notedData = {
-      netsuite_id: id,
-      transaction: recordType,
+      netsuite_id: null,
+      transaction: transactionType,
       note: note,
-      purchase_order_id: localPoId,
+      purchase_order_id: id,
       status: 'pending',
       created_at: new Date(),
       updated_at: new Date()
@@ -616,8 +621,8 @@ const approvePurchaseOrder = async (body) => {
       properties: JSON.stringify({
         request: body
       }),
-      created_at: new Date(),
-      updated_at: new Date()
+      created_at: notedData.created_at,
+      updated_at: notedData.updated_at
     };
 
     const [eventIdObj] = await trx('outbox_events').insert(eventData).returning('id');
@@ -631,8 +636,8 @@ const approvePurchaseOrder = async (body) => {
           status: 'WAITING'
         }
       }),
-      created_at: new Date(),
-      updated_at: new Date()
+      created_at: notedData.created_at,
+      updated_at: notedData.updated_at
     });
 
     await trx.commit();
@@ -672,14 +677,19 @@ const approvePurchaseOrder = async (body) => {
   }
 };
 
-const approvePurchaseOrderToBridge = async (body) => {
+const approvePurchaseOrderToBridge = async (noted_internal_id, body) => {
   const tokenResponse = await authService.getToken();
   const token = tokenResponse.data.access_token;
 
   const baseUrl = process.env.BRIDGE_BASE_URL || 'https://api-bridge-sb.motorsights.com';
   const url = `${baseUrl}/api/v1/bridge/purchase-orders/approval`;
 
-  const response = await axios.post(url, body, {
+  const payload = {
+    ...body,
+    noted_internal_id: noted_internal_id || null
+  }
+
+  const response = await axios.post(url, payload, {
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`
