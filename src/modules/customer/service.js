@@ -26,7 +26,8 @@ const getCustomerList = async (body) => {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
-      }
+      },
+      timeout: 120000
     });
 
     const resData = response.data;
@@ -175,7 +176,8 @@ const createCustomerToBridge = async (body) => {
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`
-    }
+    },
+    timeout: 120000
   });
 
   return response.data;

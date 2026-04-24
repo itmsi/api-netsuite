@@ -174,7 +174,8 @@ const syncPurchaseOrders = async (body) => {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
-      }
+      },
+      timeout: 120000
     });
 
     const resData = response.data;
@@ -322,7 +323,8 @@ const createPurchaseOrderToBridge = async (body) => {
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`
-    }
+    },
+    timeout: 120000
   });
 
   return response.data;
@@ -342,7 +344,8 @@ const updatePurchaseOrderToBridge = async (body) => {
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`
-    }
+    },
+    timeout: 120000
   });
 
   return response.data;
@@ -680,7 +683,8 @@ const approvePurchaseOrderToBridge = async (body) => {
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`
-    }
+    },
+    timeout: 120000
   });
 
   return response.data;
@@ -806,7 +810,8 @@ const receiveItemPurchaseOrderToBridge = async (body, internalId) => {
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`
-    }
+    },
+    timeout: 120000
   });
 
   return response.data;
@@ -1187,7 +1192,8 @@ const syncPurchaseOrderByIdInternalId = async (id, internal_id) => {
     const response = await axios.post(url, {}, {
       headers: {
         'Authorization': `Bearer ${token}`
-      }
+      },
+      timeout: 120000
     });
 
     return response.data;
@@ -1276,7 +1282,8 @@ const syncPurchaseOrdersByIdAll = async () => {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
-      }
+      },
+      timeout: 120000
     });
 
     return response.data;
@@ -1307,7 +1314,8 @@ const printPurchaseOrder = async (body) => {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
-      }
+      },
+      timeout: 120000
     });
 
     return response.data;
@@ -1515,7 +1523,8 @@ const syncReceiveList = async (body) => {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
-      }
+      },
+      timeout: 120000
     });
 
     const resData = response.data;
