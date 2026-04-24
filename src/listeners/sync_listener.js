@@ -11,7 +11,7 @@ const SYNC_CONFIG = {
     url: `${BRIDGE_BASE_URL}/api/v1/bridge/class/get`,
     data: { page: 1, page_size: 50, sort_by: 'last_modified', sort_order: 'DESC', filters: {} }
   },
-  department: {
+  departments: {
     url: `${BRIDGE_BASE_URL}/api/v1/bridge/department/get`,
     data: { page: 1, page_size: 50, sort_by: 'last_modified', sort_order: 'DESC', filters: {} }
   },
