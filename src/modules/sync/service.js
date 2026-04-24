@@ -60,7 +60,7 @@ const updateSync = async (id, body, user) => {
   const userId = user?.employee_id || user?.user_id || user?.sub || null;
 
   const data = {};
-  if (body.sync_module !== undefined) data.sync_module = body.sync_module;
+  //if (body.sync_module !== undefined) data.sync_module = body.sync_module;
   if (body.sync_status !== undefined) data.sync_status = body.sync_status;
   data.updated_by = userId;
 
@@ -102,22 +102,38 @@ const syncModules = async (body, user) => {
     throw { message: 'Parameter module tidak boleh kosong', statusCode: 400 };
   }
 
-  // 1. Check if sync is already onproses
-  const existingSync = await repository.findByModuleAndStatus(moduleName, 'onproses');
-  if (existingSync) {
-    throw { message: 'Sync sedang berjalan', statusCode: 400 };
-  }
-
   const userId = user?.employee_id || user?.user_id || user?.sub || null;
 
-  // 2. Create sync record with onproses status
-  const syncData = {
-    sync_module: moduleName,
-    sync_status: 'onproses',
-    created_by: userId,
-    updated_by: userId
-  };
-  const createdSync = await repository.create(syncData);
+  let sync_id;
+  let return_data;
+  // 1. Check if sync is already onproses
+  const existingSync = await repository.findByModuleAndStatus(moduleName);
+  if (existingSync) { //jika ada maka cek statusnya apakah onproses atau bukan
+    if (existingSync.sync_status === 'onproses') { //jika onproses maka tidak bisa sync
+      throw { message: 'Sync sedang berjalan', statusCode: 400 };
+    } else { //jika bukan onproses maka bisa sync
+      const syncData = {
+        sync_status: 'onproses',
+        updated_by: userId,
+        created_by: userId
+      };
+      await repository.update(existingSync.sync_id, syncData);
+    }
+    sync_id = existingSync.sync_id;
+    return_data = existingSync;
+  } else { //jika tidak ada maka buat sync record baru
+
+    // 2. Create sync record with onproses status
+    const syncData = {
+      sync_module: moduleName,
+      sync_status: 'onproses',
+      created_by: userId,
+      updated_by: userId
+    };
+    const createdSync = await repository.create(syncData);
+    sync_id = createdSync.sync_id;
+    return_data = createdSync;
+  }
 
   // 3. Trigger RabbitMQ queue
   const { publishToRabbitMqQueueSingle } = require('../../config/rabbitmq');
@@ -127,13 +143,13 @@ const syncModules = async (body, user) => {
     EXCHANGES.SYNC_MODULE,
     QUEUE.SYNC_MODULE,
     {
-      sync_id: createdSync.sync_id,
+      sync_id: sync_id,
       module: moduleName,
       user: user
     }
   );
 
-  return createdSync;
+  return return_data;
 };
 
 module.exports = {

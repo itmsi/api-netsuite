@@ -36,7 +36,7 @@ const SYNC_CONFIG = {
     data: { page: 1, page_size: 1, sort_by: 'last_modified_netsuite', sort_order: 'DESC', filters: {} }
   },
   terms: {
-    url: `${BRIDGE_BASE_URL}/api/v1/bridge/term/get`,
+    url: `${BRIDGE_BASE_URL}/api/v1/bridge/term/sync`,
     data: { page: 1, limit: 10, sort_by: 'name', sort_order: 'desc', search: '' }
   },
   vendors: {
@@ -70,11 +70,11 @@ const methodExecution = async (payload, channel, msg) => {
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`
-      }
+      },
+      timeout: 120000
     });
 
-    if (response.data && response.data.success) {
-      // Update sync status to success
+    if (response.data) {
       await syncService.updateSync(sync_id, { sync_status: 'success' }, user);
       console.info(`[Worker] Sync module ${moduleName} completed successfully`);
     } else {
@@ -83,15 +83,16 @@ const methodExecution = async (payload, channel, msg) => {
 
     channel.ack(msg);
   } catch (error) {
-    console.error(`[Worker] Error syncing module ${moduleName}:`, error.message);
-    
+    const errorMessage = error.response?.data?.message || error.message || String(error);
+    console.error(`[Worker] Error syncing module ${moduleName}:`, errorMessage);
+
     try {
       // Update status to failed
       await syncService.updateSync(sync_id, { sync_status: 'failed' }, user);
     } catch (updateErr) {
       console.error(`[Worker] Failed to update sync status for ${sync_id}:`, updateErr.message);
     }
-    
+
     // Ack the message so it doesn't loop, but we mark it failed in DB
     channel.ack(msg);
   }

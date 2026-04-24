@@ -152,9 +152,10 @@ const findLatestByModuleWithEmployee = async (syncModule) => {
 /**
  * Find sync record by module and status
  */
-const findByModuleAndStatus = async (syncModule, status) => {
+const findByModuleAndStatus = async (syncModule) => {
   return await pgCore(TABLE_NAME)
-    .where({ sync_module: syncModule, sync_status: status, is_delete: false })
+    .where({ sync_module: syncModule, is_delete: false })
+    .orderBy('sync_id', 'desc')
     .first();
 };
 
