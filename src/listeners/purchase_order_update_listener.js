@@ -107,7 +107,7 @@ const initPurchaseOrderUpdateServices = async () => {
     await channel.assertQueue(dlqName, {
       durable: true,
       arguments: {
-        'x-message-ttl': 30000, // 30 seconds delay before retry
+        'x-message-ttl': 5000, // 5 seconds delay before retry
         'x-dead-letter-exchange': exchangeName
       }
     });

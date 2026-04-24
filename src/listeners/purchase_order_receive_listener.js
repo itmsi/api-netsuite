@@ -116,7 +116,7 @@ const initPurchaseOrderReceiveServices = async () => {
     await channel.assertQueue(dlqName, {
       durable: true,
       arguments: {
-        'x-message-ttl': 30000,
+        'x-message-ttl': 5000,
         'x-dead-letter-exchange': exchangeName
       }
     });
