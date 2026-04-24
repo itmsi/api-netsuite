@@ -50,12 +50,12 @@ const methodExecution = async (payload, channel, msg) => {
 
     channel.ack(msg)
   } catch (error) {
-    console.error(`[RetryWorker] Error processing manual retry for PO Event ${event_id}:`, error.response.data.message)
-
     try {
       // Safely extract error details, especially from Axios errors
       const errorDetail = error.response ? error.response.data : (error.errors || error);
-      const errorMessage = error.response.data.message || String(error);
+      const errorMessage = error.response?.data?.message || error.message || String(error);
+
+      console.error(`[RetryWorker] Error processing manual retry for PO Event ${event_id}:`, errorMessage);
 
       // Simpan request & response ke properties untuk audit
       const failureProperties = { request: data, response: errorDetail };

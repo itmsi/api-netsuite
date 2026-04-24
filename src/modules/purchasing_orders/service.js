@@ -576,34 +576,123 @@ const retryPurchaseOrder = async (id, user, method = 'CREATE') => {
 };
 
 const approvePurchaseOrder = async (body) => {
+  const trx = await dbNetsuite.transaction();
   try {
-    // 1. Get token from auth module
-    const tokenResponse = await authService.getToken();
-    const token = tokenResponse.data.access_token;
+    const { id, recordType, note } = body;
 
-    // 2. Hit bridge approval purchase order endpoint
-    const baseUrl = process.env.BRIDGE_BASE_URL || 'https://api-bridge-sb.motorsights.com';
-    const url = `${baseUrl}/api/v1/bridge/purchase-orders/approval`;
+    let localPoId = null;
+    const poRecord = await trx('purchase_orders').where('po_id', id).first();
+    if (poRecord) {
+      localPoId = poRecord.id;
+    }
 
-    const response = await axios.post(url, body, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      }
+    // 1. create data ke DB netsuite tabel purchase_order_noteds
+    const notedData = {
+      netsuite_id: id,
+      transaction: recordType,
+      note: note,
+      purchase_order_id: localPoId,
+      status: 'pending',
+      created_at: new Date(),
+      updated_at: new Date()
+    };
+
+    const [notedInternal] = await trx('purchase_order_noteds').insert(notedData).returning('id');
+    const notedInternalId = typeof notedInternal === 'object' ? notedInternal.id : notedInternal;
+
+    // 2. create di tabel outbox_events dan outbox_event_logs
+    const eventData = {
+      event_type: 'APPROVAL',
+      payload: JSON.stringify(body),
+      aggregate_id: notedInternalId,
+      aggregate_type: 'purchase_order_approval',
+      status: 'WAITING',
+      retry_count: 0,
+      max_retry: 3,
+      last_error: null,
+      properties: JSON.stringify({
+        request: body
+      }),
+      created_at: new Date(),
+      updated_at: new Date()
+    };
+
+    const [eventIdObj] = await trx('outbox_events').insert(eventData).returning('id');
+    const eventId = typeof eventIdObj === 'object' ? eventIdObj.id : eventIdObj;
+
+    await trx('outbox_event_logs').insert({
+      outbox_event_id: eventId,
+      properties: JSON.stringify({
+        response: {
+          message: 'Purchase order approval queued for processing',
+          status: 'WAITING'
+        }
+      }),
+      created_at: new Date(),
+      updated_at: new Date()
     });
 
-    return response.data;
+    await trx.commit();
+
+    // 3. buatkan antrian rabbit mq
+    const { publishToRabbitMqQueueSingle } = require('../../config/rabbitmq');
+    const { EXCHANGES, QUEUE } = require('../../utils/constant');
+
+    await publishToRabbitMqQueueSingle(
+      EXCHANGES.PURCHASE_ORDER_APPROVAL,
+      QUEUE.PURCHASE_ORDER_APPROVAL,
+      {
+        event_id: eventId,
+        noted_internal_id: notedInternalId,
+        data: body
+      },
+      {
+        durable: true,
+        arguments: {
+          'x-dead-letter-exchange': `${EXCHANGES.PURCHASE_ORDER_APPROVAL}-retry`
+        }
+      }
+    );
+
+    return {
+      success: true,
+      message: 'Purchase order approval is being processed',
+      data: {
+        notedId: notedInternalId,
+        event_id: eventId
+      }
+    };
 
   } catch (error) {
-    if (error.response) {
-      throw {
-        message: error.response.data.message || 'Failed to approve purchase order via bridge API',
-        statusCode: error.response.status,
-        errors: error.response.data
-      };
-    }
-    throw { message: error.message, statusCode: 500 };
+    if (trx) await trx.rollback();
+    throw { message: error.message || 'Failed to initiate purchase order approval', statusCode: 500 };
   }
+};
+
+const approvePurchaseOrderToBridge = async (body) => {
+  const tokenResponse = await authService.getToken();
+  const token = tokenResponse.data.access_token;
+
+  const baseUrl = process.env.BRIDGE_BASE_URL || 'https://api-bridge-sb.motorsights.com';
+  const url = `${baseUrl}/api/v1/bridge/purchase-orders/approval`;
+
+  const response = await axios.post(url, body, {
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    }
+  });
+
+  return response.data;
+};
+
+const updatePurchaseOrderNotedsStatus = async (id, status) => {
+  await dbNetsuite('purchase_order_noteds')
+    .where('id', id)
+    .update({
+      status: status,
+      updated_at: new Date()
+    });
 };
 
 const receiveItemPurchaseOrder = async (body, user) => {
@@ -1588,5 +1677,7 @@ module.exports = {
   retryPurchaseOrder,
   receiveItemPurchaseOrderToBridge,
   updateLocalReceive,
-  getReceiveHistoryLogs
+  getReceiveHistoryLogs,
+  approvePurchaseOrderToBridge,
+  updatePurchaseOrderNotedsStatus
 };

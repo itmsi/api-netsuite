@@ -326,12 +326,13 @@ module.exports = {
     PRINT_CATALOG: 'exchanges-print-catalog',
     IMAGE_KTP: 'exchanges-ktp-processing',
     PUBLISH_CATALOG: 'exchanges-publish-catalog',
-    PURCHASE_ORDER_CREATE: 'purchase-order-create-v2',
-    PURCHASE_ORDER_UPDATE: 'purchase-order-update-v2',
+    PURCHASE_ORDER_CREATE: 'purchase-order-create-v4',
+    PURCHASE_ORDER_UPDATE: 'purchase-order-update-v4',
     PURCHASE_ORDER_RETRY: 'purchase-order-manual-retry',
-    PURCHASE_ORDER_RECEIVE: 'purchase-order-receive-v2',
+    PURCHASE_ORDER_RECEIVE: 'purchase-order-receive-v4',
+    PURCHASE_ORDER_APPROVAL: 'purchase-order-approval-v4',
     SYNC_MODULE: 'sync-module',
-    CUSTOMER_CREATE: 'customer-create-v2'
+    CUSTOMER_CREATE: 'customer-create-v4'
   },
   ACTION_TRX: {
     INSERT: 'insert',
@@ -347,13 +348,14 @@ module.exports = {
     PRINT_CATALOG: 'queue-print-catalog',
     PUBLISH_CATALOG: 'queue-publish-catalog',
     IMAGE_KTP: 'queue-ktp-processing',
-    PURCHASE_ORDER_CREATE: 'purchase-order-creation-v2',
+    PURCHASE_ORDER_CREATE: 'purchase-order-creation-v4',
     PURCHASE_ORDER_MANUAL_RETRY: 'purchase-order-manual-retry',
     PURCHASE_ORDER_MANUAL_UPDATE: 'purchase-order-manual-update',
-    PURCHASE_ORDER_UPDATE: 'purchase-order-update-v2',
-    PURCHASE_ORDER_RECEIVE: 'purchase-order-receive-v2',
+    PURCHASE_ORDER_UPDATE: 'purchase-order-update-v4',
+    PURCHASE_ORDER_RECEIVE: 'purchase-order-receive-v4',
+    PURCHASE_ORDER_APPROVAL: 'purchase-order-approval-v4',
     SYNC_MODULE: 'sync-module',
-    CUSTOMER_CREATE: 'customer-creation-v2'
+    CUSTOMER_CREATE: 'customer-creation-v4'
   },
   ENUM: {
     Y: 'Y',

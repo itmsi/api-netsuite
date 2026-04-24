@@ -62,12 +62,12 @@ const methodExecution = async (payload, channel, msg) => {
 
     channel.ack(msg)
   } catch (error) {
-    console.error(`[Worker] Error processing PO Event ${event_id}:`, error.response.data.message)
-
     try {
       // Safely extract error details, especially from Axios errors
       const errorDetail = error.response ? error.response.data : (error.errors || error);
-      const errorMessage = error.response.data.message || String(error);
+      const errorMessage = error.response?.data?.message || error.message || String(error);
+
+      console.error(`[Worker] Error processing PO Event ${event_id}:`, errorMessage);
 
       // Cek apakah masih bisa auto-retry berdasarkan retry_count dan max_retry di DB
       const allowRetry = await purchasingService.canAutoRetry(event_id)
@@ -118,7 +118,7 @@ const initPurchaseOrderServices = async () => {
     await channel.assertQueue(dlqName, {
       durable: true,
       arguments: {
-        'x-message-ttl': 200, // 200 milliseconds delay before retry
+        'x-message-ttl': 30000, // 30 seconds delay before retry
         'x-dead-letter-exchange': exchangeName
       }
     })
