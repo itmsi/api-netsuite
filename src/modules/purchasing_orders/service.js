@@ -602,7 +602,7 @@ const approvePurchaseOrder = async (body) => {
 
     // 2. create di tabel outbox_events dan outbox_event_logs
     const eventData = {
-      event_type: 'APPROVAL',
+      event_type: 'CREATE',
       payload: JSON.stringify(body),
       aggregate_id: notedInternalId,
       aggregate_type: 'purchase_order_approval',
