@@ -1,0 +1,120 @@
+const service = require('./service');
+const { baseResponse, decodeToken } = require('../../utils');
+
+/**
+ * Controller Layer - HTTP Request/Response Handler for Subsidiary
+ */
+
+const getList = async (req, res) => {
+  try {
+    const data = await service.getList(req.body);
+    return baseResponse(res, { 
+      data: {
+        success: true,
+        data,
+        message: 'Data subsidiary berhasil diambil'
+      }
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || 'Internal Server Error',
+      errors: error.errors || error
+    });
+  }
+};
+
+const getById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const data = await service.getById(id);
+    return baseResponse(res, { 
+      data: {
+        success: true,
+        data,
+        message: 'Detail data subsidiary berhasil diambil'
+      }
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 404;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || 'Data subsidiary tidak ditemukan',
+    });
+  }
+};
+
+const create = async (req, res) => {
+  try {
+    const createdPayload = decodeToken('created', req);
+    const updatedPayload = decodeToken('updated', req);
+    const payload = { ...req.body, ...createdPayload, ...updatedPayload };
+    const data = await service.create(payload);
+    return baseResponse(res, { 
+      data: {
+        success: true,
+        data,
+        message: 'Data subsidiary berhasil dibuat' 
+      },
+      code: 201
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || 'Internal Server Error',
+    });
+  }
+};
+
+const update = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const tokenPayload = decodeToken('updated', req);
+    const payload = { ...req.body, ...tokenPayload };
+    const data = await service.update(id, payload);
+    return baseResponse(res, { 
+      data: {
+        success: true,
+        data,
+        message: 'Data subsidiary berhasil diupdate' 
+      }
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || 'Internal Server Error',
+    });
+  }
+};
+
+const remove = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const tokenPayload = decodeToken('deleted', req);
+    const userId = tokenPayload.deleted_by;
+    await service.remove(id, userId);
+    return baseResponse(res, { 
+      data: {
+        success: true,
+        message: 'Data subsidiary berhasil dihapus' 
+      }
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || 'Internal Server Error',
+    });
+  }
+};
+
+module.exports = {
+  getList,
+  getById,
+  create,
+  update,
+  remove
+};

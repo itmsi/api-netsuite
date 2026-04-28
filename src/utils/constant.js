@@ -325,7 +325,14 @@ module.exports = {
     UPDATE_INV: 'update-status-inventory',
     PRINT_CATALOG: 'exchanges-print-catalog',
     IMAGE_KTP: 'exchanges-ktp-processing',
-    PUBLISH_CATALOG: 'exchanges-publish-catalog'
+    PUBLISH_CATALOG: 'exchanges-publish-catalog',
+    PURCHASE_ORDER_CREATE: 'purchase-order-create-v5',
+    PURCHASE_ORDER_UPDATE: 'purchase-order-update-v5',
+    PURCHASE_ORDER_RETRY: 'purchase-order-manual-retry',
+    PURCHASE_ORDER_RECEIVE: 'purchase-order-receive-v5',
+    PURCHASE_ORDER_APPROVAL: 'purchase-order-approval-v5',
+    SYNC_MODULE: 'sync-module',
+    CUSTOMER_CREATE: 'customer-create-v5'
   },
   ACTION_TRX: {
     INSERT: 'insert',
@@ -340,7 +347,15 @@ module.exports = {
     BIKE_INV: 'bike-inventory',
     PRINT_CATALOG: 'queue-print-catalog',
     PUBLISH_CATALOG: 'queue-publish-catalog',
-    IMAGE_KTP: 'queue-ktp-processing'
+    IMAGE_KTP: 'queue-ktp-processing',
+    PURCHASE_ORDER_CREATE: 'purchase-order-creation-v5',
+    PURCHASE_ORDER_MANUAL_RETRY: 'purchase-order-manual-retry',
+    PURCHASE_ORDER_MANUAL_UPDATE: 'purchase-order-manual-update',
+    PURCHASE_ORDER_UPDATE: 'purchase-order-update-v5',
+    PURCHASE_ORDER_RECEIVE: 'purchase-order-receive-v5',
+    PURCHASE_ORDER_APPROVAL: 'purchase-order-approval-v5',
+    SYNC_MODULE: 'sync-module',
+    CUSTOMER_CREATE: 'customer-creation-v5'
   },
   ENUM: {
     Y: 'Y',

@@ -24,6 +24,31 @@ const getList = async (req, res) => {
   }
 };
 
+/**
+ * Create customer
+ */
+const create = async (req, res) => {
+  try {
+    const result = await service.createCustomer(req.body, req.user);
+    return baseResponse(res, { 
+      data: {
+        success: true,
+        data: result,
+        message: 'Customer berhasil dibuat'
+      },
+      code: 201
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || 'Internal Server Error',
+      errors: error.errors || error
+    });
+  }
+};
+
 module.exports = {
-  getList
+  getList,
+  create
 };

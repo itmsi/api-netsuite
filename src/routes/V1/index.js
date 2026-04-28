@@ -34,6 +34,9 @@ routing.use(`${API_TAG}/items`, itemsModule);
 const vendorModule = require('../../modules/vendor');
 routing.use(`${API_TAG}/vendor`, vendorModule);
 
+const bankModule = require('../../modules/bank');
+routing.use(`${API_TAG}/bank`, bankModule);
+
 const locationsModule = require('../../modules/locations');
 routing.use(`${API_TAG}/locations`, locationsModule);
 
@@ -48,6 +51,24 @@ routing.use(`${API_TAG}/reference`, referenceModule);
 
 const invoiceSalesOrderModule = require('../../modules/invoice_sales_order');
 routing.use(`${API_TAG}/invoice-sales-orders`, invoiceSalesOrderModule);
+
+const classesModule = require('../../modules/classes');
+routing.use(`${API_TAG}/classes`, classesModule);
+
+const departmentModule = require('../../modules/department');
+routing.use(`${API_TAG}/departments`, departmentModule);
+
+const subsidiaryModule = require('../../modules/subsidiary');
+routing.use(`${API_TAG}/subsidiary`, subsidiaryModule);
+
+const termsModule = require('../../modules/terms');
+routing.use(`${API_TAG}/terms`, termsModule);
+
+const syncModule = require('../../modules/sync');
+routing.use(`${API_TAG}/sync`, syncModule);
+
+const salesOrdersModule = require('../../modules/sales_orders');
+routing.use(`${API_TAG}/sales-orders`, salesOrdersModule);
 
 // Example:
 // const yourModule = require('../../modules/yourModule')

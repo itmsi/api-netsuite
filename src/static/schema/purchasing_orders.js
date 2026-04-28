@@ -43,6 +43,12 @@ const purchasingOrdersSchemas = {
       raw_response: { type: 'string', nullable: true, example: null },
       foreigntotal: { type: 'number', example: -980000 },
       total: { type: 'number', example: -980000 },
+      message_error: {
+        type: 'object',
+        nullable: true,
+        description: 'Detail pesan error dari outbox_events jika status failed',
+        example: { response: { error: { message: 'Invalid scriptlet ID', code: 'SSS_INVALID_SCRIPTLET_ID' } } }
+      },
       lines: {
         type: 'array',
         items: { $ref: '#/components/schemas/PurchaseOrderLine' }
@@ -56,7 +62,10 @@ const purchasingOrdersSchemas = {
       limit: { type: 'integer', default: 10, example: 10 },
       sort_by: { type: 'string', default: 'created_at', example: 'created_at' },
       sort_order: { type: 'string', default: 'desc', example: 'desc' },
-      search: { type: 'string', default: '', example: '' }
+      search: { type: 'string', default: '', example: '' },
+      classes: { type: 'string', default: '', example: '' },
+      subsidiary: { type: 'string', default: '', example: '' },
+      location: { type: 'string', default: '', example: '' }
     }
   },
   PurchaseOrderLineItem: {
@@ -69,7 +78,10 @@ const purchasingOrdersSchemas = {
       department: { type: 'integer', example: 101 },
       class: { type: 'integer', example: 3 },
       location: { type: 'integer', example: 19 },
-      taxcode: { type: 'integer', example: 18098 }
+      taxcode: { type: 'integer', example: 18098 },
+      custcol_msi_fob: { type: 'number', example: 5000 },
+      custcol_me_landed_cost: { type: 'number', example: 5000 },
+      description: { type: 'string', example: 'Description' }
     }
   },
   PurchaseOrderCreateRequest: {
@@ -91,8 +103,35 @@ const purchasingOrdersSchemas = {
       custbody_me_pr_number: { type: 'string', example: 'PR-001' },
       custbody_msi_createdby_api: { type: 'string', example: 'dharmaridwan@motorsights.net' },
       class: { type: 'integer', example: 3 },
+      custbody_me_validity_date: { type: 'string', example: '24/03/2026' },
+      items: {
+        type: 'array',
+        items: { $ref: '#/components/schemas/PurchaseOrderLineItem' }
+      }
+    }
+  },
+  PurchaseOrderUpdateRequest: {
+    type: 'object',
+    required: ['id', 'customform', 'vendorid', 'purchasedate', 'subsidiary', 'location', 'currency', 'items'],
+    properties: {
+      id: { type: 'integer', example: 4978 },
+      customform: { type: 'integer', example: 102 },
+      vendorid: { type: 'integer', example: 246 },
+      purchasedate: { type: 'string', example: '25/03/2026' },
+      subsidiary: { type: 'integer', example: 5 },
+      location: { type: 'integer', example: 19 },
+      memo: { type: 'string', example: 'PO from API - 26 Note Approved di edit lg ya' },
+      currency: { type: 'integer', example: 1 },
+      terms: { type: 'integer', example: 9 },
+      custbody_me_pr_date: { type: 'string', example: '24/03/2026' },
+      custbody_me_project_location: { type: 'integer', example: 1 },
+      custbody_me_pr_type: { type: 'integer', example: 1 },
+      custbody_me_saving_type: { type: 'integer', example: 1 },
+      custbody_me_pr_number: { type: 'string', example: 'PR-001' },
+      custbody_msi_createdby_api: { type: 'string', example: 'dharmaridwan@motorsights.net', description: 'Auto-populated from token if not provided' },
+      class: { type: 'integer', example: 3 },
       department: { type: 'integer', example: 101 },
-      note: { type: 'string', example: 'ini untuk pembelian baru dimana sudah disediakan' },
+      custbody_me_validity_date: { type: 'string', example: '24/03/2026' },
       items: {
         type: 'array',
         items: { $ref: '#/components/schemas/PurchaseOrderLineItem' }
@@ -135,6 +174,24 @@ const purchasingOrdersSchemas = {
         items: { $ref: '#/components/schemas/PurchaseOrder' }
       },
       timestamp: { type: 'string', format: 'date-time', example: '2026-04-01T06:26:20.856Z' }
+    }
+  },
+  ReceiveListRequest: {
+    type: 'object',
+    properties: {
+      page: { type: 'integer', default: 1, example: 1 },
+      limit: { type: 'integer', default: 10, example: 10 },
+      sort_by: { type: 'string', default: 'created_at', example: 'created_at' },
+      sort_order: { type: 'string', default: 'desc', example: 'desc' },
+      search: { type: 'string', default: '', example: '', description: 'Filter untuk tranid, vendor_name, subsidiary_display, location_display' },
+      classes: { type: 'string', default: '', example: '', description: 'Filter untuk kolom class' },
+      subsidiary: { type: 'string', default: '', example: '', description: 'Filter untuk kolom subsidiary' },
+      location: { type: 'string', default: '', example: '', description: 'Filter untuk kolom location' },
+      vendor_id: { type: 'string', default: '', example: '', description: 'Filter untuk kolom vendor_id' },
+      receipt_ids: { type: 'array', items: { type: 'string' }, example: ['10361'], description: 'Filter untuk list receipt ID' },
+      tranid: { type: 'string', default: '', example: '', description: 'Filter untuk kolom tranid' },
+      createdfrom_text: { type: 'string', default: '', example: 'PO-', description: 'Filter untuk kolom createdfrom_text' },
+      createdfrom: { type: 'integer', default: 5512, example: 5512, description: 'Filter untuk kolom createdfrom' }
     }
   }
 };

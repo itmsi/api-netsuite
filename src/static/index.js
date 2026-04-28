@@ -40,6 +40,13 @@ const customerSchema = require('./schema/customer');
 const fakturSchema = require('./schema/faktur');
 const referenceSchema = require('./schema/reference');
 const invoiceSalesOrderSchema = require('./schema/invoice_sales_order');
+const classesSchema = require('./schema/classes');
+const departmentSchema = require('./schema/department');
+const subsidiarySchema = require('./schema/subsidiary');
+const termsSchema = require('./schema/terms');
+const syncSchema = require('./schema/sync');
+const salesOrdersSchema = require('./schema/sales_orders');
+const bankSchema = require('./schema/bank');
 
 // Import paths
 // Tambahkan path module Anda di sini
@@ -54,6 +61,13 @@ const customerPaths = require('./path/customer');
 const fakturPaths = require('./path/faktur');
 const referencePaths = require('./path/reference');
 const invoiceSalesOrderPaths = require('./path/invoice_sales_order');
+const classesPaths = require('./path/classes');
+const departmentPaths = require('./path/department');
+const subsidiaryPaths = require('./path/subsidiary');
+const termsPaths = require('./path/terms');
+const syncPaths = require('./path/sync');
+const salesOrdersPaths = require('./path/sales_orders');
+const bankPaths = require('./path/bank');
 
 // Combine all schemas
 const schemas = {
@@ -69,6 +83,13 @@ const schemas = {
   ...fakturSchema,
   ...referenceSchema,
   ...invoiceSalesOrderSchema,
+  ...classesSchema,
+  ...departmentSchema,
+  ...subsidiarySchema,
+  ...termsSchema,
+  ...syncSchema,
+  ...salesOrdersSchema,
+  ...bankSchema,
   // ...yourModuleSchema,
 };
 
@@ -85,6 +106,13 @@ const paths = {
   ...fakturPaths,
   ...referencePaths,
   ...invoiceSalesOrderPaths,
+  ...classesPaths,
+  ...departmentPaths,
+  ...subsidiaryPaths,
+  ...termsPaths,
+  ...syncPaths,
+  ...salesOrdersPaths,
+  ...bankPaths,
   // ...yourModulePaths,
 };
 

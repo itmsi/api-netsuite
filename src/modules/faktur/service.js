@@ -5,7 +5,12 @@ const repository = require('./repository');
  */
 
 const getList = async (params) => {
-  return await repository.findAll(params);
+  const result = await repository.findAll(params);
+  result.items = result.items.map(item => ({
+    ...item,
+    nomor_id_penjual: item.id_tku_Penjual ? item.id_tku_Penjual.replace(/000000$/, '') : null
+  }));
+  return result;
 };
 
 const getById = async (id) => {
@@ -13,6 +18,9 @@ const getById = async (id) => {
   if (!data) {
     throw { message: 'Data faktur tidak ditemukan', statusCode: 404 };
   }
+  
+  data.nomor_id_penjual = data.id_tku_Penjual ? data.id_tku_Penjual.replace(/000000$/, '') : null;
+  
   return data;
 };
 

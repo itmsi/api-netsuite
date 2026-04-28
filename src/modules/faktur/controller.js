@@ -1,5 +1,5 @@
 const service = require('./service');
-const { baseResponse } = require('../../utils');
+const { baseResponse, decodeToken } = require('../../utils');
 
 /**
  * Controller Layer - HTTP Request/Response Handler
@@ -47,8 +47,9 @@ const getById = async (req, res) => {
 
 const create = async (req, res) => {
   try {
-    const userId = req.user?.employee_id || req.user?.user_id || req.user?.id;
-    const payload = { ...req.body, created_by: userId, updated_by: userId };
+    const createdPayload = decodeToken('created', req);
+    const updatedPayload = decodeToken('updated', req);
+    const payload = { ...req.body, ...createdPayload, ...updatedPayload };
     const data = await service.create(payload);
     return baseResponse(res, { 
       data: {
@@ -70,8 +71,8 @@ const create = async (req, res) => {
 const update = async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user?.employee_id || req.user?.user_id || req.user?.id;
-    const payload = { ...req.body, updated_by: userId };
+    const tokenPayload = decodeToken('updated', req);
+    const payload = { ...req.body, ...tokenPayload };
     const data = await service.update(id, payload);
     return baseResponse(res, { 
       data: {
@@ -92,7 +93,8 @@ const update = async (req, res) => {
 const remove = async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user?.employee_id || req.user?.user_id || req.user?.id;
+    const tokenPayload = decodeToken('deleted', req);
+    const userId = tokenPayload.deleted_by;
     await service.remove(id, userId);
     return baseResponse(res, { 
       data: {

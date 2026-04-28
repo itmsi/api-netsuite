@@ -8,6 +8,7 @@ const componenPaths = {
       tags: ['Componen'],
       summary: 'Get list of componen',
       description: 'Fetch componen data from external bridge API',
+      security: [{ bearerAuth: [] }],
       responses: {
         200: {
           description: 'Success',

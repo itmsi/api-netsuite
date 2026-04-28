@@ -20,7 +20,8 @@ const invoiceSalesOrderSchemas = {
       netamount: { type: 'number', example: 13400000 },
       item_display: { type: 'string', example: 'MSI003 - MS600 6X4 DUMP TRUCK WEICHAI' },
       price_display: { type: 'string', example: 'Kustom' },
-      custcol_me_tier_price: { type: 'string', nullable: true, example: null }
+      custcol_me_tier_price: { type: 'string', nullable: true, example: null },
+      custitem_me_product_category_display: { type: 'string', nullable: true, example: 'UNIT' }
     }
   },
   InvoiceSalesOrder: {
@@ -53,6 +54,8 @@ const invoiceSalesOrderSchemas = {
       custbody_cseg_cn_cfi: { type: 'string', example: '1' },
       custbody_me_description: { type: 'string', nullable: true, example: null },
       fakture_id: { type: 'string', format: 'uuid', example: 'e3b0c442-98fc-1c14-9afb-f4c59f1910d2' },
+      faktur_updated_at: { type: 'string', format: 'date-time', nullable: true, example: '2026-03-31T10:00:00Z' },
+      faktur_updated_by_name: { type: 'string', nullable: true, example: 'Ari Kurniawan' },
       lines: {
         type: 'array',
         items: { $ref: '#/components/schemas/InvoiceSalesOrderLine' }
@@ -66,7 +69,11 @@ const invoiceSalesOrderSchemas = {
       limit: { type: 'integer', default: 10, example: 10 },
       sort_by: { type: 'string', default: 'created_at', example: 'created_at' },
       sort_order: { type: 'string', default: 'desc', example: 'desc' },
-      search: { type: 'string', default: '', example: 'SI-IEC-2026-000009' }
+      search: { type: 'string', default: '', example: 'SI-IEC-2026-000009' },
+      subsidiary: { type: 'string', default: '', example: '1' },
+      approvalstatus: { type: 'string', default: '', example: '2' },
+      trandate_start: { type: 'string', default: '', example: '2026-04-08' },
+      trandate_end: { type: 'string', default: '', example: '2026-04-10' }
     }
   }
 };
