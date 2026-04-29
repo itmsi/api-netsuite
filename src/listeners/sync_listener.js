@@ -9,39 +9,39 @@ const BRIDGE_BASE_URL = process.env.BRIDGE_BASE_URL || 'http://localhost:9570';
 const SYNC_CONFIG = {
   classes: {
     url: `${BRIDGE_BASE_URL}/api/v1/bridge/class/get`,
-    data: { page: 1, page_size: 50, sort_by: 'last_modified', sort_order: 'DESC', filters: {} }
+    data: { page: 1, page_size: 50, sort_by: 'last_modified', sort_order: 'DESC', is_sync: true, filters: {} }
   },
   departments: {
     url: `${BRIDGE_BASE_URL}/api/v1/bridge/department/get`,
-    data: { page: 1, page_size: 50, sort_by: 'last_modified', sort_order: 'DESC', filters: {} }
+    data: { page: 1, page_size: 50, sort_by: 'last_modified', sort_order: 'DESC', is_sync: true, filters: {} }
   },
   invoice_sales_orders: {
     url: `${BRIDGE_BASE_URL}/api/v1/bridge/invoice-sales-orders/get`,
-    data: { page: 1, page_size: 20, sort_by: 'id', sort_order: 'desc', filters: {} }
+    data: { page: 1, page_size: 20, sort_by: 'id', sort_order: 'desc', is_sync: true, filters: {} }
   },
   items: {
     url: `${BRIDGE_BASE_URL}/api/v1/bridge/items/get`,
-    data: { pageSize: 50, pageIndex: 0 }
+    data: { pageSize: 50, pageIndex: 0, is_sync: true }
   },
   locations: {
     url: `${BRIDGE_BASE_URL}/api/v1/bridge/locations/get`,
-    data: { page: 1, page_size: 30, sort_by: 'last_modified_netsuite', sort_order: 'DESC', filters: {} }
+    data: { page: 1, page_size: 30, sort_by: 'last_modified_netsuite', sort_order: 'DESC', is_sync: true, filters: {} }
   },
   purchasing_orders: {
     url: `${BRIDGE_BASE_URL}/api/v1/bridge/purchase-orders/get-list`,
-    data: { page: 1, page_size: 1, sort_by: 'po_id', sort_order: 'esc', filters: {} }
+    data: { page: 1, page_size: 1, sort_by: 'po_id', sort_order: 'esc', is_sync: true, filters: {} }
   },
   sales_orders: {
     url: `${BRIDGE_BASE_URL}/api/v1/bridge/sales-orders/get`,
-    data: { page: 1, page_size: 1, sort_by: 'last_modified_netsuite', sort_order: 'DESC', filters: {} }
+    data: { page: 1, page_size: 1, sort_by: 'last_modified_netsuite', sort_order: 'DESC', is_sync: true, filters: {} }
   },
   terms: {
     url: `${BRIDGE_BASE_URL}/api/v1/bridge/term/sync`,
-    data: { page: 1, limit: 10, sort_by: 'name', sort_order: 'desc', search: '' }
+    data: { page: 1, limit: 10, sort_by: 'name', sort_order: 'desc', is_sync: true, search: '' }
   },
   vendors: {
     url: `${BRIDGE_BASE_URL}/api/v1/bridge/vendors/get`,
-    data: { pageSize: 50, pageIndex: 0 }
+    data: { pageSize: 50, pageIndex: 0, is_sync: true }
   }
 };
 
