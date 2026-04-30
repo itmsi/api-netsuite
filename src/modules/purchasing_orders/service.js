@@ -167,6 +167,7 @@ const syncPurchaseOrders = async (body) => {
       page_size: body.limit || 10,
       sort_by: body.sort_by || 'last_modified',
       sort_order: body.sort_order ? body.sort_order.toUpperCase() : 'DESC',
+      is_sync: true,
       filters
     };
 
