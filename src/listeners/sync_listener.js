@@ -29,7 +29,7 @@ const SYNC_CONFIG = {
   },
   purchasing_orders: {
     url: `${BRIDGE_BASE_URL}/api/v1/bridge/purchase-orders/get-list`,
-    data: { page: 1, page_size: 1, sort_by: 'po_id', sort_order: 'esc', is_sync: true, filters: {} }
+    data: { page: 1, page_size: 1, sort_by: 'trandate', sort_order: 'DESC', is_sync: true, filters: {} }
   },
   sales_orders: {
     url: `${BRIDGE_BASE_URL}/api/v1/bridge/sales-orders/get`,

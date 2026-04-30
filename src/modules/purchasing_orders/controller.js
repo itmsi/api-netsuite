@@ -120,7 +120,7 @@ const sync = async (req, res) => {
   try {
     const result = await service.syncPurchaseOrders(req.body, req.user);
 
-    await syncService.createSync(
+    await syncService.upsertSync(
       { sync_module: 'purchasing_orders', sync_status: 'success' },
       req.user
     );
@@ -136,7 +136,7 @@ const sync = async (req, res) => {
       }
     });
   } catch (error) {
-    await syncService.createSync(
+    await syncService.upsertSync(
       { sync_module: 'purchasing_orders', sync_status: 'failed' },
       req.user
     ).catch(() => { });
@@ -253,7 +253,7 @@ const syncById = async (req, res) => {
 
     const result = await service.syncPurchaseOrderById(id);
 
-    await syncService.createSync(
+    await syncService.upsertSync(
       { sync_module: 'purchasing_orders', sync_status: 'success' },
       req.user
     );
@@ -269,7 +269,7 @@ const syncById = async (req, res) => {
       }
     });
   } catch (error) {
-    await syncService.createSync(
+    await syncService.upsertSync(
       { sync_module: 'purchasing_orders', sync_status: 'failed' },
       req.user
     ).catch(() => { });
@@ -291,7 +291,7 @@ const syncByIdAll = async (req, res) => {
   try {
     const result = await service.syncPurchaseOrdersByIdAll();
 
-    await syncService.createSync(
+    await syncService.upsertSync(
       { sync_module: 'purchasing_orders', sync_status: 'success' },
       req.user
     );
@@ -307,7 +307,7 @@ const syncByIdAll = async (req, res) => {
       }
     });
   } catch (error) {
-    await syncService.createSync(
+    await syncService.upsertSync(
       { sync_module: 'purchasing_orders', sync_status: 'failed' },
       req.user
     ).catch(() => { });
@@ -372,7 +372,7 @@ const syncReceiveList = async (req, res) => {
   try {
     const result = await service.syncReceiveList(req.body);
 
-    await syncService.createSync(
+    await syncService.upsertSync(
       { sync_module: 'receive_list', sync_status: 'success' },
       req.user
     );
@@ -388,7 +388,7 @@ const syncReceiveList = async (req, res) => {
       }
     });
   } catch (error) {
-    await syncService.createSync(
+    await syncService.upsertSync(
       { sync_module: 'receive_list', sync_status: 'failed' },
       req.user
     ).catch(() => { });

@@ -152,11 +152,30 @@ const syncModules = async (body, user) => {
   return return_data;
 };
 
+/**
+ * Upsert sync record (Check if exists by module, then update or create)
+ */
+const upsertSync = async (body, user) => {
+  const { sync_module } = body;
+  if (!sync_module) {
+    throw { message: 'Parameter sync_module tidak boleh kosong', statusCode: 400 };
+  }
+
+  const existing = await repository.findByModuleAndStatus(sync_module);
+
+  if (existing) {
+    return await updateSync(existing.sync_id, body, user);
+  } else {
+    return await createSync(body, user);
+  }
+};
+
 module.exports = {
   getSyncList,
   getSyncById,
   createSync,
   updateSync,
+  upsertSync,
   deleteSync,
   getLatestSyncInfo,
   syncModules
