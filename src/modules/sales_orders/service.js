@@ -151,7 +151,7 @@ const syncSalesOrders = async (body) => {
     if (body.status_code) filters.status_code = body.status_code;
 
     const requestData = {
-      page: body.page || 1,
+      page: body.page - 1 || 0,
       page_size: body.limit || body.page_size || 10,
       sort_by: body.sort_by || 'last_modified_netsuite',
       sort_order: body.sort_order ? body.sort_order.toUpperCase() : 'DESC',
