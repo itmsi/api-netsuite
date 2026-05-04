@@ -42,6 +42,10 @@ const SYNC_CONFIG = {
   vendors: {
     url: `${BRIDGE_BASE_URL}/api/v1/bridge/vendors/get`,
     data: { pageSize: 50, pageIndex: 0, is_sync: true }
+  },
+  customers: {
+    url: `${BRIDGE_BASE_URL}/api/v1/bridge/customers/get`,
+    data: { pageSize: 50, pageIndex: 0, is_sync: true }
   }
 };
 
