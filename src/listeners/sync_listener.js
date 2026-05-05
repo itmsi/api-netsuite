@@ -45,7 +45,7 @@ const SYNC_CONFIG = {
   },
   customers: {
     url: `${BRIDGE_BASE_URL}/api/v1/bridge/customers/get`,
-    data: { pageSize: 50, pageIndex: 0, is_sync: true }
+    data: { page: 1, page_size: 50, is_sync: true }
   }
 };
 
