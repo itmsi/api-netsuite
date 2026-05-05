@@ -121,7 +121,8 @@ const getPurchaseOrders = async (body) => {
         'po.total',
         'po.custbody_msi_createdby_api',
         'po.last_modified',
-        dbNetsuite.raw("COALESCE(NULLIF(po.datecreated, '')::timestamp, po.created_at) AS created_at")
+        dbNetsuite.raw("COALESCE(NULLIF(po.datecreated, '')::timestamp, po.created_at) AS created_at"),
+        'po.files'
       ])
       .orderBy(orderCol, sortOrder)
       .limit(limit)
@@ -233,6 +234,7 @@ const createPurchaseOrder = async (body, user) => {
       custbody_msi_createdby_api: body.custbody_msi_createdby_api || user?.email,
       custbody_me_validity_date: body.custbody_me_validity_date,
       lines: JSON.stringify(body.items),
+      files: body.files ? JSON.stringify(body.files) : null,
       created_at: new Date(),
       updated_at: new Date()
     };
@@ -875,7 +877,7 @@ const getPurchaseOrderById = async (id) => {
         'po.nextapprover', 'po.custbody_me_validity_date', 'po.department',
         dbNetsuite.raw("COALESCE(NULLIF(po.department_display, ''), d.name) AS department_display"),
         dbNetsuite.raw("COALESCE(NULLIF(po.datecreated, '')::timestamp, po.created_at) AS created_at"),
-        'po.custbody_me_wf_next_approver_blank', 'po.custbody_me_wf_next_approver_blank_display', 'po.user_notes',
+        'po.custbody_me_wf_next_approver_blank', 'po.custbody_me_wf_next_approver_blank_display', 'po.user_notes', 'po.files',
         dbNetsuite.raw(`
           jsonb_agg(
             jsonb_build_object(
@@ -1110,6 +1112,7 @@ const updatePurchaseOrder = async (body, user) => {
       custbody_me_pr_number: body.custbody_me_pr_number,
       custbody_me_validity_date: body.custbody_me_validity_date,
       lines: JSON.stringify(body.items),
+      files: body.files ? JSON.stringify(body.files) : null,
       updated_at: new Date()
     };
 
