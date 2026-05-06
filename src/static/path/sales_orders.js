@@ -189,15 +189,15 @@ const salesOrdersPaths = {
     get: {
       tags: ['Sales Orders'],
       summary: 'Get sales order by ID dari DB lokal',
-      description: 'Fetch single sales order dari database lokal (bridge_sanbox.sales_orders) berdasarkan `netsuite_id`.',
+      description: 'Fetch single sales order dari database lokal (bridge_sanbox.sales_orders) berdasarkan `netsuite_id` atau UUID `id`.',
       security: [{ bearerAuth: [] }],
       parameters: [
         {
           name: 'id',
           in: 'path',
           required: true,
-          description: 'NetSuite internal ID dari sales order (netsuite_id)',
-          schema: { type: 'integer', example: 7840 }
+          description: 'NetSuite internal ID (netsuite_id) atau UUID (id) dari sales order',
+          schema: { type: 'string', example: '11273' }
         }
       ],
       responses: {
