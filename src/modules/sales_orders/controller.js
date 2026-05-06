@@ -109,7 +109,7 @@ const create = async (req, res) => {
       req.body.custbody_msi_createdby_api = req.user.email;
     }
 
-    const result = await service.createSalesOrder(req.body);
+    const result = await service.createSalesOrder(req.body, req.user);
     const { success, ...responseData } = result || {};
     return baseResponse(res, {
       code: 201,
@@ -139,7 +139,7 @@ const update = async (req, res) => {
       req.body.custbody_msi_createdby_api = req.user.email;
     }
 
-    const result = await service.updateSalesOrder(req.body);
+    const result = await service.updateSalesOrder(req.body, req.user);
     const { success, ...responseData } = result || {};
     return baseResponse(res, {
       data: {

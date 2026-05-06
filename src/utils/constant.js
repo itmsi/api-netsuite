@@ -332,7 +332,9 @@ module.exports = {
     PURCHASE_ORDER_RECEIVE: 'purchase-order-receive-v5',
     PURCHASE_ORDER_APPROVAL: 'purchase-order-approval-v5',
     SYNC_MODULE: 'sync-module',
-    CUSTOMER_CREATE: 'customer-create-v5'
+    CUSTOMER_CREATE: 'customer-create-v5',
+    SALES_ORDER_CREATE: 'sales-order-create-v5',
+    SALES_ORDER_UPDATE: 'sales-order-update-v5'
   },
   ACTION_TRX: {
     INSERT: 'insert',
@@ -355,7 +357,9 @@ module.exports = {
     PURCHASE_ORDER_RECEIVE: 'purchase-order-receive-v5',
     PURCHASE_ORDER_APPROVAL: 'purchase-order-approval-v5',
     SYNC_MODULE: 'sync-module',
-    CUSTOMER_CREATE: 'customer-creation-v5'
+    CUSTOMER_CREATE: 'customer-creation-v5',
+    SALES_ORDER_CREATE: 'sales-order-creation-v5',
+    SALES_ORDER_UPDATE: 'sales-order-update-v5'
   },
   ENUM: {
     Y: 'Y',

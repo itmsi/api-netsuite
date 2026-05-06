@@ -1,6 +1,7 @@
 const axios = require('axios');
 const knex = require('knex');
 const authService = require('../auth/service');
+const { dateStrConvertion } = require('../../utils/date');
 
 // Knex instance untuk DB Netsuite (bridge_sanbox)
 const dbNetsuite = knex({
@@ -248,53 +249,341 @@ const syncSalesOrders = async (body) => {
 };
 
 /**
- * Create sales order — hit bridge API POST /sales-orders/create
+ * Hits the actual bridge API for Sales Order creation (used by worker)
  */
-const createSalesOrder = async (body) => {
+const createSalesOrderToBridge = async (body) => {
+  const tokenResponse = await authService.getToken();
+  const token = tokenResponse.data.access_token;
+
+  const baseUrl = process.env.BRIDGE_BASE_URL || 'https://api-bridge-sb.motorsights.com';
+  const url = `${baseUrl}/api/v1/bridge/sales-orders/create`;
+
+  const response = await axios.post(url, body, {
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    }
+  });
+
+  return response.data;
+};
+
+/**
+ * Initiate Sales Order creation process (Async via Outbox Pattern)
+ */
+const createSalesOrder = async (body, user) => {
+  const trx = await dbNetsuite.transaction();
   try {
-    const tokenResponse = await authService.getToken();
-    const token = tokenResponse.data.access_token;
+    // 1. create data ke DB netsuite tabel sales_orders
+    const soData = {
+      customform: body.customform,
+      subsidiary: body.subsidiary,
+      entity: body.entity,
+      tran_date: body.trandate ? dateStrConvertion(body.trandate, 'YYYY-MM-DD') : null,
+      startdate: body.startdate ? dateStrConvertion(body.startdate, 'YYYY-MM-DD') : null,
+      enddate: body.enddate ? dateStrConvertion(body.enddate, 'YYYY-MM-DD') : null,
+      orderstatus: body.orderstatus,
+      otherrefnum: body.otherrefnum,
+      memo: body.memo,
+      currency: body.currency,
+      terms: body.terms,
+      department: body.department,
+      class: body.class,
+      location: body.location,
+      custbody_msi_quotation_no_iec: body.custbody_msi_quotation_no_iec,
+      custbody_msi_bank_payment_so: body.custbody_msi_bank_payment_so,
+      custbody_cseg_cn_cfi: body.custbody_cseg_cn_cfi,
+      custbody_msi_createdby_api: body.custbody_msi_createdby_api || user?.email,
+      items: JSON.stringify(body.items),
+      created_at: new Date(),
+      updated_at: new Date()
+    };
 
-    const baseUrl = process.env.BRIDGE_BASE_URL || 'https://api-bridge-sb.motorsights.com';
-    const url = `${baseUrl}/api/v1/bridge/sales-orders/create`;
+    const [soInternal] = await trx('sales_orders').insert(soData).returning('id');
+    const soInternalId = typeof soInternal === 'object' ? soInternal.id : soInternal;
 
-    const response = await axios.post(url, body, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      }
+    // 2. create satu data ke outbox_events dan satu log awal ke outbox_event_logs
+    const eventData = {
+      event_type: 'CREATE',
+      payload: JSON.stringify(body),
+      aggregate_id: soInternalId,
+      aggregate_type: 'sales_order_create',
+      status: 'WAITING',
+      destination: 'netsuite',
+      created_by: user?.email || 'MSI',
+      updated_by: user?.email || 'MSI'
+    };
+
+    const [event] = await trx('outbox_events').insert(eventData).returning('id');
+    const eventId = typeof event === 'object' ? event.id : event;
+
+    await trx('outbox_event_logs').insert({
+      outbox_event_id: eventId,
+      properties: JSON.stringify({
+        message: 'Sales order queued for processing',
+        status: 'WAITING'
+      }),
+      created_by: user?.email || 'MSI',
+      updated_by: user?.email || 'MSI'
     });
 
-    return response.data;
+    await trx.commit();
+
+    // 3. buatkan queue untuk rabbit mq untuk memproses data tersebut
+    const { publishToRabbitMqQueueSingle } = require('../../config/rabbitmq');
+    const { EXCHANGES, QUEUE } = require('../../utils/constant');
+
+    await publishToRabbitMqQueueSingle(
+      EXCHANGES.SALES_ORDER_CREATE,
+      QUEUE.SALES_ORDER_CREATE,
+      {
+        event_id: eventId,
+        so_internal_id: soInternalId,
+        data: body
+      },
+      {
+        durable: true,
+        arguments: {
+          'x-dead-letter-exchange': `${EXCHANGES.SALES_ORDER_CREATE}-retry`
+        }
+      }
+    );
+
+    return {
+      success: true,
+      message: 'Sales order is being processed',
+      data: {
+        soId: soInternalId,
+        event_id: eventId
+      }
+    };
 
   } catch (error) {
-    if (error.response) {
-      throw {
-        message: error.response.data?.message || 'Failed to create sales order via bridge API',
-        statusCode: error.response.status,
-        errors: error.response.data
-      };
-    }
-    throw { message: error.message, statusCode: 500 };
+    if (trx) await trx.rollback();
+    throw { message: error.message || 'Failed to initiate sales order creation', statusCode: 500 };
   }
 };
 
 /**
- * Update sales order — hit bridge API POST /sales-orders/update
+ * Hits the actual bridge API for Sales Order update (used by worker)
  */
-const updateSalesOrder = async (body) => {
+const updateSalesOrderToBridge = async (body) => {
+  const tokenResponse = await authService.getToken();
+  const token = tokenResponse.data.access_token;
+
+  const baseUrl = process.env.BRIDGE_BASE_URL || 'https://api-bridge-sb.motorsights.com';
+  const url = `${baseUrl}/api/v1/bridge/sales-orders/update`;
+
+  const response = await axios.post(url, body, {
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    }
+  });
+
+  return response.data;
+};
+
+/**
+ * Initiate Sales Order update process (Async via Outbox Pattern)
+ */
+const updateSalesOrder = async (body, user) => {
+  const trx = await dbNetsuite.transaction();
+  try {
+    const localId = body.id;
+    if (!localId) throw { message: 'Local ID (UUID) is required for update', statusCode: 400 };
+
+    // 1. Update data ke DB netsuite tabel sales_orders
+    const updateData = {
+      customform: body.customform,
+      subsidiary: body.subsidiary,
+      entity: body.entity,
+      tran_date: body.trandate ? dateStrConvertion(body.trandate, 'YYYY-MM-DD') : undefined,
+      startdate: body.startdate ? dateStrConvertion(body.startdate, 'YYYY-MM-DD') : undefined,
+      enddate: body.enddate ? dateStrConvertion(body.enddate, 'YYYY-MM-DD') : undefined,
+      orderstatus: body.orderstatus,
+      otherrefnum: body.otherrefnum,
+      memo: body.memo,
+      currency: body.currency,
+      terms: body.terms,
+      department: body.department,
+      class: body.class,
+      location: body.location,
+      custbody_msi_quotation_no_iec: body.custbody_msi_quotation_no_iec,
+      custbody_msi_bank_payment_so: body.custbody_msi_bank_payment_so,
+      custbody_cseg_cn_cfi: body.custbody_cseg_cn_cfi,
+      custbody_msi_createdby_api: body.custbody_msi_createdby_api || user?.email,
+      items: body.items ? JSON.stringify(body.items) : undefined,
+      updated_at: new Date()
+    };
+
+    // Remove undefined fields
+    Object.keys(updateData).forEach(key => updateData[key] === undefined && delete updateData[key]);
+
+    await trx('sales_orders').where('id', localId).update(updateData);
+
+    // 2. Insert data ke tabel outbox_events dan outbox_event_logs
+    const eventData = {
+      event_type: 'UPDATE',
+      payload: JSON.stringify(body),
+      aggregate_id: localId,
+      aggregate_type: 'sales_order_update',
+      status: 'WAITING',
+      destination: 'netsuite',
+      created_by: user?.email || 'MSI',
+      updated_by: user?.email || 'MSI'
+    };
+
+    const [event] = await trx('outbox_events').insert(eventData).returning('id');
+    const eventId = typeof event === 'object' ? event.id : event;
+
+    await trx('outbox_event_logs').insert({
+      outbox_event_id: eventId,
+      properties: JSON.stringify({
+        message: 'Sales order update queued for processing',
+        status: 'WAITING'
+      }),
+      created_by: user?.email || 'MSI',
+      updated_by: user?.email || 'MSI'
+    });
+
+    await trx.commit();
+
+    // 3. buatkan queue untuk rabbit mq untuk memproses data tersebut
+    const { publishToRabbitMqQueueSingle } = require('../../config/rabbitmq');
+    const { EXCHANGES, QUEUE } = require('../../utils/constant');
+
+    await publishToRabbitMqQueueSingle(
+      EXCHANGES.SALES_ORDER_UPDATE,
+      QUEUE.SALES_ORDER_UPDATE,
+      {
+        event_id: eventId,
+        so_internal_id: localId,
+        data: body
+      },
+      {
+        durable: true,
+        arguments: {
+          'x-dead-letter-exchange': `${EXCHANGES.SALES_ORDER_UPDATE}-retry`
+        }
+      }
+    );
+
+    return {
+      success: true,
+      message: 'Sales order update is being processed',
+      data: {
+        soId: localId,
+        event_id: eventId
+      }
+    };
+
+  } catch (error) {
+    if (trx) await trx.rollback();
+    throw { message: error.message || 'Failed to initiate sales order update', statusCode: error.statusCode || 500 };
+  }
+};
+
+// --- Outbox Helper Methods ---
+
+const getEventStatus = async (id) => {
+  const event = await dbNetsuite('outbox_events')
+    .where('id', id)
+    .select('status')
+    .first();
+  return event ? event.status : null;
+};
+
+const logEvent = async (eventId, type, message, data) => {
+  const isError = type === 'failed' || type === 'sync_failed' || type === 'retry';
+
+  const responseData = {};
+  if (isError) {
+    responseData.error = {
+      message: message || (data && data.message) || String(data),
+      code: data && data.code ? data.code : undefined
+    };
+  } else {
+    responseData.message = message;
+    if (data) responseData.data = data;
+  }
+
+  await dbNetsuite('outbox_event_logs').insert({
+    outbox_event_id: eventId,
+    http_status: data && data.statusCode ? String(data.statusCode) : null,
+    error: isError ? (message || (data && data.message) || String(data)) : null,
+    properties: JSON.stringify({ response: responseData }),
+    created_at: new Date(),
+    updated_at: new Date()
+  });
+};
+
+const updateEventStatus = async (id, status, lastError = null, properties = null) => {
+  const updateData = {
+    status,
+    updated_at: new Date()
+  };
+
+  if (lastError) {
+    updateData.last_error = typeof lastError === 'string' ? lastError : JSON.stringify(lastError);
+  }
+
+  if (properties) {
+    updateData.properties = typeof properties === 'string' ? properties : JSON.stringify(properties);
+  }
+
+  await dbNetsuite('outbox_events')
+    .where('id', id)
+    .update(updateData);
+};
+
+const canAutoRetry = async (id) => {
+  const event = await dbNetsuite('outbox_events')
+    .where('id', id)
+    .select(['retry_count', 'max_retry'])
+    .first();
+
+  if (!event) return false;
+  return event.retry_count < event.max_retry;
+};
+
+const incrementRetryCount = async (id, lastError) => {
+  await dbNetsuite('outbox_events')
+    .where('id', id)
+    .increment('retry_count', 1)
+    .update({
+      last_error: lastError,
+      updated_at: new Date()
+    });
+
+  return dbNetsuite('outbox_events')
+    .where('id', id)
+    .select(['retry_count', 'max_retry'])
+    .first();
+};
+
+const updateLocalSalesOrderStatus = async (id, status) => {
+  await dbNetsuite('sales_orders')
+    .where('id', id)
+    .update({
+      status_name: status === 'failed' ? 'Failed to Create' : status,
+      updated_at: new Date()
+    });
+};
+
+const syncSalesOrderByIdInternalId = async (id, internal_id) => {
   try {
     const tokenResponse = await authService.getToken();
     const token = tokenResponse.data.access_token;
 
     const baseUrl = process.env.BRIDGE_BASE_URL || 'https://api-bridge-sb.motorsights.com';
-    const url = `${baseUrl}/api/v1/bridge/sales-orders/update`;
+    const url = `${baseUrl}/api/v1/bridge/sales-orders/sync/${id}/${internal_id}`;
 
-    const response = await axios.post(url, body, {
+    const response = await axios.post(url, {}, {
       headers: {
-        'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
-      }
+      },
+      timeout: 120000
     });
 
     return response.data;
@@ -302,7 +591,7 @@ const updateSalesOrder = async (body) => {
   } catch (error) {
     if (error.response) {
       throw {
-        message: error.response.data?.message || 'Failed to update sales order via bridge API',
+        message: error.response.data?.message || 'Failed to sync sales order by ID from bridge API',
         statusCode: error.response.status,
         errors: error.response.data
       };
@@ -316,5 +605,14 @@ module.exports = {
   getSalesOrderById,
   syncSalesOrders,
   createSalesOrder,
-  updateSalesOrder
+  updateSalesOrder,
+  createSalesOrderToBridge,
+  updateSalesOrderToBridge,
+  getEventStatus,
+  logEvent,
+  updateEventStatus,
+  canAutoRetry,
+  incrementRetryCount,
+  updateLocalSalesOrderStatus,
+  syncSalesOrderByIdInternalId
 };
