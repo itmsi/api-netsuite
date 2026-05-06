@@ -62,6 +62,7 @@ const updateSync = async (id, body, user) => {
   const data = {};
   //if (body.sync_module !== undefined) data.sync_module = body.sync_module;
   if (body.sync_status !== undefined) data.sync_status = body.sync_status;
+  if (body.count_data !== undefined) data.count_data = body.count_data;
   data.updated_by = userId;
 
   return await repository.update(id, data);
