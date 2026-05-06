@@ -600,6 +600,38 @@ const syncSalesOrderByIdInternalId = async (id, internal_id) => {
   }
 };
 
+/**
+ * Sync single sales order by ID from bridge API
+ * Hit: GET {BRIDGE_BASE_URL}/api/v1/bridge/sales-orders/sync/{id}
+ */
+const syncSalesOrderById = async (id) => {
+  try {
+    const tokenResponse = await authService.getToken();
+    const token = tokenResponse.data.access_token;
+
+    const baseUrl = process.env.BRIDGE_BASE_URL || 'https://api-bridge-sb.motorsights.com';
+    const url = `${baseUrl}/api/v1/bridge/sales-orders/sync/${id}`;
+
+    const response = await axios.get(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    return response.data;
+
+  } catch (error) {
+    if (error.response) {
+      throw {
+        message: error.response.data?.message || 'Failed to sync sales order by ID from bridge API',
+        statusCode: error.response.status,
+        errors: error.response.data
+      };
+    }
+    throw { message: error.message, statusCode: 500 };
+  }
+};
+
 module.exports = {
   getSalesOrders,
   getSalesOrderById,
@@ -614,5 +646,6 @@ module.exports = {
   canAutoRetry,
   incrementRetryCount,
   updateLocalSalesOrderStatus,
-  syncSalesOrderByIdInternalId
+  syncSalesOrderByIdInternalId,
+  syncSalesOrderById
 };
