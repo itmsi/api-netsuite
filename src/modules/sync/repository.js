@@ -133,7 +133,7 @@ const findLatestByModuleWithEmployee = async (syncModule) => {
   return await pgCore(TABLE_NAME)
     .leftJoin(
       'employees',
-      pgCore.raw(`"${TABLE_NAME}".created_by::text = employees.employee_id::text`)
+      pgCore.raw(`"${TABLE_NAME}".updated_by::text = employees.employee_id::text`)
     )
     .where(`${TABLE_NAME}.sync_module`, syncModule)
     .where(`${TABLE_NAME}.is_delete`, false)
@@ -143,8 +143,8 @@ const findLatestByModuleWithEmployee = async (syncModule) => {
       `${TABLE_NAME}.sync_status`,
       `${TABLE_NAME}.created_at`,
       `${TABLE_NAME}.updated_at`,
-      `${TABLE_NAME}.created_by`,
-      'employees.employee_name as created_by_name'
+      `${TABLE_NAME}.updated_by`,
+      'employees.employee_name as updated_by_name'
     ])
     .orderBy(`${TABLE_NAME}.sync_id`, 'desc')
     .first();

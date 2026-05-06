@@ -89,7 +89,7 @@ const getLatestSyncInfo = async (syncModule) => {
   return {
     sync_status: data.sync_status,
     created_at: data.updated_at,
-    created_by_name: data.created_by_name || null
+    created_by_name: data.updated_by_name || null
   };
 };
 
