@@ -334,7 +334,8 @@ module.exports = {
     SYNC_MODULE: 'sync-module',
     CUSTOMER_CREATE: 'customer-create-v5',
     SALES_ORDER_CREATE: 'sales-order-create-v5',
-    SALES_ORDER_UPDATE: 'sales-order-update-v5'
+    SALES_ORDER_UPDATE: 'sales-order-update-v5',
+    SYNC_ORCHESTRATOR: 'sync-orchestrator'
   },
   ACTION_TRX: {
     INSERT: 'insert',
@@ -359,7 +360,8 @@ module.exports = {
     SYNC_MODULE: 'sync-module',
     CUSTOMER_CREATE: 'customer-creation-v5',
     SALES_ORDER_CREATE: 'sales-order-creation-v5',
-    SALES_ORDER_UPDATE: 'sales-order-update-v5'
+    SALES_ORDER_UPDATE: 'sales-order-update-v5',
+    SYNC_ORCHESTRATOR: 'sync-orchestrator'
   },
   ENUM: {
     Y: 'Y',
@@ -459,5 +461,79 @@ module.exports = {
   VEHICLE_ALLOCATION_AVALIABLE_STATUS: {
     TERSEDIA: 1,
     TIDAK_TERSEDIA: 0
+  },
+  SYNC_SEQUENCE: [
+    'classes',
+    'departments',
+    'invoice_sales_orders',
+    'items',
+    'locations',
+    'purchasing_orders',
+    'sales_orders',
+    'terms',
+    'vendors',
+    'customers'
+  ],
+  SYNC_CONFIG: {
+    classes: {
+      url: `${process.env.BRIDGE_BASE_URL || 'http://localhost:9570'}/api/v1/bridge/class/get`,
+      data: { page: 1, page_size: 50, sort_by: 'last_modified', sort_order: 'DESC', is_sync: true, filters: {} },
+      table: 'class',
+      deleteCol: 'is_delete'
+    },
+    departments: {
+      url: `${process.env.BRIDGE_BASE_URL || 'http://localhost:9570'}/api/v1/bridge/department/get`,
+      data: { page: 1, page_size: 50, sort_by: 'last_modified', sort_order: 'DESC', is_sync: true, filters: {} },
+      table: 'departments',
+      deleteCol: 'is_delete'
+    },
+    invoice_sales_orders: {
+      url: `${process.env.BRIDGE_BASE_URL || 'http://localhost:9570'}/api/v1/bridge/invoice-sales-orders/get`,
+      data: { page: 1, page_size: 20, sort_by: 'id', sort_order: 'desc', is_sync: true, filters: {} },
+      table: 'invoice_sales_orders',
+      deleteCol: 'is_deleted'
+    },
+    items: {
+      url: `${process.env.BRIDGE_BASE_URL || 'http://localhost:9570'}/api/v1/bridge/items/get`,
+      data: { page: 1, page_size: 50, is_sync: true },
+      table: 'items',
+      deleteCol: 'is_deleted'
+    },
+    locations: {
+      url: `${process.env.BRIDGE_BASE_URL || 'http://localhost:9570'}/api/v1/bridge/locations/get`,
+      data: { page: 1, page_size: 30, sort_by: 'last_modified_netsuite', sort_order: 'DESC', is_sync: true, filters: {} },
+      table: 'locations',
+      deleteCol: 'is_deleted'
+    },
+    purchasing_orders: {
+      url: `${process.env.BRIDGE_BASE_URL || 'http://localhost:9570'}/api/v1/bridge/purchase-orders/get-list`,
+      data: { page: 1, page_size: 1, sort_by: 'trandate', sort_order: 'DESC', is_sync: true, filters: {} },
+      table: 'purchase_orders',
+      deleteCol: null
+    },
+    sales_orders: {
+      url: `${process.env.BRIDGE_BASE_URL || 'http://localhost:9570'}/api/v1/bridge/sales-orders/get`,
+      data: { page: 1, page_size: 1, sort_by: 'last_modified_netsuite', sort_order: 'DESC', is_sync: true, filters: {} },
+      table: 'sales_orders',
+      deleteCol: 'is_deleted'
+    },
+    terms: {
+      url: `${process.env.BRIDGE_BASE_URL || 'http://localhost:9570'}/api/v1/bridge/term/sync`,
+      data: { page: 1, limit: 10, sort_by: 'name', sort_order: 'desc', is_sync: true, search: '' },
+      table: 'terms',
+      deleteCol: 'is_delete'
+    },
+    vendors: {
+      url: `${process.env.BRIDGE_BASE_URL || 'http://localhost:9570'}/api/v1/bridge/vendors/get`,
+      data: { page: 1, page_size: 50, is_sync: true },
+      table: 'vendors',
+      deleteCol: 'is_deleted'
+    },
+    customers: {
+      url: `${process.env.BRIDGE_BASE_URL || 'http://localhost:9570'}/api/v1/bridge/customers/get`,
+      data: { page: 1, page_size: 50, is_sync: true },
+      table: 'customers',
+      deleteCol: 'is_deleted'
+    }
   }
 }

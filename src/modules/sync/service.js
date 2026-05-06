@@ -1,4 +1,6 @@
 const repository = require('./repository');
+const { publishToRabbitMqQueueSingle } = require('../../config/rabbitmq');
+const { EXCHANGES, QUEUE, SYNC_SEQUENCE } = require('../../utils/constant');
 
 /**
  * Service Layer - Business Logic
@@ -137,9 +139,6 @@ const syncModules = async (body, user) => {
   }
 
   // 3. Trigger RabbitMQ queue
-  const { publishToRabbitMqQueueSingle } = require('../../config/rabbitmq');
-  const { EXCHANGES, QUEUE } = require('../../utils/constant');
-
   await publishToRabbitMqQueueSingle(
     EXCHANGES.SYNC_MODULE,
     QUEUE.SYNC_MODULE,
@@ -171,6 +170,34 @@ const upsertSync = async (body, user) => {
   }
 };
 
+/**
+ * Trigger sync all modules (Orchestration)
+ */
+const syncAllModules = async (user) => {
+  const firstModule = SYNC_SEQUENCE[0];
+
+  await publishToRabbitMqQueueSingle(
+    EXCHANGES.SYNC_ORCHESTRATOR,
+    QUEUE.SYNC_ORCHESTRATOR,
+    {
+      module: firstModule,
+      isAuto: true,
+      user: user
+    },
+    {
+      durable: true,
+      arguments: {
+        'x-dead-letter-exchange': `${EXCHANGES.SYNC_ORCHESTRATOR}-dlx`
+      }
+    }
+  );
+
+  return { 
+    message: 'Sync all process initiated', 
+    firstModule 
+  };
+};
+
 module.exports = {
   getSyncList,
   getSyncById,
@@ -179,5 +206,6 @@ module.exports = {
   upsertSync,
   deleteSync,
   getLatestSyncInfo,
-  syncModules
+  syncModules,
+  syncAllModules
 };
