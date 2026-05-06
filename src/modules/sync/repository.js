@@ -142,6 +142,7 @@ const findLatestByModuleWithEmployee = async (syncModule) => {
       `${TABLE_NAME}.sync_module`,
       `${TABLE_NAME}.sync_status`,
       `${TABLE_NAME}.created_at`,
+      `${TABLE_NAME}.updated_at`,
       `${TABLE_NAME}.created_by`,
       'employees.employee_name as created_by_name'
     ])
