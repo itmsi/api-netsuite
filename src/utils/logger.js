@@ -21,7 +21,6 @@ const generateFolderLogs = (dynamicFolder, subPath) => {
       folderPath: absoluteFolderPath
     }
   } catch (error) {
-    console.error('generateFolderLogs Error:', error.message)
     // Fallback to /tmp in Docker if root directory is not writable
     const fallbackPath = path.join('/tmp', relativeFolderPath)
     try {
