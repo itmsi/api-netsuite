@@ -1,41 +1,58 @@
 const fs = require('fs')
+const path = require('path')
 
-const generateFolderLogs = (dynamicFolder, path) => {
+const generateFolderLogs = (dynamicFolder, subPath) => {
   const today = new Date()
   const year = today.getFullYear()
   const month = today.getMonth() + 1
   const date = today.getDate()
-  const folderPath = `./${dynamicFolder}/${path}/${year}/${month}/${date}/`
-  const pathForDatabase = `${dynamicFolder}/${path}/${year}/${month}/${date}/`
+  
+  const relativeFolderPath = `${dynamicFolder}/${subPath}/${year}/${month}/${date}/`
+  const projectRoot = path.resolve(__dirname, '../../')
+  const absoluteFolderPath = path.join(projectRoot, relativeFolderPath)
+  
   try {
-    if (!fs.existsSync(folderPath)) {
+    if (!fs.existsSync(absoluteFolderPath)) {
       console.log('generated folder');
-      fs.mkdirSync(folderPath, { recursive: true, mode: 0o755 })
-      return {
-        pathForDatabase,
-        folderPath
-      }
+      fs.mkdirSync(absoluteFolderPath, { recursive: true, mode: 0o755 })
     }
     return {
-      pathForDatabase,
-      folderPath
+      pathForDatabase: relativeFolderPath,
+      folderPath: absoluteFolderPath
     }
   } catch (error) {
-    console.log(error)
-    return error
+    console.error('generateFolderLogs Error:', error.message)
+    // Fallback to /tmp in Docker if root directory is not writable
+    const fallbackPath = path.join('/tmp', relativeFolderPath)
+    try {
+      if (!fs.existsSync(fallbackPath)) {
+        fs.mkdirSync(fallbackPath, { recursive: true, mode: 0o755 })
+      }
+      return {
+        pathForDatabase: relativeFolderPath,
+        folderPath: fallbackPath
+      }
+    } catch (fallbackErr) {
+      console.error('generateFolderLogs Fallback Error:', fallbackErr.message)
+      return { folderPath: '/tmp' }
+    }
   }
 }
 
 const logger = (fileName, type) => {
   try {
-    const { folderPath } = generateFolderLogs('logs', type)
-    const finalPath = `${__dirname}/../../${folderPath}/${fileName}`
+    const result = generateFolderLogs('logs', type)
+    if (!result || !result.folderPath) throw new Error('Failed to create log directory')
+    
+    const finalPath = path.join(result.folderPath, fileName)
     return fs.createWriteStream(finalPath, {
       flags: 'a',
       mode: 0o755
     })
   } catch (error) {
-    return error
+    console.error('Logger initialization error:', error.message)
+    // Return dummy stream to prevent .write() crashes if everything fails
+    return fs.createWriteStream('/dev/null', { flags: 'a' })
   }
 }
 
@@ -64,11 +81,13 @@ class Logger {
       
       // Also write to file
       try {
-        const { folderPath } = generateFolderLogs('logs', 'application')
-        const finalPath = `${__dirname}/../../${folderPath}/app.log`
-        fs.appendFileSync(finalPath, formattedMessage)
+        const result = generateFolderLogs('logs', 'application')
+        if (result && result.folderPath) {
+          const finalPath = path.join(result.folderPath, 'app.log')
+          fs.appendFileSync(finalPath, formattedMessage)
+        }
       } catch (error) {
-        console.error('Failed to write to log file:', error)
+        console.error('Failed to write to log file:', error.message)
       }
     }
   }
