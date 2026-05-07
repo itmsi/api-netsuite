@@ -109,7 +109,7 @@ const create = async (req, res) => {
       req.body.custbody_msi_createdby_api = req.user.email;
     }
 
-    const result = await service.createSalesOrder(req.body);
+    const result = await service.createSalesOrder(req.body, req.user);
     const { success, ...responseData } = result || {};
     return baseResponse(res, {
       code: 201,
@@ -139,7 +139,7 @@ const update = async (req, res) => {
       req.body.custbody_msi_createdby_api = req.user.email;
     }
 
-    const result = await service.updateSalesOrder(req.body);
+    const result = await service.updateSalesOrder(req.body, req.user);
     const { success, ...responseData } = result || {};
     return baseResponse(res, {
       data: {
@@ -158,10 +158,41 @@ const update = async (req, res) => {
   }
 };
 
+/**
+ * Sync single sales order by ID from bridge API
+ * GET /api/netsuite/sales-orders/sync/:id
+ */
+const syncById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res.status(400).json({ success: false, message: 'Parameter id tidak boleh kosong' });
+    }
+
+    const result = await service.syncSalesOrderById(id);
+
+    return baseResponse(res, {
+      data: {
+        success: true,
+        data: result,
+        message: `Sync sales order ID ${id} berhasil`
+      }
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || 'Internal Server Error',
+      errors: error.errors || error
+    });
+  }
+};
+
 module.exports = {
   getList,
   getById,
   sync,
   create,
-  update
+  update,
+  syncById
 };

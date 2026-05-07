@@ -7,7 +7,7 @@ const customerPaths = {
     post: {
       tags: ['Customer'],
       summary: 'Get list of customers',
-      description: 'Fetch customer data from external bridge API with pagination support',
+      description: 'Fetch customer data from local database (bridge_sanbox.customers).',
       security: [{ bearerAuth: [] }],
       requestBody: {
         required: true,

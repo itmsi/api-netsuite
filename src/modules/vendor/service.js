@@ -20,10 +20,10 @@ const dbNetsuite = knex({
  */
 const getVendorsList = async (body) => {
   try {
-    const page      = body.page !== undefined ? parseInt(body.page) : 0;
+    const page      = body.page !== undefined ? parseInt(body.page) : 1;
     const limit     = parseInt(body.limit) || 50;
     const sortOrder = body.sort_order ? body.sort_order.toUpperCase() : 'DESC';
-    const offset    = page * limit;
+    const offset    = (page - 1) * limit;
 
     // Kolom yang boleh dijadikan sort_by
     const validSortColumns = [

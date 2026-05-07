@@ -185,19 +185,58 @@ const salesOrdersPaths = {
     }
   },
 
-  '/sales-orders/{id}': {
+  '/sales-orders/sync/{id}': {
     get: {
       tags: ['Sales Orders'],
-      summary: 'Get sales order by ID dari DB lokal',
-      description: 'Fetch single sales order dari database lokal (bridge_sanbox.sales_orders) berdasarkan `netsuite_id`.',
+      summary: 'Sync single sales order by ID',
+      description: 'Sync single sales order dari bridge API `GET /api/v1/bridge/sales-orders/sync/{id}`.',
       security: [{ bearerAuth: [] }],
       parameters: [
         {
           name: 'id',
           in: 'path',
           required: true,
-          description: 'NetSuite internal ID dari sales order (netsuite_id)',
-          schema: { type: 'integer', example: 7840 }
+          description: 'NetSuite internal ID (netsuite_id) atau UUID (id) dari sales order',
+          schema: { type: 'string', example: '11273' }
+        }
+      ],
+      responses: {
+        200: {
+          description: 'Success',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  success: { type: 'boolean', example: true },
+                  data: { type: 'object', description: 'Raw response dari bridge API' },
+                  message: { type: 'string', example: 'Sync sales order ID 11273 berhasil' }
+                }
+              }
+            }
+          }
+        },
+        500: {
+          description: 'Internal Server Error',
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+        }
+      }
+    }
+  },
+
+  '/sales-orders/{id}': {
+    get: {
+      tags: ['Sales Orders'],
+      summary: 'Get sales order by ID dari DB lokal',
+      description: 'Fetch single sales order dari database lokal (bridge_sanbox.sales_orders) berdasarkan `netsuite_id` atau UUID `id`.',
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        {
+          name: 'id',
+          in: 'path',
+          required: true,
+          description: 'NetSuite internal ID (netsuite_id) atau UUID (id) dari sales order',
+          schema: { type: 'string', example: '11273' }
         }
       ],
       responses: {

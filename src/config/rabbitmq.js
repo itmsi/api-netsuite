@@ -1,7 +1,7 @@
 const amqp = require('amqplib');
 const { lang } = require('../lang');
 
-const RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://guest:guest@localhost:9505';
+const RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://localhost';
 
 const connectRabbitMQ = async () => {
   try {
@@ -21,9 +21,10 @@ const publishToRabbitMqQueueSingle = async (exchangeName, queueName, data, queue
     if (config?.connection && config?.channel) {
       await config?.channel.assertExchange(exchangeName, 'fanout', { durable: true })
       await config?.channel.assertQueue(queueName, queueOptions)
-      await config?.channel.bindQueue(queueName, exchangeName)
+      await config?.channel.bindQueue(queueName, exchangeName, '')
 
-      config?.channel.publish(exchangeName, '', Buffer.from(JSON.stringify(data)))
+      const stringifiedData = JSON.stringify(data);
+      config?.channel.publish(exchangeName, '', Buffer.from(stringifiedData))
       console.info(lang.__('rabbitmq.publish'))
     } else {
       console.info(`failed to publish ${exchangeName} - ${queueName}`, config?.error)
@@ -31,10 +32,14 @@ const publishToRabbitMqQueueSingle = async (exchangeName, queueName, data, queue
   } catch (e) {
     console.error(lang.__('rabbitmq.error'), e)
   } finally {
-    console.info(lang.__('rabbitmq.closing'))
-    await config?.channel.close()
-    await config?.connection.close()
-    console.info(lang.__('rabbitmq.closed'))
+    try {
+      console.info(lang.__('rabbitmq.closing'))
+      if (config?.channel) await config.channel.close()
+      if (config?.connection) await config.connection.close()
+      console.info(lang.__('rabbitmq.closed'))
+    } catch (closeErr) {
+      console.warn('Error closing RabbitMQ connection:', closeErr.message)
+    }
   }
 }
 

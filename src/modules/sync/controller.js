@@ -101,11 +101,28 @@ const syncModules = async (req, res) => {
   }
 };
 
+/**
+ * GET /api/netsuite/sync/all
+ * Trigger sync all modules (Orchestration)
+ */
+const syncAll = async (req, res) => {
+  try {
+    const data = await service.syncAllModules(req.user);
+    return baseResponse(res, {
+      data,
+      message: 'Sync all process initiated'
+    });
+  } catch (error) {
+    return errorResponse(res, error.message || 'Internal Server Error', error.statusCode || 500);
+  }
+};
+
 module.exports = {
   getList,
   getById,
   create,
   update,
   remove,
-  syncModules
+  syncModules,
+  syncAll
 };

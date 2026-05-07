@@ -1,49 +1,9 @@
 const axios = require('axios');
 const { connectRabbitMQ } = require('../config/rabbitmq');
-const { EXCHANGES, QUEUE } = require('../utils/constant');
+const { EXCHANGES, QUEUE, SYNC_CONFIG } = require('../utils/constant');
 const syncService = require('../modules/sync/service');
 const authService = require('../modules/auth/service');
-
-const BRIDGE_BASE_URL = process.env.BRIDGE_BASE_URL || 'http://localhost:9570';
-
-const SYNC_CONFIG = {
-  classes: {
-    url: `${BRIDGE_BASE_URL}/api/v1/bridge/class/get`,
-    data: { page: 1, page_size: 50, sort_by: 'last_modified', sort_order: 'DESC', filters: {} }
-  },
-  departments: {
-    url: `${BRIDGE_BASE_URL}/api/v1/bridge/department/get`,
-    data: { page: 1, page_size: 50, sort_by: 'last_modified', sort_order: 'DESC', filters: {} }
-  },
-  invoice_sales_orders: {
-    url: `${BRIDGE_BASE_URL}/api/v1/bridge/invoice-sales-orders/get`,
-    data: { page: 1, page_size: 20, sort_by: 'id', sort_order: 'desc', filters: {} }
-  },
-  items: {
-    url: `${BRIDGE_BASE_URL}/api/v1/bridge/items/get`,
-    data: { pageSize: 50, pageIndex: 0 }
-  },
-  locations: {
-    url: `${BRIDGE_BASE_URL}/api/v1/bridge/locations/get`,
-    data: { page: 1, page_size: 30, sort_by: 'last_modified_netsuite', sort_order: 'DESC', filters: {} }
-  },
-  purchasing_orders: {
-    url: `${BRIDGE_BASE_URL}/api/v1/bridge/purchase-orders/get-list`,
-    data: { page: 1, page_size: 1, sort_by: 'po_id', sort_order: 'esc', filters: {} }
-  },
-  sales_orders: {
-    url: `${BRIDGE_BASE_URL}/api/v1/bridge/sales-orders/get`,
-    data: { page: 1, page_size: 1, sort_by: 'last_modified_netsuite', sort_order: 'DESC', filters: {} }
-  },
-  terms: {
-    url: `${BRIDGE_BASE_URL}/api/v1/bridge/term/sync`,
-    data: { page: 1, limit: 10, sort_by: 'name', sort_order: 'desc', search: '' }
-  },
-  vendors: {
-    url: `${BRIDGE_BASE_URL}/api/v1/bridge/vendors/get`,
-    data: { pageSize: 50, pageIndex: 0 }
-  }
-};
+const { dbNetsuite } = require('../config/database');
 
 const methodExecution = async (payload, channel, msg) => {
   const { sync_id, module: moduleName, user } = payload;
@@ -75,8 +35,25 @@ const methodExecution = async (payload, channel, msg) => {
     });
 
     if (response.data) {
-      await syncService.updateSync(sync_id, { sync_status: 'success' }, user);
-      console.info(`[Worker] Sync module ${moduleName} completed successfully`);
+      // Hitung total data di database lokal
+      let countData = 0;
+      if (config.table) {
+        try {
+          const query = dbNetsuite(config.table);
+          if (config.deleteCol) {
+            const countResult = await query.where(config.deleteCol, false).count('* as total').first();
+            countData = parseInt(countResult?.total || 0);
+          } else {
+            const countResult = await query.count('* as total').first();
+            countData = parseInt(countResult?.total || 0);
+          }
+        } catch (countErr) {
+          console.warn(`[Worker] Failed to count data for table ${config.table}:`, countErr.message);
+        }
+      }
+
+      await syncService.updateSync(sync_id, { sync_status: 'success', count_data: countData }, user);
+      console.info(`[Worker] Sync module ${moduleName} completed successfully with ${countData} records`);
     } else {
       throw new Error(response.data?.message || 'Bridge API returned failure');
     }

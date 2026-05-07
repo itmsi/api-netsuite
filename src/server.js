@@ -10,10 +10,9 @@ process.on('warning', (warning) => {
 const unhandledRejections = new Map()
 process.on('unhandledRejection', (reason, promise) => {
   unhandledRejections.set(promise, reason)
-  console.log(
-    process.stderr.fd,
+  console.error(
     `Caught rejection: ${promise}\n`
-    + `Exception reason: ${reason}`
+    + `Exception reason: ${reason && reason.stack ? reason.stack : reason}`
   )
 })
 process.on('rejectionHandled', (promise) => {

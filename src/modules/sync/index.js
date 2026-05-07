@@ -37,6 +37,16 @@ router.post(
 );
 
 /**
+ * @route   GET /api/netsuite/sync/all
+ * @desc    Trigger sync all modules (Orchestration)
+ * @access  Public
+ */
+router.get(
+  '/all',
+  controller.syncAll
+);
+
+/**
  * @route   GET /api/netsuite/sync/:id
  * @desc    Get sync by ID
  * @access  Private

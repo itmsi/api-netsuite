@@ -1,4 +1,6 @@
 const repository = require('./repository');
+const { publishToRabbitMqQueueSingle } = require('../../config/rabbitmq');
+const { EXCHANGES, QUEUE, SYNC_SEQUENCE } = require('../../utils/constant');
 
 /**
  * Service Layer - Business Logic
@@ -62,6 +64,7 @@ const updateSync = async (id, body, user) => {
   const data = {};
   //if (body.sync_module !== undefined) data.sync_module = body.sync_module;
   if (body.sync_status !== undefined) data.sync_status = body.sync_status;
+  if (body.count_data !== undefined) data.count_data = body.count_data;
   data.updated_by = userId;
 
   return await repository.update(id, data);
@@ -88,8 +91,8 @@ const getLatestSyncInfo = async (syncModule) => {
   if (!data) return null;
   return {
     sync_status: data.sync_status,
-    created_at: data.created_at,
-    created_by_name: data.created_by_name || null
+    created_at: data.updated_at,
+    created_by_name: data.updated_by_name || null
   };
 };
 
@@ -136,9 +139,6 @@ const syncModules = async (body, user) => {
   }
 
   // 3. Trigger RabbitMQ queue
-  const { publishToRabbitMqQueueSingle } = require('../../config/rabbitmq');
-  const { EXCHANGES, QUEUE } = require('../../utils/constant');
-
   await publishToRabbitMqQueueSingle(
     EXCHANGES.SYNC_MODULE,
     QUEUE.SYNC_MODULE,
@@ -152,12 +152,60 @@ const syncModules = async (body, user) => {
   return return_data;
 };
 
+/**
+ * Upsert sync record (Check if exists by module, then update or create)
+ */
+const upsertSync = async (body, user) => {
+  const { sync_module } = body;
+  if (!sync_module) {
+    throw { message: 'Parameter sync_module tidak boleh kosong', statusCode: 400 };
+  }
+
+  const existing = await repository.findByModuleAndStatus(sync_module);
+
+  if (existing) {
+    return await updateSync(existing.sync_id, body, user);
+  } else {
+    return await createSync(body, user);
+  }
+};
+
+/**
+ * Trigger sync all modules (Orchestration)
+ */
+const syncAllModules = async (user) => {
+  const firstModule = SYNC_SEQUENCE[0];
+
+  await publishToRabbitMqQueueSingle(
+    EXCHANGES.SYNC_ORCHESTRATOR,
+    QUEUE.SYNC_ORCHESTRATOR,
+    {
+      module: firstModule,
+      isAuto: true,
+      user: user
+    },
+    {
+      durable: true,
+      arguments: {
+        'x-dead-letter-exchange': `${EXCHANGES.SYNC_ORCHESTRATOR}-dlx`
+      }
+    }
+  );
+
+  return { 
+    message: 'Sync all process initiated', 
+    firstModule 
+  };
+};
+
 module.exports = {
   getSyncList,
   getSyncById,
   createSync,
   updateSync,
+  upsertSync,
   deleteSync,
   getLatestSyncInfo,
-  syncModules
+  syncModules,
+  syncAllModules
 };

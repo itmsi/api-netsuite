@@ -11,7 +11,11 @@ const prometheusMiddleware = (req, res, next) => {
   // Hook untuk mengukur response size
   let responseSize = 0;
   res.send = function(data) {
-    responseSize = Buffer.byteLength(data, 'utf8');
+    if (data && (typeof data === 'string' || Buffer.isBuffer(data))) {
+      responseSize = Buffer.byteLength(data, 'utf8');
+    } else if (data && typeof data === 'object') {
+      responseSize = Buffer.byteLength(JSON.stringify(data), 'utf8');
+    }
     return originalSend.call(this, data);
   };
   

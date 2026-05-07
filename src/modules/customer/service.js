@@ -6,52 +6,86 @@ const { publishToRabbitMqQueueSingle } = require('../../config/rabbitmq');
 
 const getCustomerList = async (body) => {
   try {
-    // 1. Get token from auth module
-    const tokenResponse = await authService.getToken();
-    const token = tokenResponse.data.access_token;
+    const page = parseInt(body.page) || 1;
+    const limit = parseInt(body.page_size) || 50;
+    const sortOrder = body.sort_order ? body.sort_order.toUpperCase() : 'DESC';
+    const offset = (page - 1) * limit;
 
-    // 2. Fetch data from bridge API
-    const baseUrl = process.env.BRIDGE_BASE_URL || 'https://api-bridge-sb.motorsights.com';
-    const url = `${baseUrl}/api/v1/bridge/customers/get`;
-
-    // Map internal payload to bridge API payload format (following user curl request)
-    const requestData = {
-      pageSize: body.pageSize || 50,
-      pageIndex: body.pageIndex || 0,
-      lastmodified: body.lastmodified || null,
-      netsuite_id: body.netsuite_id || null
+    // Mapping sort_by to database column
+    const sortMapping = {
+      'lastModifiedDate': 'last_modified_netsuite',
+      'lastmodified': 'last_modified_netsuite',
+      'name': 'name',
+      'email': 'email',
+      'netsuite_id': 'netsuite_id'
     };
+    const orderCol = sortMapping[body.sort_by] || 'last_modified_netsuite';
 
-    const response = await axios.post(url, requestData, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      timeout: 120000
-    });
+    let query = dbNetsuite('customers');
 
-    const resData = response.data;
+    // Apply filters if provided
+    if (body.filters) {
+      const { filters } = body;
+      
+      // internalid (can be array or string/number)
+      if (filters.internalid) {
+        if (Array.isArray(filters.internalid)) {
+          query = query.whereIn('netsuite_id', filters.internalid.map(id => id.toString()));
+        } else {
+          query = query.where('netsuite_id', filters.internalid.toString());
+        }
+      }
 
-    // 3. Map to system template formatting for pagination
+      // entityid (from jsonb data)
+      if (filters.entityid) {
+        query = query.whereRaw("data->>'entityId' ILIKE ?", [`%${filters.entityid}%`]);
+      }
+
+      // companyname (from name column or jsonb)
+      if (filters.companyname) {
+        query = query.where('name', 'ILIKE', `%${filters.companyname}%`);
+      }
+
+      // email
+      if (filters.email) {
+        query = query.where('email', 'ILIKE', `%${filters.email}%`);
+      }
+
+      // phone
+      if (filters.phone) {
+        query = query.where('phone', 'ILIKE', `%${filters.phone}%`);
+      }
+
+      // lastmodified
+      if (filters.lastmodified) {
+        query = query.where('last_modified_netsuite', '>=', filters.lastmodified);
+      }
+    }
+
+    // Get total count for pagination
+    const countResult = await query.clone().count('* as total').first();
+    const total = parseInt(countResult.total) || 0;
+    const totalPages = Math.ceil(total / limit);
+
+    // Get items with sorting and pagination
+    const items = await query
+      .select('*')
+      .orderBy(orderCol, sortOrder)
+      .limit(limit)
+      .offset(offset);
+
     return {
-      items: resData.data || resData.items || [],
+      items,
       pagination: {
-        page: (resData.pageIndex !== undefined ? resData.pageIndex : (resData.page || 0)),
-        limit: (resData.pageSize !== undefined ? resData.pageSize : (resData.page_size || 50)),
-        total: resData.total_records || resData.totalRows || 0,
-        totalPages: resData.total_pages || resData.totalPages || 0
+        page,
+        limit,
+        total,
+        totalPages
       }
     };
 
   } catch (error) {
-    if (error.response) {
-      throw {
-        message: error.response.data.message || 'Failed to fetch customers from bridge API',
-        statusCode: error.response.status,
-        errors: error.response.data
-      };
-    }
-    throw { message: error.message, statusCode: 500 };
+    throw { message: error.message || 'Failed to fetch customers from database', statusCode: 500 };
   }
 };
 

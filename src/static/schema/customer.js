@@ -6,10 +6,29 @@ const customerSchemas = {
   CustomerRequest: {
     type: 'object',
     properties: {
-      pageSize: { type: 'integer', default: 50, example: 50 },
-      pageIndex: { type: 'integer', default: 0, example: 0 },
-      lastmodified: { type: 'string', format: 'date-time', example: '2025-11-21T10:00:00+07:00' },
-      netsuite_id: { type: 'string', nullable: true, example: null }
+      page: { type: 'integer', default: 1, example: 1 },
+      page_size: { type: 'integer', default: 50, example: 50 },
+      sort_by: { type: 'string', default: 'lastModifiedDate', example: 'lastModifiedDate' },
+      sort_order: { type: 'string', enum: ['ASC', 'DESC'], default: 'DESC', example: 'DESC' },
+      is_sync: { type: 'boolean', default: true, example: true },
+      filters: {
+        type: 'object',
+        properties: {
+          internalid: { 
+            oneOf: [
+              { type: 'array', items: { type: 'integer' } },
+              { type: 'string' },
+              { type: 'integer' }
+            ],
+            example: [1, 2]
+          },
+          entityid: { type: 'string', example: 'CUST-001' },
+          companyname: { type: 'string', example: 'customer test 011' },
+          email: { type: 'string', example: 'customer@example.com' },
+          phone: { type: 'string', example: '08123456789' },
+          lastmodified: { type: 'string', format: 'date-time', example: '2026-04-20T23:59:00+07:00' }
+        }
+      }
     }
   },
   CustomerListResponse: {
@@ -19,10 +38,7 @@ const customerSchemas = {
       data: {
         type: 'object',
         properties: {
-          items: {
-            type: 'array',
-            items: { type: 'object', description: 'Customer data from bridge API' }
-          },
+          items: { type: 'array', items: { type: 'object' }, description: 'Customer data from local database (bridge_sanbox)' },
           pagination: { $ref: '#/components/schemas/Pagination' }
         }
       },

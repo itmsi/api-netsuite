@@ -21,7 +21,8 @@ const salesOrdersSchema = {
   SalesOrder: {
     type: 'object',
     properties: {
-      id: { type: 'string', example: '7840' },
+      id: { type: 'string', example: 'f0b57258-5f33-4e03-81f7-cd70d833b5c5' },
+      netsuite_id: { type: 'string', example: '7840' },
       tranid: { type: 'string', example: 'SO-0001' },
       tran_date: { type: 'string', nullable: true, example: '2026-03-20' },
       status_code: { type: 'string', example: 'A' },
@@ -106,7 +107,7 @@ const salesOrdersSchema = {
     type: 'object',
     required: ['id'],
     properties: {
-      id: { type: 'integer', example: 7840 },
+      id: { type: 'string', example: 'f0b57258-5f33-4e03-81f7-cd70d833b5c5' },
       customform: { type: 'integer', example: 104 },
       subsidiary: { type: 'integer', example: 5 },
       entity: { type: 'integer', example: 1052 },

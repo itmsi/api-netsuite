@@ -58,4 +58,15 @@ router.get(
   controller.getById
 );
 
+/**
+ * @route   GET /api/netsuite/sales-orders/sync/:id
+ * @desc    Sync single sales order by ID dari bridge API
+ * @access  Private
+ */
+router.get(
+  '/sync/:id',
+  verifyToken,
+  controller.syncById
+);
+
 module.exports = router;

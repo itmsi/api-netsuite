@@ -3,6 +3,13 @@
  */
 
 const purchasingOrdersSchemas = {
+  PurchaseOrderFile: {
+    type: 'object',
+    properties: {
+      fileUrl: { type: 'string', example: 'https://cloud.inlinegroupdc.com/s/xR34c667kEKZRsj' },
+      fileName: { type: 'string', example: 'Invoice Vendor' }
+    }
+  },
   PurchaseOrderLine: {
     type: 'object',
     properties: {
@@ -52,6 +59,10 @@ const purchasingOrdersSchemas = {
       lines: {
         type: 'array',
         items: { $ref: '#/components/schemas/PurchaseOrderLine' }
+      },
+      files: {
+        type: 'array',
+        items: { $ref: '#/components/schemas/PurchaseOrderFile' }
       }
     }
   },
@@ -107,6 +118,10 @@ const purchasingOrdersSchemas = {
       items: {
         type: 'array',
         items: { $ref: '#/components/schemas/PurchaseOrderLineItem' }
+      },
+      files: {
+        type: 'array',
+        items: { $ref: '#/components/schemas/PurchaseOrderFile' }
       }
     }
   },
@@ -135,6 +150,10 @@ const purchasingOrdersSchemas = {
       items: {
         type: 'array',
         items: { $ref: '#/components/schemas/PurchaseOrderLineItem' }
+      },
+      files: {
+        type: 'array',
+        items: { $ref: '#/components/schemas/PurchaseOrderFile' }
       }
     }
   },

@@ -6,7 +6,7 @@ const vendorSchemas = {
   VendorRequest: {
     type: 'object',
     properties: {
-      page: { type: 'integer', default: 0, example: 0 },
+      page: { type: 'integer', default: 1, example: 1 },
       limit: { type: 'integer', default: 50, example: 50 },
       sort_by: { type: 'string', default: 'created_at', example: 'created_at' },
       sort_order: { type: 'string', default: 'desc', example: 'desc' },
