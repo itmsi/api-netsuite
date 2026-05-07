@@ -192,8 +192,28 @@ const getSalesOrderById = async (id) => {
       throw { message: `Sales order dengan ID '${id}' tidak ditemukan`, statusCode: 404 };
     }
 
+    const mappedRow = mapSalesOrder(row);
+
+    // Tambahkan message_error jika status failed
+    if (mappedRow.status_name === 'failed') {
+      const lastEvent = await dbNetsuite('outbox_events')
+        .where('aggregate_id', mappedRow.id)
+        .orderBy('created_at', 'desc')
+        .first();
+
+      if (lastEvent && lastEvent.properties) {
+        try {
+          mappedRow.message_error = typeof lastEvent.properties === 'string'
+            ? JSON.parse(lastEvent.properties.response)
+            : lastEvent.properties.response;
+        } catch (e) {
+          mappedRow.message_error = lastEvent.last_error;
+        }
+      }
+    }
+
     return {
-      items: [mapSalesOrder(row)],
+      items: [mappedRow],
       pagination: { page: 1, limit: 1, total: 1, totalPages: 1 }
     };
 
@@ -276,6 +296,7 @@ const createSalesOrder = async (body, user) => {
   try {
     // 1. create data ke DB netsuite tabel sales_orders
     const soData = {
+      status_name: 'pending',
       customform: body.customform,
       subsidiary: body.subsidiary,
       entity: body.entity,
@@ -309,6 +330,10 @@ const createSalesOrder = async (body, user) => {
       aggregate_id: soInternalId,
       aggregate_type: 'sales_order_create',
       status: 'WAITING',
+      retry_count: 0,
+      max_retry: 3,
+      last_error: null,
+      properties: JSON.stringify({ request: body }),
       destination: 'netsuite',
       created_by: user?.email || 'MSI',
       updated_by: user?.email || 'MSI'
@@ -429,6 +454,10 @@ const updateSalesOrder = async (body, user) => {
       aggregate_id: localId,
       aggregate_type: 'sales_order_update',
       status: 'WAITING',
+      retry_count: 0,
+      max_retry: 3,
+      last_error: null,
+      properties: JSON.stringify({ request: body }),
       destination: 'netsuite',
       created_by: user?.email || 'MSI',
       updated_by: user?.email || 'MSI'
@@ -548,25 +577,24 @@ const canAutoRetry = async (id) => {
 };
 
 const incrementRetryCount = async (id, lastError) => {
-  await dbNetsuite('outbox_events')
+  const [updated] = await dbNetsuite('outbox_events')
     .where('id', id)
-    .increment('retry_count', 1)
     .update({
-      last_error: lastError,
+      retry_count: dbNetsuite.raw('retry_count + 1'),
+      last_error: lastError || null,
+      status: 'PROCESSING',
       updated_at: new Date()
-    });
+    })
+    .returning(['retry_count', 'max_retry']);
 
-  return dbNetsuite('outbox_events')
-    .where('id', id)
-    .select(['retry_count', 'max_retry'])
-    .first();
+  return updated;
 };
 
 const updateLocalSalesOrderStatus = async (id, status) => {
   await dbNetsuite('sales_orders')
     .where('id', id)
     .update({
-      status_name: status === 'failed' ? 'Failed to Create' : status,
+      status_name: status,
       updated_at: new Date()
     });
 };
