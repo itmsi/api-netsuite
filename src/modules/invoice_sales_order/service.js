@@ -282,10 +282,10 @@ const processFakturSync = async (records, search = null) => {
  */
 const getInvoiceSalesOrders = async (body) => {
   try {
-    const page      = parseInt(body.page)  || 1;
-    const limit     = parseInt(body.limit) || 10;
+    const page = parseInt(body.page) || 1;
+    const limit = parseInt(body.limit) || 10;
     const sortOrder = body.sort_order ? body.sort_order.toUpperCase() : 'DESC';
-    const offset    = (page - 1) * limit;
+    const offset = (page - 1) * limit;
 
     // Kolom yang boleh dijadikan sort_by
     const validSortColumns = [
@@ -294,58 +294,62 @@ const getInvoiceSalesOrders = async (body) => {
       'last_modified_netsuite', 'created_at', 'updated_at'
     ];
     const sortByRaw = body.sort_by === 'created_at' ? 'trandate' : (body.sort_by || 'last_modified_netsuite');
-    const orderCol  = validSortColumns.includes(sortByRaw) ? sortByRaw : 'last_modified_netsuite';
+    const orderCol = validSortColumns.includes(sortByRaw) ? `invoice_sales_orders.${sortByRaw}` : 'invoice_sales_orders.last_modified_netsuite';
 
-    let query = dbNetsuite('invoice_sales_orders').where('is_deleted', false);
+    let query = db('invoice_sales_orders')
+      .leftJoin('customers', 'invoice_sales_orders.entity', 'customers.customer_id_netsuite')
+      .where('invoice_sales_orders.is_deleted', false);
 
     // Filter opsional
     if (body.search) {
       query = query.where(function () {
-        this.whereILike('tranid', `%${body.search}%`)
-            .orWhereILike('entityid', `%${body.search}%`)
-            .orWhereILike('memo', `%${body.search}%`);
+        this.whereILike('invoice_sales_orders.tranid', `%${body.search}%`)
+          .orWhereILike('invoice_sales_orders.entityid', `%${body.search}%`)
+          .orWhereILike('invoice_sales_orders.memo', `%${body.search}%`);
       });
     }
     if (body.subsidiary) {
-      query = query.where('subsidiary', String(body.subsidiary));
+      query = query.where('invoice_sales_orders.subsidiary', String(body.subsidiary));
     }
     if (body.approvalstatus) {
-      query = query.where('approvalstatus', String(body.approvalstatus));
+      query = query.where('invoice_sales_orders.approvalstatus', String(body.approvalstatus));
     }
     if (body.trandate_start) {
-      query = query.where('trandate', '>=', body.trandate_start);
+      query = query.where('invoice_sales_orders.trandate', '>=', body.trandate_start);
     }
     if (body.trandate_end) {
-      query = query.where('trandate', '<=', body.trandate_end);
+      query = query.where('invoice_sales_orders.trandate', '<=', body.trandate_end);
     }
 
     // Hitung total
     const countResult = await query.clone().count('* as total').first();
-    const total       = parseInt(countResult.total) || 0;
-    const totalPages  = Math.ceil(total / limit);
+    const total = parseInt(countResult.total) || 0;
+    const totalPages = Math.ceil(total / limit);
 
     // Select kolom eksplisit (exclude raw_data, id internal)
     const rows = await query
       .clone()
       .select([
-        'netsuite_id as id',
-        'tranid', 'entity', 'entityid', 'trandate', 'startdate', 'enddate',
-        'postingperiod', 'postingperiod_display', 'otherrefnum', 'memo',
-        'custbody_me_related_fulfillment', 'terms', 'account', 'account_display',
-        'currency', 'currency_display', 'exchangerate',
-        'custbody_msi_bank_payment_so', 'custbody_msi_bank_payment_so_display',
-        'approvalstatus',
-        'custbody_me_wf_created_by', 'custbody_me_wf_created_by_display',
-        'custbody_me_wf_next_approver_blank',
-        'saleseffectivedate', 'createdfrom', 'createdfrom_display',
-        'subsidiary', 'subsidiary_display',
-        'department', 'department_display',
-        'class', 'class_display',
-        'location', 'location_display',
-        'custbody_cseg_cn_cfi', 'custbody_cseg_cn_cfi_display',
-        'custbody_me_description',
-        'lines',
-        'last_modified_netsuite'
+        'invoice_sales_orders.netsuite_id as id',
+        'invoice_sales_orders.tranid', 'invoice_sales_orders.entity',
+        db.raw(`COALESCE(NULLIF(CONCAT_WS(' - ', NULLIF(customers.customer_code, ''), NULLIF(customers.customer_name, '')), ''), invoice_sales_orders.entityid) as entityid`),
+        'invoice_sales_orders.trandate', 'invoice_sales_orders.startdate', 'invoice_sales_orders.enddate',
+        'invoice_sales_orders.postingperiod', 'invoice_sales_orders.postingperiod_display', 'invoice_sales_orders.otherrefnum', 'invoice_sales_orders.memo',
+        'invoice_sales_orders.custbody_me_related_fulfillment', 'invoice_sales_orders.terms', 'invoice_sales_orders.account', 'invoice_sales_orders.account_display',
+        'invoice_sales_orders.currency', 'invoice_sales_orders.currency_display', 'invoice_sales_orders.exchangerate',
+        'invoice_sales_orders.custbody_msi_bank_payment_so', 'invoice_sales_orders.custbody_msi_bank_payment_so_display',
+        'invoice_sales_orders.approvalstatus',
+        'invoice_sales_orders.custbody_me_wf_created_by', 'invoice_sales_orders.custbody_me_wf_created_by_display',
+        'invoice_sales_orders.custbody_me_wf_next_approver_blank',
+        'invoice_sales_orders.saleseffectivedate', 'invoice_sales_orders.createdfrom', 'invoice_sales_orders.createdfrom_display',
+        'invoice_sales_orders.subsidiary', 'invoice_sales_orders.subsidiary_display',
+        'invoice_sales_orders.department', 'invoice_sales_orders.department_display',
+        'invoice_sales_orders.class', 'invoice_sales_orders.class_display',
+        'invoice_sales_orders.location', 'invoice_sales_orders.location_display',
+        'invoice_sales_orders.custbody_cseg_cn_cfi', 'invoice_sales_orders.custbody_cseg_cn_cfi_display',
+        'invoice_sales_orders.custbody_me_description',
+        'invoice_sales_orders.lines',
+        'invoice_sales_orders.last_modified_netsuite'
       ])
       .orderBy(orderCol, sortOrder)
       .limit(limit)
@@ -402,16 +406,16 @@ const syncInvoiceSalesOrders = async (body) => {
     const url = `${baseUrl}/api/v1/bridge/invoice-sales-orders/get`;
 
     const filters = {};
-    if (body.search)         filters.search         = body.search;
-    if (body.subsidiary)     filters.subsidiary     = body.subsidiary;
+    if (body.search) filters.search = body.search;
+    if (body.subsidiary) filters.subsidiary = body.subsidiary;
     if (body.approvalstatus) filters.approvalstatus = body.approvalstatus;
     if (body.trandate_start) filters.trandate_start = body.trandate_start;
-    if (body.trandate_end)   filters.trandate_end   = body.trandate_end;
+    if (body.trandate_end) filters.trandate_end = body.trandate_end;
 
     const requestData = {
-      page:       body.page  || 1,
-      page_size:  body.limit || 10,
-      sort_by:    body.sort_by === 'created_at' ? 'trandate' : (body.sort_by || 'trandate'),
+      page: body.page || 1,
+      page_size: body.limit || 10,
+      sort_by: body.sort_by === 'created_at' ? 'trandate' : (body.sort_by || 'trandate'),
       sort_order: body.sort_order ? body.sort_order.toUpperCase() : 'DESC',
       filters
     };
@@ -438,10 +442,10 @@ const syncInvoiceSalesOrders = async (body) => {
     return {
       items: records,
       pagination: {
-        page:       resData.page       || resData.pageIndex  || body.page  || 1,
-        limit:      resData.page_size  || resData.pageSize   || body.limit || 10,
-        total:      resData.total_records || resData.totalRows   || 0,
-        totalPages: resData.total_pages   || resData.totalPages  || 0
+        page: resData.page || resData.pageIndex || body.page || 1,
+        limit: resData.page_size || resData.pageSize || body.limit || 10,
+        total: resData.total_records || resData.totalRows || 0,
+        totalPages: resData.total_pages || resData.totalPages || 0
       }
     };
 
