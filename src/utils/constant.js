@@ -489,7 +489,7 @@ module.exports = {
     },
     invoice_sales_orders: {
       url: `${process.env.BRIDGE_BASE_URL || 'http://localhost:9570'}/api/v1/bridge/invoice-sales-orders/get`,
-      data: { page: 1, page_size: 20, sort_by: 'id', sort_order: 'desc', is_sync: true, filters: {} },
+      data: { page: 1, page_size: 200, sort_by: 'id', sort_order: 'desc', is_sync: true, filters: {} },
       table: 'invoice_sales_orders',
       deleteCol: 'is_deleted'
     },
