@@ -3,6 +3,7 @@ const { connectRabbitMQ } = require('../config/rabbitmq');
 const { EXCHANGES, QUEUE, SYNC_CONFIG } = require('../utils/constant');
 const syncService = require('../modules/sync/service');
 const authService = require('../modules/auth/service');
+const invoiceSalesOrderService = require('../modules/invoice_sales_order/service');
 const { dbNetsuite } = require('../config/database');
 
 const methodExecution = async (payload, channel, msg) => {
@@ -35,6 +36,18 @@ const methodExecution = async (payload, channel, msg) => {
     });
 
     if (response.data) {
+      if (moduleName === 'invoice_sales_orders') {
+        const records = response.data?.data || [];
+        if (records.length > 0) {
+          try {
+            console.info(`[Worker] Running specific sync to fakturs for module: ${moduleName}`);
+            await invoiceSalesOrderService.processFakturSync(records);
+          } catch (fakturErr) {
+            console.error(`[Worker] Error syncing faktur for ${moduleName}:`, fakturErr.message);
+          }
+        }
+      }
+
       // Hitung total data di database lokal
       let countData = 0;
       if (config.table) {

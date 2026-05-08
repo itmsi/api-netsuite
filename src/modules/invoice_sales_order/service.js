@@ -162,6 +162,121 @@ const syncToFakturs = async (records) => {
 };
 
 /**
+ * Memproses sync ke fakturs
+ */
+const processFakturSync = async (records, search = null) => {
+  if (!records || records.length === 0) return;
+
+  // 1. Sync ke DB lokal gate_sso (invoice_sales_orders)
+  const trx = await db.transaction();
+  try {
+    for (const record of records) {
+      const data = {
+        netsuite_id: parseInt(record.id || record.netsuite_id),
+        tranid: record.tranid || null,
+        entity: record.entity || null,
+        entityid: record.entityid || null,
+        trandate: formatTrandate(record.trandate),
+        startdate: formatTrandate(record.startdate),
+        enddate: formatTrandate(record.enddate),
+        postingperiod: record.postingperiod || null,
+        postingperiod_display: record.postingperiod_display || null,
+        otherrefnum: record.otherrefnum || null,
+        memo: record.memo || null,
+        custbody_me_related_fulfillment: record.custbody_me_related_fulfillment || null,
+        terms: record.terms || null,
+        account: record.account || null,
+        account_display: record.account_display || null,
+        currency: record.currency || null,
+        currency_display: record.currency_display || null,
+        exchangerate: record.exchangerate ? parseFloat(record.exchangerate) : null,
+        custbody_msi_bank_payment_so: record.custbody_msi_bank_payment_so || null,
+        custbody_msi_bank_payment_so_display: record.custbody_msi_bank_payment_so_display || null,
+        approvalstatus: record.approvalstatus || null,
+        custbody_me_wf_created_by: record.custbody_me_wf_created_by || null,
+        custbody_me_wf_created_by_display: record.custbody_me_wf_created_by_display || null,
+        custbody_me_wf_next_approver_blank: record.custbody_me_wf_next_approver_blank || null,
+        saleseffectivedate: formatTrandate(record.saleseffectivedate),
+        createdfrom: record.createdfrom || null,
+        createdfrom_display: record.createdfrom_display || null,
+        subsidiary: record.subsidiary || null,
+        subsidiary_display: record.subsidiary_display || null,
+        department: record.department || null,
+        department_display: record.department_display || null,
+        class: record.class || null,
+        class_display: record.class_display || null,
+        location: record.location || null,
+        location_display: record.location_display || null,
+        custbody_cseg_cn_cfi: record.custbody_cseg_cn_cfi || null,
+        custbody_cseg_cn_cfi_display: record.custbody_cseg_cn_cfi_display || null,
+        custbody_me_description: record.custbody_me_description || null,
+        lines: record.lines ? JSON.stringify(record.lines) : null,
+        raw_data: JSON.stringify(record),
+        last_modified_netsuite: record.last_modified_netsuite ? new Date(record.last_modified_netsuite) : null,
+        is_deleted: record.is_deleted || false
+      };
+
+      const existing = await trx('invoice_sales_orders').where('netsuite_id', data.netsuite_id).first();
+      if (existing) {
+        data.updated_at = db.fn.now();
+        await trx('invoice_sales_orders').where('netsuite_id', data.netsuite_id).update(data);
+      } else {
+        data.created_at = db.fn.now();
+        data.updated_at = db.fn.now();
+        await trx('invoice_sales_orders').insert(data);
+      }
+    }
+    await trx.commit();
+  } catch (error) {
+    await trx.rollback();
+    console.error('Error syncing invoice_sales_orders to gate_sso:', error);
+  }
+
+  // 2. Sync ke fakturs (proses lama)
+  const ids = records.map(r => parseInt(r.id || r.netsuite_id));
+  const existingFakturs = await db('fakturs')
+    .leftJoin('employees', 'fakturs.updated_by', 'employees.employee_id')
+    .whereIn('fakturs.sales_invoice_id', ids)
+    .select(
+      'fakturs.faktur_id',
+      'fakturs.sales_invoice_id',
+      'fakturs.updated_at',
+      'employees.employee_name as updated_by_name'
+    );
+
+  const existingMap = new Map();
+  existingFakturs.forEach(f => existingMap.set(parseInt(f.sales_invoice_id), f));
+
+  const recordsToSync = [];
+  const recordsToSkip = [];
+
+  records.forEach(record => {
+    const id = parseInt(record.id || record.netsuite_id);
+    if (search) {
+      recordsToSync.push(record);
+    } else if (existingMap.has(id)) {
+      recordsToSkip.push(record);
+    } else {
+      recordsToSync.push(record);
+    }
+  });
+
+  if (recordsToSync.length > 0) {
+    await syncToFakturs(recordsToSync);
+  }
+
+  recordsToSkip.forEach(record => {
+    const id = parseInt(record.id || record.netsuite_id);
+    const existing = existingMap.get(id);
+    if (existing) {
+      record.fakture_id = existing.faktur_id;
+      record.faktur_updated_at = existing.updated_at;
+      record.faktur_updated_by_name = existing.updated_by_name || '';
+    }
+  });
+};
+
+/**
  * Get invoice sales orders dari DB Netsuite (bridge_sanbox.invoice_sales_orders)
  * Format response identik dengan format bridge API sebelumnya.
  */
@@ -317,46 +432,7 @@ const syncInvoiceSalesOrders = async (body) => {
 
     // Sync ke fakturs (proses lama)
     if (records.length > 0) {
-      const ids = records.map(r => parseInt(r.id));
-      const existingFakturs = await db('fakturs')
-        .leftJoin('employees', 'fakturs.updated_by', 'employees.employee_id')
-        .whereIn('fakturs.sales_invoice_id', ids)
-        .select(
-          'fakturs.faktur_id',
-          'fakturs.sales_invoice_id',
-          'fakturs.updated_at',
-          'employees.employee_name as updated_by_name'
-        );
-
-      const existingMap = new Map();
-      existingFakturs.forEach(f => existingMap.set(parseInt(f.sales_invoice_id), f));
-
-      const recordsToSync = [];
-      const recordsToSkip = [];
-
-      records.forEach(record => {
-        const id = parseInt(record.id);
-        if (body.search) {
-          recordsToSync.push(record);
-        } else if (existingMap.has(id)) {
-          recordsToSkip.push(record);
-        } else {
-          recordsToSync.push(record);
-        }
-      });
-
-      if (recordsToSync.length > 0) {
-        await syncToFakturs(recordsToSync);
-      }
-
-      recordsToSkip.forEach(record => {
-        const existing = existingMap.get(parseInt(record.id));
-        if (existing) {
-          record.fakture_id = existing.faktur_id;
-          record.faktur_updated_at = existing.updated_at;
-          record.faktur_updated_by_name = existing.updated_by_name || '';
-        }
-      });
+      await processFakturSync(records, body.search);
     }
 
     return {
@@ -383,5 +459,6 @@ const syncInvoiceSalesOrders = async (body) => {
 
 module.exports = {
   getInvoiceSalesOrders,
-  syncInvoiceSalesOrders
+  syncInvoiceSalesOrders,
+  processFakturSync
 };
