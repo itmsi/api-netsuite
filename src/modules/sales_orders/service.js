@@ -196,18 +196,21 @@ const getSalesOrderById = async (id) => {
 
     // Tambahkan message_error jika status failed
     if (mappedRow.status_name === 'failed') {
-      const lastEvent = await dbNetsuite('outbox_events')
-        .where('aggregate_id', mappedRow.id)
-        .orderBy('created_at', 'desc')
+      const lastEventLog = await dbNetsuite('outbox_events')
+        .join('outbox_event_logs', 'outbox_event_logs.outbox_event_id', 'outbox_events.id')
+        .where('outbox_events.aggregate_id', mappedRow.id)
+        .whereNotNull('outbox_event_logs.http_status')
+        .orderBy('outbox_event_logs.created_at', 'desc')
+        .select('outbox_event_logs.properties', 'outbox_events.last_error')
         .first();
 
-      if (lastEvent && lastEvent.properties) {
+      if (lastEventLog && lastEventLog.properties) {
         try {
-          mappedRow.message_error = typeof lastEvent.properties === 'string'
-            ? JSON.parse(lastEvent.properties.response)
-            : lastEvent.properties.response;
+          mappedRow.message_error = typeof lastEventLog.properties === 'string'
+            ? JSON.parse(lastEventLog.properties)
+            : lastEventLog.properties;
         } catch (e) {
-          mappedRow.message_error = lastEvent.last_error;
+          mappedRow.message_error = lastEventLog.last_error;
         }
       }
     }
