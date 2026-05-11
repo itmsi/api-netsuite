@@ -75,6 +75,14 @@ const invoiceSalesOrderSchemas = {
       trandate_start: { type: 'string', default: '', example: '2026-04-08' },
       trandate_end: { type: 'string', default: '', example: '2026-04-10' }
     }
+  },
+  InvoiceSalesOrderSyncByIdResponse: {
+    type: 'object',
+    properties: {
+      success: { type: 'boolean', example: true },
+      data: { $ref: '#/components/schemas/InvoiceSalesOrder' },
+      message: { type: 'string', example: 'Data invoice sales order berhasil di-sync berdasarkan tranid' }
+    }
   }
 };
 
