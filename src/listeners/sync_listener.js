@@ -4,7 +4,7 @@ const { EXCHANGES, QUEUE, SYNC_CONFIG } = require('../utils/constant');
 const syncService = require('../modules/sync/service');
 const authService = require('../modules/auth/service');
 const invoiceSalesOrderService = require('../modules/invoice_sales_order/service');
-const { dbNetsuite } = require('../config/database');
+const { dbNetsuite, pgCore } = require('../config/database');
 
 const methodExecution = async (payload, channel, msg) => {
   const { sync_id, module: moduleName, user } = payload;
@@ -26,50 +26,104 @@ const methodExecution = async (payload, channel, msg) => {
       throw new Error('Failed to retrieve bridge auth token');
     }
 
-    // Hit Bridge API
-    const response = await axios.post(config.url, config.data, {
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      timeout: 120000
-    });
+    if (moduleName === 'invoice_sales_orders') {
+      //hit ke api bridge untuk mengambil data invoice sales order dari netsuite
 
-    if (response.data) {
-      if (moduleName === 'invoice_sales_orders') {
-        const records = response.data?.data || [];
-        if (records.length > 0) {
-          try {
-            console.info(`[Worker] Running specific sync to fakturs for module: ${moduleName}`);
-            await invoiceSalesOrderService.processFakturSync(records);
-          } catch (fakturErr) {
-            console.error(`[Worker] Error syncing faktur for ${moduleName}:`, fakturErr.message);
-          }
-        }
-      }
+      const response = await axios.post(config.url, config.data, {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        timeout: 120000
+      });
 
-      // Hitung total data di database lokal
-      let countData = 0;
-      if (config.table) {
+      if (!response.data || response.data.success === false) {
+        throw new Error(response.data?.message || 'Bridge API returned failure');
+      } else {
         try {
-          const query = dbNetsuite(config.table);
-          if (config.deleteCol) {
-            const countResult = await query.where(config.deleteCol, false).count('* as total').first();
-            countData = parseInt(countResult?.total || 0);
-          } else {
-            const countResult = await query.count('* as total').first();
-            countData = parseInt(countResult?.total || 0);
+          // 1. Cek ke DB gate_sso (pgCore) ambil max last_modified_netsuite
+          const maxDateResult = await pgCore('invoice_sales_orders').max('last_modified_netsuite as max_date').first();
+          const maxDate = maxDateResult?.max_date;
+
+          const limit = 200;
+          let currentPage = 1;
+          let hasMoreData = true;
+          let totalProcessed = 0;
+
+          console.info(`[Worker] Starting DB Sync for ${moduleName}...`);
+
+          while (hasMoreData) {
+            let query = dbNetsuite('invoice_sales_orders')
+              .orderBy('last_modified_netsuite', 'asc')
+              .limit(limit)
+              .offset((currentPage - 1) * limit);
+
+            if (maxDate) {
+              query = query.where('last_modified_netsuite', '>=', maxDate);
+            }
+
+            const records = await query;
+
+            if (records && records.length > 0) {
+              // 3. Proses sync antar DB
+              console.info(`[Worker] DB Syncing ${moduleName} page ${currentPage} (${records.length} records)...`);
+              await invoiceSalesOrderService.processFakturSync(records);
+
+              totalProcessed += records.length;
+              currentPage++;
+
+              // Jika data yang didapat kurang dari limit, artinya ini halaman terakhir
+              if (records.length < limit) {
+                hasMoreData = false;
+              }
+            } else {
+              hasMoreData = false;
+            }
           }
-        } catch (countErr) {
-          console.warn(`[Worker] Failed to count data for table ${config.table}:`, countErr.message);
+
+          if (totalProcessed === 0) {
+            console.info(`[Worker] No new data to sync for ${moduleName}`);
+          } else {
+            console.info(`[Worker] Successfully synced ${totalProcessed} records for ${moduleName}`);
+          }
+        } catch (err) {
+          throw err;
         }
       }
-
-      await syncService.updateSync(sync_id, { sync_status: 'success', count_data: countData }, user);
-      console.info(`[Worker] Sync module ${moduleName} completed successfully with ${countData} records`);
     } else {
-      throw new Error(response.data?.message || 'Bridge API returned failure');
+      // Hit Bridge API for other modules
+      const response = await axios.post(config.url, config.data, {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        timeout: 120000
+      });
+
+      if (!response.data || response.data.success === false) {
+        throw new Error(response.data?.message || 'Bridge API returned failure');
+      }
     }
+
+    // Hitung total data di database lokal
+    let countData = 0;
+    if (config.table) {
+      try {
+        const query = dbNetsuite(config.table);
+        if (config.deleteCol) {
+          const countResult = await query.where(config.deleteCol, false).count('* as total').first();
+          countData = parseInt(countResult?.total || 0);
+        } else {
+          const countResult = await query.count('* as total').first();
+          countData = parseInt(countResult?.total || 0);
+        }
+      } catch (countErr) {
+        console.warn(`[Worker] Failed to count data for table ${config.table}:`, countErr.message);
+      }
+    }
+
+    await syncService.updateSync(sync_id, { sync_status: 'success', count_data: countData }, user);
+    console.info(`[Worker] Sync module ${moduleName} completed successfully with ${countData} records`);
 
     channel.ack(msg);
   } catch (error) {

@@ -76,7 +76,9 @@ const purchasingOrdersSchemas = {
       search: { type: 'string', default: '', example: '' },
       classes: { type: 'string', default: '', example: '' },
       subsidiary: { type: 'string', default: '', example: '' },
-      location: { type: 'string', default: '', example: '' }
+      location: { type: 'string', default: '', example: '' },
+      po_status: { type: 'string', default: '', example: '' },
+      approvalstatus: { type: 'string', default: '', example: '' }
     }
   },
   PurchaseOrderLineItem: {

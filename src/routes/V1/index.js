@@ -74,4 +74,10 @@ routing.use(`${API_TAG}/sales-orders`, salesOrdersModule);
 // const yourModule = require('../../modules/yourModule')
 // routing.use(`${API_TAG}/your-endpoint`, yourModule)
 
+const poStatusModule = require('../../modules/po_status');
+routing.use(`${API_TAG}/po_status`, poStatusModule);
+
+const approvalStatusModule = require('../../modules/approval_status');
+routing.use(`${API_TAG}/approval_status`, approvalStatusModule);
+
 module.exports = routing;
