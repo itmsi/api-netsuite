@@ -386,6 +386,9 @@ const getInvoiceSalesOrders = async (body) => {
           'fakturs.faktur_id',
           'fakturs.sales_invoice_id',
           'fakturs.updated_at',
+          'fakturs.tanggal_faktur',
+          'fakturs.npwp_or_nik_pembeli',
+          'fakturs.id_tku_pembeli',
           'employees.employee_name as updated_by_name'
         );
 
@@ -397,6 +400,9 @@ const getInvoiceSalesOrders = async (body) => {
         if (existing) {
           record.fakture_id = existing.faktur_id;
           record.faktur_updated_at = existing.updated_at;
+          record.tanggal_faktur = existing.tanggal_faktur;
+          record.npwp_or_nik_pembeli = existing.npwp_or_nik_pembeli;
+          record.id_tku_pembeli = existing.id_tku_pembeli;
           record.faktur_updated_by_name = existing.updated_by_name || '';
         }
       });
