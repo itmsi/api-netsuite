@@ -56,12 +56,12 @@ const getPurchaseOrders = async (body) => {
       query = query.where('po.location', body.location);
     }
 
-    if (body.po_status) {
-      query = query.where('po.po_status', body.po_status);
+    if (body.po_status) { //filter kolom dispay saja
+      query = query.where('po.po_status_label', body.po_status);
     }
 
-    if (body.approvalstatus) {
-      query = query.where('po.approvalstatus', body.approvalstatus);
+    if (body.approvalstatus) { //filter kolom dispay saja
+      query = query.where('po.approvalstatus_display', body.approvalstatus);
     }
 
     // Handle classes filter (parent and children)
