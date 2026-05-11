@@ -461,8 +461,58 @@ const syncInvoiceSalesOrders = async (body) => {
   }
 };
 
+const syncInvoiceSalesOrderById = async (tranid) => {
+  try {
+    // 1. Get token
+    const tokenResponse = await authService.getToken();
+    const token = tokenResponse.data.access_token;
+
+    // 2. Fetch dari bridge API
+    const baseUrl = process.env.BRIDGE_BASE_URL || 'https://api-bridge-sb.motorsights.com';
+    const url = `${baseUrl}/api/v1/bridge/invoice-sales-orders/get`;
+
+    const requestData = {
+      page: 1,
+      page_size: 10,
+      filters: {
+        tranid: tranid
+      },
+      is_sync: true
+    };
+
+    const response = await axios.post(url, requestData, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    const resData = response.data;
+    const records = resData.data || [];
+
+    // Sync ke gate_sso db (invoice_sales_orders), fakturs, faktur_details
+    if (records.length > 0) {
+      await processFakturSync(records);
+      return records[0];
+    } else {
+      throw { message: 'Data tidak ditemukan di Netsuite', statusCode: 404 };
+    }
+
+  } catch (error) {
+    if (error.response) {
+      throw {
+        message: error.response.data?.message || 'Failed to sync invoice sales order from bridge API',
+        statusCode: error.response.status,
+        errors: error.response.data
+      };
+    }
+    throw { message: error.message, statusCode: 500 };
+  }
+};
+
 module.exports = {
   getInvoiceSalesOrders,
   syncInvoiceSalesOrders,
+  syncInvoiceSalesOrderById,
   processFakturSync
 };
