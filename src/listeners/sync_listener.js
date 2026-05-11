@@ -45,45 +45,46 @@ const methodExecution = async (payload, channel, msg) => {
           const maxDateResult = await pgCore('invoice_sales_orders').max('last_modified_netsuite as max_date').first();
           const maxDate = maxDateResult?.max_date;
 
+          const limit = 200;
           let currentPage = 1;
-          const limit = 500;
+          let hasMoreData = true;
+          let totalProcessed = 0;
 
-          // Hitung total dari DB netsuite
-          let countQuery = dbNetsuite('invoice_sales_orders');
-          if (maxDate) {
-            // 2. Jika ada data, filter berdasarkan last_modified_netsuite ke atas
-            countQuery = countQuery.where('last_modified_netsuite', '>=', maxDate);
+          console.info(`[Worker] Starting DB Sync for ${moduleName}...`);
+
+          while (hasMoreData) {
+            let query = dbNetsuite('invoice_sales_orders')
+              .orderBy('last_modified_netsuite', 'asc')
+              .limit(limit)
+              .offset((currentPage - 1) * limit);
+
+            if (maxDate) {
+              query = query.where('last_modified_netsuite', '>=', maxDate);
+            }
+
+            const records = await query;
+
+            if (records && records.length > 0) {
+              // 3. Proses sync antar DB
+              console.info(`[Worker] DB Syncing ${moduleName} page ${currentPage} (${records.length} records)...`);
+              await invoiceSalesOrderService.processFakturSync(records);
+
+              totalProcessed += records.length;
+              currentPage++;
+
+              // Jika data yang didapat kurang dari limit, artinya ini halaman terakhir
+              if (records.length < limit) {
+                hasMoreData = false;
+              }
+            } else {
+              hasMoreData = false;
+            }
           }
 
-          const totalResult = await countQuery.count('* as total').first();
-          const totalRecords = parseInt(totalResult?.total || 0);
-
-          if (totalRecords > 0) {
-            const totalPages = Math.ceil(totalRecords / limit);
-            console.info(`[Worker] Found ${totalRecords} records to sync for ${moduleName}. Total pages: ${totalPages}`);
-
-            do {
-              let query = dbNetsuite('invoice_sales_orders')
-                .orderBy('last_modified_netsuite', 'asc')
-                .limit(limit)
-                .offset((currentPage - 1) * limit);
-
-              if (maxDate) {
-                query = query.where('last_modified_netsuite', '>=', maxDate);
-              }
-
-              const records = await query;
-
-              if (records && records.length > 0) {
-                // 3. Proses sync antar DB
-                console.info(`[Worker] DB Syncing ${moduleName} page ${currentPage}/${totalPages} (${records.length} records)...`);
-                await invoiceSalesOrderService.processFakturSync(records);
-              }
-
-              currentPage++;
-            } while (currentPage <= totalPages);
-          } else {
+          if (totalProcessed === 0) {
             console.info(`[Worker] No new data to sync for ${moduleName}`);
+          } else {
+            console.info(`[Worker] Successfully synced ${totalProcessed} records for ${moduleName}`);
           }
         } catch (err) {
           throw err;

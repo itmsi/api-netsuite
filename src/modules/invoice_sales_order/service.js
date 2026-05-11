@@ -45,7 +45,7 @@ const syncToFakturs = async (records) => {
     const barisFaktur = (i + 1).toString();
 
     // 1. Check if sales_invoice_id already exists
-    const existingFaktur = await db('fakturs').where('sales_invoice_id', record.id).first();
+    const existingFaktur = await db('fakturs').where('sales_invoice_id', parseInt(record.netsuite_id)).first();
 
     // 10-16. Lookup customer details
     const customer = await db('customers').where('customer_id_netsuite', record.entity).first();
@@ -94,7 +94,7 @@ const syncToFakturs = async (records) => {
 
     // 2-9, 12, 13. Prepare fakturs data
     const fakturData = {
-      sales_invoice_id: parseInt(record.id),
+      sales_invoice_id: parseInt(record.netsuite_id),
       baris: barisFaktur,
       tanggal_faktur: formatTrandate(record.trandate),
       jenis_faktur: 'Normal',
@@ -173,9 +173,12 @@ const syncToFakturs = async (records) => {
 const processFakturSync = async (records, search = null) => {
   if (!records || records.length === 0) return;
 
-  // Normalize id from DB Netsuite which uses netsuite_id
+  // Normalize netsuite_id
   for (const r of records) {
-    if (!r.id && r.netsuite_id) r.id = r.netsuite_id;
+    // Pastikan kita memiliki netsuite_id numerik. Jika 'id' adalah UUID, abaikan untuk netsuite_id.
+    if (!r.netsuite_id && r.id && !isNaN(parseInt(r.id))) {
+      r.netsuite_id = r.id;
+    }
     if (typeof r.lines === 'string') {
       try {
         r.lines = JSON.parse(r.lines);
@@ -190,7 +193,7 @@ const processFakturSync = async (records, search = null) => {
   try {
     for (const record of records) {
       const data = {
-        netsuite_id: parseInt(record.id || record.netsuite_id),
+        netsuite_id: parseInt(record.netsuite_id || record.id),
         tranid: record.tranid || null,
         entity: record.entity || null,
         entityid: record.entityid || null,
@@ -251,8 +254,7 @@ const processFakturSync = async (records, search = null) => {
   }
 
   // 2. Sync ke fakturs (proses lama)
-  const ids = records.map(r => parseInt(r.id || r.netsuite_id));
-  console.log('id >>>>>>>>>>>>', ids);
+  const ids = records.map(r => parseInt(r.netsuite_id || r.id));
   const existingFakturs = await db('fakturs')
     .leftJoin('employees', 'fakturs.updated_by', 'employees.employee_id')
     .whereIn('fakturs.sales_invoice_id', ids)
@@ -270,7 +272,7 @@ const processFakturSync = async (records, search = null) => {
   const recordsToSkip = [];
 
   records.forEach(record => {
-    const id = parseInt(record.id || record.netsuite_id);
+    const id = parseInt(record.netsuite_id || record.id);
     if (search) {
       recordsToSync.push(record);
     } else if (existingMap.has(id)) {
@@ -285,7 +287,7 @@ const processFakturSync = async (records, search = null) => {
   }
 
   recordsToSkip.forEach(record => {
-    const id = parseInt(record.id || record.netsuite_id);
+    const id = parseInt(record.netsuite_id || record.id);
     const existing = existingMap.get(id);
     if (existing) {
       record.fakture_id = existing.faktur_id;
