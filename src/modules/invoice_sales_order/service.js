@@ -20,6 +20,12 @@ const dbNetsuite = knex({
  */
 const formatTrandate = (dateStr) => {
   if (!dateStr) return null;
+  if (typeof dateStr !== 'string') {
+    if (dateStr instanceof Date) {
+      return dateStr.toISOString().split('T')[0];
+    }
+    return dateStr;
+  }
   const parts = dateStr.split('/');
   if (parts.length === 3) {
     const day = parts[0].padStart(2, '0');
@@ -167,6 +173,18 @@ const syncToFakturs = async (records) => {
 const processFakturSync = async (records, search = null) => {
   if (!records || records.length === 0) return;
 
+  // Normalize id from DB Netsuite which uses netsuite_id
+  for (const r of records) {
+    if (!r.id && r.netsuite_id) r.id = r.netsuite_id;
+    if (typeof r.lines === 'string') {
+      try {
+        r.lines = JSON.parse(r.lines);
+      } catch (e) {
+        r.lines = [];
+      }
+    }
+  }
+
   // 1. Sync ke DB lokal gate_sso (invoice_sales_orders)
   const trx = await db.transaction();
   try {
@@ -234,6 +252,7 @@ const processFakturSync = async (records, search = null) => {
 
   // 2. Sync ke fakturs (proses lama)
   const ids = records.map(r => parseInt(r.id || r.netsuite_id));
+  console.log('id >>>>>>>>>>>>', ids);
   const existingFakturs = await db('fakturs')
     .leftJoin('employees', 'fakturs.updated_by', 'employees.employee_id')
     .whereIn('fakturs.sales_invoice_id', ids)
