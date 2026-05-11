@@ -122,6 +122,7 @@ const getPurchaseOrders = async (body) => {
         'po.custbody_msi_createdby_api',
         'po.last_modified',
         dbNetsuite.raw("COALESCE(NULLIF(po.datecreated, '')::timestamp, po.created_at) AS created_at"),
+        'po.currency_symbol',
         'po.files'
       ])
       .orderBy(orderCol, sortOrder)
