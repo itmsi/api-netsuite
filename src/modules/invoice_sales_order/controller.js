@@ -64,7 +64,30 @@ const sync = async (req, res) => {
   }
 };
 
+const syncById = async (req, res) => {
+  try {
+    const { tranid } = req.params;
+    const result = await service.syncInvoiceSalesOrderById(tranid);
+
+    return baseResponse(res, {
+      data: {
+        success: true,
+        data: result,
+        message: 'Data invoice sales order berhasil di-sync berdasarkan tranid'
+      }
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || 'Internal Server Error',
+      errors: error.errors || error
+    });
+  }
+};
+
 module.exports = {
   getList,
-  sync
+  sync,
+  syncById
 };

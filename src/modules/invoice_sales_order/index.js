@@ -25,4 +25,10 @@ router.post(
   controller.sync
 );
 
+router.post(
+  '/sync/:netsuite_id',
+  verifyToken,
+  controller.syncById
+);
+
 module.exports = router;

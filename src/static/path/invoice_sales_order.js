@@ -110,6 +110,48 @@ const invoiceSalesOrderPaths = {
         }
       }
     }
+  },
+  '/invoice-sales-orders/sync/{tranid}': {
+    post: {
+      tags: ['Invoice Sales Orders'],
+      summary: 'Sync invoice sales orders by Tran ID',
+      description: 'Fetch spesifik invoice sales order langsung dari bridge API (NetSuite) tanpa antrean RabbitMQ, lalu secara otomatis men-sync dan menimpa data ke tabel `invoice_sales_orders`, `fakturs`, dan `faktur_details` di local DB gate_sso secara sinkron.',
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        {
+          name: 'tranid',
+          in: 'path',
+          required: true,
+          schema: { type: 'string' }
+        }
+      ],
+      responses: {
+        200: {
+          description: 'Success',
+          content: {
+            'application/json': { schema: { $ref: '#/components/schemas/InvoiceSalesOrderSyncByIdResponse' } }
+          }
+        },
+        401: {
+          description: 'Unauthorized',
+          content: {
+            'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } }
+          }
+        },
+        404: {
+          description: 'Not Found',
+          content: {
+            'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } }
+          }
+        },
+        500: {
+          description: 'Internal Server Error',
+          content: {
+            'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } }
+          }
+        }
+      }
+    }
   }
 };
 
