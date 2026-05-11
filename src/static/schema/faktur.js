@@ -75,6 +75,7 @@ const fakturSchemas = {
       alamat_pembeli: { type: 'string' },
       email_pembeli: { type: 'string' },
       id_tku_pembeli: { type: 'string' },
+      status: { type: 'boolean' },
       details: {
         type: 'array',
         items: {
