@@ -73,7 +73,8 @@ const invoiceSalesOrderSchemas = {
       subsidiary: { type: 'string', default: '', example: '1' },
       approvalstatus: { type: 'string', default: '', example: '2' },
       trandate_start: { type: 'string', default: '', example: '2026-04-08' },
-      trandate_end: { type: 'string', default: '', example: '2026-04-10' }
+      trandate_end: { type: 'string', default: '', example: '2026-04-10' },
+      status_faktur: { type: 'boolean', default: false, example: false }
     }
   },
   InvoiceSalesOrderSyncByIdResponse: {

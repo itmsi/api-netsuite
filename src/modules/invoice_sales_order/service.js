@@ -342,6 +342,12 @@ const getInvoiceSalesOrders = async (body) => {
       query = query.where('invoice_sales_orders.trandate', '<=', body.trandate_end);
     }
 
+    if (body.status_faktur !== undefined && body.status_faktur !== null && body.status_faktur !== '' && body.status_faktur !== 'nan' && body.status_faktur !== 'null') {
+      const statusValue = (body.status_faktur === 'true' || body.status_faktur === true);
+      query = query.leftJoin('fakturs', 'invoice_sales_orders.netsuite_id', db.raw('fakturs.sales_invoice_id::text'))
+        .where('fakturs.status', statusValue);
+    }
+
     // Hitung total
     const countResult = await query.clone().count('* as total').first();
     const total = parseInt(countResult.total) || 0;
