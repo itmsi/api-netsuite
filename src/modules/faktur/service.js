@@ -25,12 +25,12 @@ const getById = async (id) => {
 };
 
 const create = async (payload) => {
-  const { details, ...data } = payload;
+  const { details, users_id, is_admin, roles, ...data } = payload;
   return await repository.create(data, details);
 };
 
 const update = async (id, payload) => {
-  const { details, ...data } = payload;
+  const { details, users_id, is_admin, roles, ...data } = payload;
   const result = await repository.update(id, data, details);
   if (!result) {
     throw { message: 'Data faktur tidak ditemukan', statusCode: 404 };
