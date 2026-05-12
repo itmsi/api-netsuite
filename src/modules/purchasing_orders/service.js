@@ -1689,15 +1689,21 @@ const getItems = async (body) => {
       throw { message: 'po_id atau internal_id is required', statusCode: 400 };
     }
 
-    let query = dbNetsuite('purchase_orders')
-      .crossJoin(dbNetsuite.raw("jsonb_array_elements(CASE WHEN purchase_orders.lines IS NULL OR purchase_orders.lines::text = '' OR purchase_orders.lines::text = 'null' THEN '[]'::jsonb ELSE purchase_orders.lines::jsonb END) AS line"));
+    let query = dbNetsuite('purchase_orders as po')
+      .crossJoin(dbNetsuite.raw("jsonb_array_elements(CASE WHEN po.lines IS NULL OR po.lines::text = '' OR po.lines::text = 'null' THEN '[]'::jsonb ELSE po.lines::jsonb END) AS line"))
+      .leftJoin('items as i', dbNetsuite.raw("(line->>'item') = i.netsuite_id::text"))
+      .leftJoin('items as i2', dbNetsuite.raw("(line->>'itemId') = i2.netsuite_id::text"))
+      .leftJoin('class as c_line', dbNetsuite.raw("(line->>'class') = c_line.netsuite_id::text"))
+      .leftJoin('locations as l_line', dbNetsuite.raw("(line->>'location') = l_line.netsuite_id::text"))
+      .leftJoin('departments as d_line', dbNetsuite.raw("(line->>'department') = d_line.netsuite_id::text"))
+      .leftJoin('taxcodes as t_line', dbNetsuite.raw("(line->>'taxcode') = t_line.taxcode_id::text"));
 
     if (poId) {
-      query = query.where('purchase_orders.po_id', poId);
+      query = query.where('po.po_id', poId);
     }
 
     if (internalId) {
-      query = query.where('purchase_orders.id', internalId);
+      query = query.where('po.id', internalId);
     }
 
 
@@ -1705,7 +1711,8 @@ const getItems = async (body) => {
       query = query.where(function () {
         this.whereRaw("line->>'item_display' ILIKE ?", [`%${body.search}%`])
           .orWhereRaw("line->>'description' ILIKE ?", [`%${body.search}%`])
-          .orWhereRaw("line->>'item' ILIKE ?", [`%${body.search}%`]);
+          .orWhereRaw("line->>'item' ILIKE ?", [`%${body.search}%`])
+          .orWhereRaw("COALESCE(i.item_id, i2.item_id) ILIKE ?", [`%${body.search}%`]);
       });
     }
 
@@ -1714,19 +1721,48 @@ const getItems = async (body) => {
     const totalPages = Math.ceil(total / limit);
 
     let orderByRaw = `(line->>'linesequencenumber')::numeric ${sortOrder}`;
-    if (body.sort_by && body.sort_by !== 'created_at') {
-      orderByRaw = `line->>'${body.sort_by}' ${sortOrder}`;
-    } else if (body.sort_by === 'created_at') {
-      orderByRaw = `purchase_orders.created_at ${sortOrder}`;
+    if (body.sort_by) {
+      if (body.sort_by === 'created_at') {
+        orderByRaw = `po.created_at ${sortOrder}`;
+      } else if (body.sort_by === 'item') {
+        orderByRaw = `COALESCE(NULLIF(line->>'item_display', ''), COALESCE(NULLIF(i.item_id, ''), i2.item_id)) ${sortOrder}`;
+      } else {
+        orderByRaw = `line->>'${body.sort_by}' ${sortOrder}`;
+      }
     }
 
-    const itemsResult = await query.clone()
-      .select(dbNetsuite.raw("line AS data"))
+    const items = await query.clone()
+      .select([
+        dbNetsuite.raw("line->>'line_id' AS line_id"),
+        dbNetsuite.raw("line->>'linesequencenumber' AS linesequencenumber"),
+        dbNetsuite.raw("line->>'inbound_shipment_number' AS inbound_shipment_number"),
+        dbNetsuite.raw("line->>'inbound_shipment_line_id' AS inbound_shipment_line_id"),
+        dbNetsuite.raw("line->>'has_inbound' AS has_inbound"),
+        dbNetsuite.raw("COALESCE(NULLIF(line->>'item', ''), line->>'itemId') AS item"),
+        dbNetsuite.raw("COALESCE(NULLIF(line->>'item_display', ''), COALESCE(NULLIF(i.item_id, ''), i2.item_id)) AS item_display"),
+        dbNetsuite.raw("COALESCE(NULLIF(line->>'quantity', ''), line->>'qty') AS quantity"),
+        dbNetsuite.raw("line->>'quantityreceived' AS quantityreceived"),
+        dbNetsuite.raw("(COALESCE(NULLIF(line->>'quantity', ''), line->>'qty')::numeric - COALESCE(NULLIF(line->>'quantityreceived', ''), '0')::numeric) AS quantitypending"),
+        dbNetsuite.raw("line->>'rate' AS rate"),
+        dbNetsuite.raw("line->>'netamount' AS netamount"),
+        dbNetsuite.raw("line->>'grossamt' AS grossamt"),
+        dbNetsuite.raw("line->>'department' AS department"),
+        dbNetsuite.raw("d_line.name AS department_display"),
+        dbNetsuite.raw("line->>'class' AS class"),
+        dbNetsuite.raw("c_line.name AS class_display"),
+        dbNetsuite.raw("line->>'location' AS location"),
+        dbNetsuite.raw("l_line.name AS location_display"),
+        dbNetsuite.raw("line->>'taxcode' AS taxcode"),
+        dbNetsuite.raw("t_line.taxcode_name AS taxcode_display"),
+        dbNetsuite.raw("line->>'taxrate1' AS taxrate1"),
+        dbNetsuite.raw("line->>'tax1amt' AS tax1amt"),
+        dbNetsuite.raw("line->>'custcol_me_landed_cost' AS custcol_me_landed_cost"),
+        dbNetsuite.raw("line->>'custcol_msi_fob' AS custcol_msi_fob"),
+        dbNetsuite.raw("line->>'description' AS description")
+      ])
       .orderByRaw(orderByRaw)
       .limit(limit)
       .offset(offset);
-
-    const items = itemsResult.map(row => row.data);
 
     return {
       items,
