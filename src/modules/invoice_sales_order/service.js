@@ -371,7 +371,7 @@ const getInvoiceSalesOrders = async (body) => {
         'invoice_sales_orders.custbody_me_description',
         'invoice_sales_orders.lines',
         'invoice_sales_orders.last_modified_netsuite',
-        // 'customers.type_tax_buyer',
+        'customers.type_tax_buyer',
         db.raw("CASE WHEN customers.type_tax_buyer = 'TIN' THEN customers.no_tax_buyer ELSE '' END as no_tax_buyer"),
         // db.raw("CASE WHEN customers.type_tax_buyer = 'TIN' THEN customers.no_tax_buyer ELSE '' END as npwp_or_nik_pembeli"),
         db.raw("CASE WHEN customers.type_tax_buyer = 'TIN' AND customers.no_tax_buyer IS NOT NULL AND customers.no_tax_buyer != '' THEN CONCAT(customers.no_tax_buyer, '000000') ELSE '' END as npwp_or_nik_pembeli")
@@ -391,7 +391,7 @@ const getInvoiceSalesOrders = async (body) => {
           'fakturs.sales_invoice_id',
           'fakturs.updated_at',
           'fakturs.tanggal_faktur',
-          // 'fakturs.npwp_or_nik_pembeli',
+          'fakturs.npwp_or_nik_pembeli',
           'fakturs.id_tku_pembeli',
           'fakturs.status',
           'employees.employee_name as updated_by_name'
@@ -406,8 +406,6 @@ const getInvoiceSalesOrders = async (body) => {
           record.fakture_id = existing.faktur_id;
           record.faktur_updated_at = existing.updated_at;
           record.tanggal_faktur = existing.tanggal_faktur;
-          record.no_tax_buyer = existing.no_tax_buyer;
-          record.npwp_or_nik_pembeli = existing.npwp_or_nik_pembeli;
           record.id_tku_pembeli = existing.id_tku_pembeli;
           record.status_faktur = existing.status;
           record.faktur_updated_by_name = existing.updated_by_name || '';
