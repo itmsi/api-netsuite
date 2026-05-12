@@ -26,11 +26,21 @@ const getById = async (id) => {
 
 const create = async (payload) => {
   const { details, users_id, is_admin, roles, ...data } = payload;
+  
+  // Clean up potential invalid UUIDs from decodeToken defaults
+  if (data.created_by === 0 || data.created_by === '0') delete data.created_by;
+  if (data.updated_by === 0 || data.updated_by === '0') delete data.updated_by;
+
   return await repository.create(data, details);
 };
 
 const update = async (id, payload) => {
   const { details, users_id, is_admin, roles, ...data } = payload;
+
+  // Clean up potential invalid UUIDs from decodeToken defaults
+  if (data.created_by === 0 || data.created_by === '0') delete data.created_by;
+  if (data.updated_by === 0 || data.updated_by === '0') delete data.updated_by;
+
   const result = await repository.update(id, data, details);
   if (!result) {
     throw { message: 'Data faktur tidak ditemukan', statusCode: 404 };
@@ -39,7 +49,9 @@ const update = async (id, payload) => {
 };
 
 const remove = async (id, userId) => {
-  const result = await repository.remove(id, userId);
+  // Clean up potential invalid UUIDs from decodeToken defaults
+  const cleanedUserId = (userId === 0 || userId === '0') ? null : userId;
+  const result = await repository.remove(id, cleanedUserId);
   if (!result) {
     throw { message: 'Data faktur tidak ditemukan', statusCode: 404 };
   }
