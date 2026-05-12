@@ -61,9 +61,29 @@ const listValidation = [
     .withMessage('Limit harus antara 1-100'),
 ];
 
+/**
+ * Validation rules for bulk update status
+ */
+const statusBulkValidation = [
+  body()
+    .isArray({ min: 1 })
+    .withMessage('Payload harus berupa array dan tidak boleh kosong'),
+  body('*.id')
+    .notEmpty()
+    .withMessage('id wajib diisi')
+    .isUUID()
+    .withMessage('Format id tidak valid (harus UUID)'),
+  body('*.status')
+    .exists()
+    .withMessage('status wajib diisi')
+    .isBoolean()
+    .withMessage('status harus berupa boolean')
+];
+
 module.exports = {
   createValidation,
   updateValidation,
   getByIdValidation,
-  listValidation
+  listValidation,
+  statusBulkValidation
 };

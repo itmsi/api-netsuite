@@ -463,10 +463,6 @@ const retry = async (req, res) => {
   }
 };
 
-/**
- * Get receive history logs (FAILED events)
- * POST /purchasing-orders/receive-list/history-logs
- */
 const getReceiveHistoryLogs = async (req, res) => {
   try {
     const result = await service.getReceiveHistoryLogs(req.body);
@@ -475,6 +471,30 @@ const getReceiveHistoryLogs = async (req, res) => {
         success: true,
         data: result,
         message: 'Data history logs berhasil diambil'
+      }
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || 'Internal Server Error',
+      errors: error.errors || error
+    });
+  }
+};
+
+/**
+ * Get items by po_id
+ */
+const getItems = async (req, res) => {
+  try {
+    const result = await service.getItems(req.body);
+
+    return baseResponse(res, {
+      data: {
+        success: true,
+        data: result,
+        message: 'Data items berhasil diambil'
       }
     });
   } catch (error) {
@@ -503,5 +523,6 @@ module.exports = {
   syncById,
   syncByIdAll,
   retry,
-  getReceiveHistoryLogs
+  getReceiveHistoryLogs,
+  getItems
 };

@@ -111,10 +111,31 @@ const remove = async (req, res) => {
   }
 };
 
+const updateStatusBulk = async (req, res) => {
+  try {
+    const data = await service.updateStatusBulk(req.body);
+    return baseResponse(res, {
+      data: {
+        success: true,
+        data,
+        message: 'Status faktur berhasil diupdate secara bulk'
+      }
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || 'Internal Server Error',
+      errors: error.errors || error
+    });
+  }
+};
+
 module.exports = {
   getList,
   getById,
   create,
   update,
-  remove
+  remove,
+  updateStatusBulk
 };

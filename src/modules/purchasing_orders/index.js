@@ -158,4 +158,15 @@ router.post(
   controller.retry
 );
 
+/**
+ * @route   POST /api/purchasing-orders/get-items
+ * @desc    Get items of a purchase order from local database (JSONB lines)
+ * @access  Private
+ */
+router.post(
+  '/get-items',
+  verifyToken,
+  controller.getItems
+);
+
 module.exports = router;
