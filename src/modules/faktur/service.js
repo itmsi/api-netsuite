@@ -46,10 +46,18 @@ const remove = async (id, userId) => {
   return result;
 };
 
+const updateStatusBulk = async (payload) => {
+  if (!Array.isArray(payload) || payload.length === 0) {
+    throw { message: 'Payload harus berupa array dan tidak boleh kosong', statusCode: 400 };
+  }
+  return await repository.updateStatusBulk(payload);
+};
+
 module.exports = {
   getList,
   getById,
   create,
   update,
-  remove
+  remove,
+  updateStatusBulk
 };

@@ -5,7 +5,8 @@ const {
   createValidation,
   updateValidation,
   getByIdValidation,
-  listValidation
+  listValidation,
+  statusBulkValidation
 } = require('./validation');
 const { validateMiddleware } = require('../../middlewares/validation');
 const { verifyToken } = require('../../middlewares/token');
@@ -73,6 +74,19 @@ router.delete(
   getByIdValidation,
   validateMiddleware,
   controller.remove
+);
+
+/**
+ * @route   POST /api/netsuite/faktur/status-bulk
+ * @desc    Bulk update status faktur
+ * @access  Private
+ */
+router.post(
+  '/status-bulk',
+  verifyToken,
+  statusBulkValidation,
+  validateMiddleware,
+  controller.updateStatusBulk
 );
 
 module.exports = router;

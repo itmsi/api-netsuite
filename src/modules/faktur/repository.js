@@ -136,10 +136,28 @@ const remove = async (id, deletedBy) => {
   return result;
 };
 
+/**
+ * Bulk update status faktur
+ */
+const updateStatusBulk = async (payload) => {
+  return await db.transaction(async (trx) => {
+    const updates = payload.map(item => {
+      return trx(TABLE_NAME)
+        .where({ faktur_id: item.id })
+        .update({
+          status: item.status,
+          updated_at: db.fn.now()
+        });
+    });
+    return await Promise.all(updates);
+  });
+};
+
 module.exports = {
   findAll,
   findById,
   create,
   update,
-  remove
+  remove,
+  updateStatusBulk
 };

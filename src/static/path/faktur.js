@@ -137,6 +137,47 @@ const fakturPaths = {
         }
       }
     }
+  },
+  '/faktur/status-bulk': {
+    post: {
+      tags: ['Faktur'],
+      summary: 'Bulk update status faktur',
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string', format: 'uuid', example: 'f0b57258-5f33-4e03-81f7-cd70d833b5c5' },
+                  status: { type: 'boolean', example: true }
+                }
+              }
+            }
+          }
+        }
+      },
+      responses: {
+        200: {
+          description: 'Success',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  success: { type: 'boolean', example: true },
+                  data: { type: 'array', items: { type: 'object' } },
+                  message: { type: 'string', example: 'Status faktur berhasil diupdate secara bulk' }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
   }
 };
 
