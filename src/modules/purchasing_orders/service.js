@@ -1094,6 +1094,8 @@ const updatePurchaseOrder = async (body, user) => {
 
     const localId = record.id;
 
+
+
     // 1. Update data di DB lokal dulu
     const updateData = {
       po_date: body.purchasedate,
@@ -1674,6 +1676,72 @@ const getReceiveHistoryLogs = async (body) => {
   }
 };
 
+const getItems = async (body) => {
+  try {
+    const page = parseInt(body.page) || 1;
+    const limit = parseInt(body.limit) || 10;
+    const sortOrder = body.sort_order ? body.sort_order.toUpperCase() : 'DESC';
+    const offset = (page - 1) * limit;
+    const poId = body.po_id;
+    const internalId = body.internal_id;
+
+    if (!poId && !internalId) {
+      throw { message: 'po_id atau internal_id is required', statusCode: 400 };
+    }
+
+    let query = dbNetsuite('purchase_orders')
+      .crossJoin(dbNetsuite.raw("jsonb_array_elements(CASE WHEN purchase_orders.lines IS NULL OR purchase_orders.lines::text = '' OR purchase_orders.lines::text = 'null' THEN '[]'::jsonb ELSE purchase_orders.lines::jsonb END) AS line"));
+
+    if (poId) {
+      query = query.where('purchase_orders.po_id', poId);
+    }
+
+    if (internalId) {
+      query = query.where('purchase_orders.id', internalId);
+    }
+
+
+    if (body.search) {
+      query = query.where(function () {
+        this.whereRaw("line->>'item_display' ILIKE ?", [`%${body.search}%`])
+          .orWhereRaw("line->>'description' ILIKE ?", [`%${body.search}%`])
+          .orWhereRaw("line->>'item' ILIKE ?", [`%${body.search}%`]);
+      });
+    }
+
+    const countResult = await query.clone().count('* as total').first();
+    const total = parseInt(countResult.total) || 0;
+    const totalPages = Math.ceil(total / limit);
+
+    let orderByRaw = `(line->>'linesequencenumber')::numeric ${sortOrder}`;
+    if (body.sort_by && body.sort_by !== 'created_at') {
+      orderByRaw = `line->>'${body.sort_by}' ${sortOrder}`;
+    } else if (body.sort_by === 'created_at') {
+      orderByRaw = `purchase_orders.created_at ${sortOrder}`;
+    }
+
+    const itemsResult = await query.clone()
+      .select(dbNetsuite.raw("line AS data"))
+      .orderByRaw(orderByRaw)
+      .limit(limit)
+      .offset(offset);
+
+    const items = itemsResult.map(row => row.data);
+
+    return {
+      items,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages
+      }
+    };
+  } catch (error) {
+    throw { message: error.message || 'Failed to fetch items from database', statusCode: error.statusCode || 500 };
+  }
+};
+
 module.exports = {
   getPurchaseOrders,
   printPurchaseOrder,
@@ -1703,5 +1771,6 @@ module.exports = {
   updateLocalReceive,
   getReceiveHistoryLogs,
   approvePurchaseOrderToBridge,
-  updatePurchaseOrderNotedsStatus
+  updatePurchaseOrderNotedsStatus,
+  getItems
 };

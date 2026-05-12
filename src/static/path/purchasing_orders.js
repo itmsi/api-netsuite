@@ -836,6 +836,75 @@ const purchasingOrdersPaths = {
         }
       }
     }
+  },
+  '/purchasing-orders/get-items': {
+    post: {
+      tags: ['Purchasing Orders'],
+      summary: 'Get items of a purchase order',
+      description: 'Fetch items from a purchase order by po_id from local database (JSONB lines column).',
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              properties: {
+                page: { type: 'integer', example: 1 },
+                limit: { type: 'integer', example: 10 },
+                sort_by: { type: 'string', example: 'item' },
+                sort_order: { type: 'string', example: 'ASC' },
+                search: { type: 'string', example: '' },
+                po_id: { type: 'string', example: '11798' },
+                internal_id: { type: 'string', example: '3afc8c56-d5ec-4627-918a-752fce83961a' }
+              }
+            }
+          }
+        }
+      },
+      responses: {
+        200: {
+          description: 'Success',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  success: { type: 'boolean', example: true },
+                  data: {
+                    type: 'object',
+                    properties: {
+                      items: {
+                        type: 'array',
+                        items: { type: 'object' }
+                      },
+                      pagination: {
+                        type: 'object',
+                        properties: {
+                          page: { type: 'integer', example: 1 },
+                          limit: { type: 'integer', example: 10 },
+                          total: { type: 'integer', example: 2 },
+                          totalPages: { type: 'integer', example: 1 }
+                        }
+                      }
+                    }
+                  },
+                  message: { type: 'string', example: 'Data items berhasil diambil' }
+                }
+              }
+            }
+          }
+        },
+        500: {
+          description: 'Internal Server Error',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+            }
+          }
+        }
+      }
+    }
   }
 };
 
