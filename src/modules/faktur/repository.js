@@ -56,9 +56,11 @@ const findById = async (id) => {
     .select([
       'fakturs.*',
       'customers.type_tax_buyer',
+      'customers.type_tax_buyer as jenis_id_pembeli',
       'customers.name_tax_buyer',
       db.raw("CASE WHEN customers.type_tax_buyer = 'TIN' THEN customers.no_tax_buyer ELSE '' END as no_tax_buyer"),
-      db.raw("CASE WHEN customers.type_tax_buyer = 'TIN' AND customers.no_tax_buyer IS NOT NULL AND customers.no_tax_buyer != '' THEN CONCAT(customers.no_tax_buyer, '000000') ELSE '' END as npwp_or_nik_pembeli")
+      db.raw("CASE WHEN customers.type_tax_buyer = 'TIN' THEN customers.no_tax_buyer ELSE '' END as npwp_or_nik_pembeli"),
+      db.raw("CASE WHEN customers.type_tax_buyer = 'TIN' AND customers.no_tax_buyer IS NOT NULL AND customers.no_tax_buyer != '' THEN CONCAT(customers.no_tax_buyer, '000000') ELSE '' END as id_tku_pembeli")
     ])
     .first();
 
