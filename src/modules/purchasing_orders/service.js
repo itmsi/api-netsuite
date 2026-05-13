@@ -976,7 +976,7 @@ const getPurchaseOrderById = async (id) => {
       // record.subtotal = parseFloat(record.lines.reduce((sum, line) => sum + (parseFloat(line.amount) || 0), 0).toFixed(2));
       // record.total_tax = parseFloat(record.lines.reduce((sum, line) => sum + (parseFloat(line.tax_amount) || 0), 0).toFixed(2));
       //ini untuk hide respon line
-      delete record.lines;
+      // delete record.lines;
     }
 
     return {

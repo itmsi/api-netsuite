@@ -36,7 +36,8 @@ const getItemsList = async (body) => {
     let query = dbNetsuite('items').where('is_deleted', false);
 
     if (body.item_type) {
-      query = query.where('type', body.item_type);
+      const itemTypes = Array.isArray(body.item_type) ? body.item_type : [body.item_type];
+      query = query.whereIn('type', itemTypes);
     }
 
     // Filter opsional
