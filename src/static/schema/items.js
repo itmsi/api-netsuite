@@ -12,7 +12,8 @@ const itemsSchemas = {
       sort_order: { type: 'string', default: 'desc', example: 'desc' },
       search: { type: 'string', default: '', example: '' },
       lastmodified: { type: 'string', nullable: true, example: '2026-03-18T08:56:00+07:00' },
-      netsuite_id: { type: 'string', nullable: true, example: null }
+      netsuite_id: { type: 'string', nullable: true, example: null },
+      item_type: { type: 'string', nullable: true, example: 'Inventory Item' }
     }
   },
   ItemsListResponse: {
