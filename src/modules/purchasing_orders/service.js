@@ -919,7 +919,9 @@ const getPurchaseOrderById = async (id) => {
                 'tax1amt', line->>'tax1amt',
                 'custcol_me_landed_cost', line->>'custcol_me_landed_cost',
                 'custcol_msi_fob', line->>'custcol_msi_fob',
-                'description', line->>'description'
+                'description', line->>'description',
+                'amount', line->>'netamount',
+                'tax_amount', line->>'tax1amt'
             )
           ) FILTER (WHERE line IS NOT NULL) AS lines
         `)
@@ -962,6 +964,15 @@ const getPurchaseOrderById = async (id) => {
       if (lastEvent && lastEvent.properties) {
         record.message_error = lastEvent.properties;
       }
+    }
+
+    if (record && record.lines) {
+      record.sum_quantity = record.lines.reduce((sum, line) => sum + (parseFloat(line.quantity) || 0), 0);
+      record.count_items = record.lines.length;
+      record.subtotal = record.lines.reduce((sum, line) => sum + (parseFloat(line.amount) || 0), 0);
+      record.total_tax = record.lines.reduce((sum, line) => sum + (parseFloat(line.tax_amount) || 0), 0);
+      //ini untuk hide respon line
+      delete record.lines;
     }
 
     return {
