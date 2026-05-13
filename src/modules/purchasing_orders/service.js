@@ -924,7 +924,11 @@ const getPurchaseOrderById = async (id) => {
                 'tax_amount', line->>'tax1amt'
             )
           ) FILTER (WHERE line IS NOT NULL) AS lines
-        `)
+        `),
+        dbNetsuite.raw("COUNT(line) AS count_item"),
+        dbNetsuite.raw("SUM((line->>'quantity')::numeric) AS sum_quantity"),
+        dbNetsuite.raw("SUM((line->>'netamount')::numeric) AS subtotal"),
+        dbNetsuite.raw("SUM((line->>'tax1amt')::numeric) AS tax_total")
       ])
       .groupBy([
         'po.id',
@@ -967,12 +971,12 @@ const getPurchaseOrderById = async (id) => {
     }
 
     if (record && record.lines) {
-      record.sum_quantity = record.lines.reduce((sum, line) => sum + (parseFloat(line.quantity) || 0), 0);
-      record.count_items = record.lines.length;
-      record.subtotal = record.lines.reduce((sum, line) => sum + (parseFloat(line.amount) || 0), 0);
-      record.total_tax = record.lines.reduce((sum, line) => sum + (parseFloat(line.tax_amount) || 0), 0);
+      // record.sum_quantity = parseFloat(record.lines.reduce((sum, line) => sum + (parseFloat(line.quantity) || 0), 0));
+      // record.count_items = record.lines.length;
+      // record.subtotal = parseFloat(record.lines.reduce((sum, line) => sum + (parseFloat(line.amount) || 0), 0).toFixed(2));
+      // record.total_tax = parseFloat(record.lines.reduce((sum, line) => sum + (parseFloat(line.tax_amount) || 0), 0).toFixed(2));
       //ini untuk hide respon line
-      // delete record.lines;
+      delete record.lines;
     }
 
     return {
