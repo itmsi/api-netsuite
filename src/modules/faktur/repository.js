@@ -109,7 +109,26 @@ const update = async (id, data, details = []) => {
     const [faktur] = await trx(TABLE_NAME)
       .where({ faktur_id: id, is_delete: false })
       .update({
-        ...data,
+        sales_invoice_id: data.sales_invoice_id,
+        baris: data.baris,
+        tanggal_faktur: data.tanggal_faktur,
+        jenis_faktur: data.jenis_faktur,
+        kode_transaksi: data.kode_transaksi,
+        keterangan_tambahan: data.keterangan_tambahan,
+        dokumen_pendukung: data.dokumen_pendukung,
+        referensi: data.referensi,
+        cap_fasilitas: data.cap_fasilitas,
+        id_tku_Penjual: data.id_tku_Penjual,
+        npwp_or_nik_pembeli: data.npwp_or_nik_pembeli,
+        jenis_id_pembeli: data.jenis_id_pembeli,
+        negara_pembeli: data.negara_pembeli,
+        nomor_dokumen_pembeli: data.nomor_dokumen_pembeli,
+        nama_pembeli: data.nama_pembeli,
+        alamat_pembeli: data.alamat_pembeli,
+        email_pembeli: data.email_pembeli,
+        id_tku_pembeli: data.id_tku_pembeli,
+        status: data.status,
+        updated_by: data.updated_by,
         updated_at: db.fn.now()
       })
       .returning('*');
