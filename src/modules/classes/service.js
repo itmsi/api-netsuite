@@ -151,7 +151,52 @@ const syncClassesList = async (body) => {
   }
 };
 
+const { pgCore: db } = require('../../config/database');
+
+/**
+ * Memproses sync ke tabel class di gate_sso
+ */
+const processClassSync = async (records) => {
+  if (!records || records.length === 0) return;
+
+  const trx = await db.transaction();
+  try {
+    for (const record of records) {
+      const data = {
+        netsuite_id: record.netsuite_id || record.id,
+        name: record.name || null,
+        is_inactive: record.is_inactive || false,
+        parent_id: record.parent_id || null,
+        parent_name: record.parent_name || null,
+        subsidiary_id: record.subsidiary_id || null,
+        subsidiary_name: record.subsidiary_name || null,
+        last_modified_netsuite: record.last_modified_netsuite ? new Date(record.last_modified_netsuite) : null,
+        updated_at: db.fn.now(),
+        data: record.data ? JSON.stringify(record.data) : null,
+      };
+
+      // Ensure netsuite_id is treated as string if that's how it's stored, 
+      // or parseInt if it's an integer. 
+      // Looking at the query in getClassesList, it uses netsuite_id.
+
+      const existing = await trx('class').where('netsuite_id', data.netsuite_id.toString()).first();
+      if (existing) {
+        await trx('class').where('netsuite_id', data.netsuite_id.toString()).update(data);
+      } else {
+        data.created_at = db.fn.now();
+        await trx('class').insert(data);
+      }
+    }
+    await trx.commit();
+  } catch (error) {
+    await trx.rollback();
+    console.error('Error syncing classes to gate_sso:', error);
+    throw error;
+  }
+};
+
 module.exports = {
   getClassesList,
-  syncClassesList
+  syncClassesList,
+  processClassSync
 };
