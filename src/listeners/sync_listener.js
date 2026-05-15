@@ -6,6 +6,57 @@ const authService = require('../modules/auth/service');
 const invoiceSalesOrderService = require('../modules/invoice_sales_order/service');
 const { dbNetsuite, pgCore } = require('../config/database');
 
+const processModuleSyncInvoiceSalesOrders = async () => {
+  try {
+    // 1. Cek ke DB gate_sso (pgCore) ambil max last_modified_netsuite
+    const maxDateResult = await pgCore('invoice_sales_orders').max('last_modified_netsuite as max_date').first();
+    const maxDate = maxDateResult?.max_date;
+
+    const limit = 2;
+    let currentPage = 1;
+    let hasMoreData = true;
+    let totalProcessed = 0;
+
+    console.info(`[Worker] Starting DB Sync for invoice_sales_orders...`);
+
+    while (hasMoreData) {
+      let query = dbNetsuite('invoice_sales_orders')
+        .orderBy('last_modified_netsuite', 'asc')
+        .limit(limit)
+        .offset((currentPage - 1) * limit);
+
+      if (maxDate) {
+        query = query.where('last_modified_netsuite', '>=', maxDate);
+      }
+
+      const records = await query;
+
+      if (records && records.length > 0) {
+        // 3. Proses sync antar DB
+        await invoiceSalesOrderService.processFakturSync(records);
+
+        totalProcessed += records.length;
+        currentPage++;
+
+        // Jika data yang didapat kurang dari limit, artinya ini halaman terakhir
+        if (records.length < limit) {
+          hasMoreData = false;
+        }
+      } else {
+        hasMoreData = false;
+      }
+    }
+
+    if (totalProcessed === 0) {
+      console.info(`[Worker] No new data to sync for invoice_sales_orders`);
+    } else {
+      console.info(`[Worker] Successfully synced ${totalProcessed} records for invoice_sales_orders`);
+    }
+  } catch (err) {
+    throw err;
+  }
+};
+
 const methodExecution = async (payload, channel, msg) => {
   const { sync_id, module: moduleName, user } = payload;
 
@@ -26,82 +77,19 @@ const methodExecution = async (payload, channel, msg) => {
       throw new Error('Failed to retrieve bridge auth token');
     }
 
-    if (moduleName === 'invoice_sales_orders') {
-      //hit ke api bridge untuk mengambil data invoice sales order dari netsuite
+    const response = await axios.post(config.url, config.data, {
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      timeout: 120000
+    });
 
-      const response = await axios.post(config.url, config.data, {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        timeout: 120000
-      });
-
-      if (!response.data || response.data.success === false) {
-        throw new Error(response.data?.message || 'Bridge API returned failure');
-      } else {
-        try {
-          // 1. Cek ke DB gate_sso (pgCore) ambil max last_modified_netsuite
-          const maxDateResult = await pgCore('invoice_sales_orders').max('last_modified_netsuite as max_date').first();
-          const maxDate = maxDateResult?.max_date;
-
-          const limit = 200;
-          let currentPage = 1;
-          let hasMoreData = true;
-          let totalProcessed = 0;
-
-          console.info(`[Worker] Starting DB Sync for ${moduleName}...`);
-
-          while (hasMoreData) {
-            let query = dbNetsuite('invoice_sales_orders')
-              .orderBy('last_modified_netsuite', 'asc')
-              .limit(limit)
-              .offset((currentPage - 1) * limit);
-
-            if (maxDate) {
-              query = query.where('last_modified_netsuite', '>=', maxDate);
-            }
-
-            const records = await query;
-
-            if (records && records.length > 0) {
-              // 3. Proses sync antar DB
-              console.info(`[Worker] DB Syncing ${moduleName} page ${currentPage} (${records.length} records)...`);
-              await invoiceSalesOrderService.processFakturSync(records);
-
-              totalProcessed += records.length;
-              currentPage++;
-
-              // Jika data yang didapat kurang dari limit, artinya ini halaman terakhir
-              if (records.length < limit) {
-                hasMoreData = false;
-              }
-            } else {
-              hasMoreData = false;
-            }
-          }
-
-          if (totalProcessed === 0) {
-            console.info(`[Worker] No new data to sync for ${moduleName}`);
-          } else {
-            console.info(`[Worker] Successfully synced ${totalProcessed} records for ${moduleName}`);
-          }
-        } catch (err) {
-          throw err;
-        }
-      }
+    if (!response.data || response.data.success === false) {
+      throw new Error(response.data?.message || 'Bridge API returned failure');
     } else {
-      // Hit Bridge API for other modules
-      const response = await axios.post(config.url, config.data, {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        timeout: 120000
-      });
-
-      if (!response.data || response.data.success === false) {
-        throw new Error(response.data?.message || 'Bridge API returned failure');
+      if (moduleName === 'invoice_sales_orders') {
+        await processModuleSyncInvoiceSalesOrders();
       }
     }
 

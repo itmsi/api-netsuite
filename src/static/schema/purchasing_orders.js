@@ -25,7 +25,9 @@ const purchasingOrdersSchemas = {
       location_name: { type: 'string', example: 'Jakarta - IEC' },
       subsidiary_id: { type: 'integer', example: 5 },
       department_name: { type: 'string', example: 'Indirect Purchasing' },
-      subsidiary_name: { type: 'string', example: 'PT Indonesia Equipment Centre' }
+      subsidiary_name: { type: 'string', example: 'PT Indonesia Equipment Centre' },
+      amount: { type: 'number', example: 100000 },
+      tax_amount: { type: 'number', example: 11000 }
     }
   },
   PurchaseOrder: {
@@ -56,10 +58,10 @@ const purchasingOrdersSchemas = {
         description: 'Detail pesan error dari outbox_events jika status failed',
         example: { response: { error: { message: 'Invalid scriptlet ID', code: 'SSS_INVALID_SCRIPTLET_ID' } } }
       },
-      lines: {
-        type: 'array',
-        items: { $ref: '#/components/schemas/PurchaseOrderLine' }
-      },
+      sum_quantity: { type: 'number', example: 3 },
+      count_items: { type: 'integer', example: 3 },
+      subtotal: { type: 'number', example: 300000 },
+      total_tax: { type: 'number', example: 33000 },
       files: {
         type: 'array',
         items: { $ref: '#/components/schemas/PurchaseOrderFile' }

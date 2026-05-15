@@ -233,7 +233,7 @@ const processFakturSync = async (records, search = null) => {
         custbody_me_description: record.custbody_me_description || null,
         lines: record.lines ? JSON.stringify(record.lines) : null,
         raw_data: JSON.stringify(record),
-        last_modified_netsuite: record.lastmodifieddate ? new Date(record.lastmodifieddate) : null,
+        last_modified_netsuite: record.last_modified_netsuite ? new Date(record.last_modified_netsuite) : null,
         is_deleted: record.is_deleted || false
       };
 
@@ -342,6 +342,12 @@ const getInvoiceSalesOrders = async (body) => {
       query = query.where('invoice_sales_orders.trandate', '<=', body.trandate_end);
     }
 
+    if (body.status_faktur !== undefined && body.status_faktur !== null && body.status_faktur !== '' && body.status_faktur !== 'nan' && body.status_faktur !== 'null') {
+      const statusValue = (body.status_faktur === 'true' || body.status_faktur === true);
+      query = query.leftJoin('fakturs', 'invoice_sales_orders.netsuite_id', db.raw('fakturs.sales_invoice_id::text'))
+        .where('fakturs.status', statusValue);
+    }
+
     // Hitung total
     const countResult = await query.clone().count('* as total').first();
     const total = parseInt(countResult.total) || 0;
@@ -370,7 +376,11 @@ const getInvoiceSalesOrders = async (body) => {
         'invoice_sales_orders.custbody_cseg_cn_cfi', 'invoice_sales_orders.custbody_cseg_cn_cfi_display',
         'invoice_sales_orders.custbody_me_description',
         'invoice_sales_orders.lines',
-        'invoice_sales_orders.last_modified_netsuite'
+        'invoice_sales_orders.last_modified_netsuite',
+        'customers.type_tax_buyer',
+        db.raw("CASE WHEN customers.type_tax_buyer = 'TIN' THEN customers.no_tax_buyer ELSE '' END as no_tax_buyer"),
+        // db.raw("CASE WHEN customers.type_tax_buyer = 'TIN' THEN customers.no_tax_buyer ELSE '' END as npwp_or_nik_pembeli"),
+        db.raw("CASE WHEN customers.type_tax_buyer = 'TIN' AND customers.no_tax_buyer IS NOT NULL AND customers.no_tax_buyer != '' THEN CONCAT(customers.no_tax_buyer, '000000') ELSE '' END as npwp_or_nik_pembeli")
       ])
       .orderBy(orderCol, sortOrder)
       .limit(limit)
@@ -402,7 +412,6 @@ const getInvoiceSalesOrders = async (body) => {
           record.fakture_id = existing.faktur_id;
           record.faktur_updated_at = existing.updated_at;
           record.tanggal_faktur = existing.tanggal_faktur;
-          record.npwp_or_nik_pembeli = existing.npwp_or_nik_pembeli;
           record.id_tku_pembeli = existing.id_tku_pembeli;
           record.status_faktur = existing.status;
           record.faktur_updated_by_name = existing.updated_by_name || '';

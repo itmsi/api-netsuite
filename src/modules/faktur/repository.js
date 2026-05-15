@@ -13,14 +13,14 @@ const DETAILS_TABLE = 'faktur_details';
 const findAll = async (params) => {
   const { page = 1, limit = 10, search = '', sort_by = 'created_at', sort_order = 'desc' } = params;
   const offset = (page - 1) * limit;
-  
+
   let query = db(TABLE_NAME).where({ is_delete: false });
 
   if (search) {
     query = query.where((builder) => {
       builder.where('nama_pembeli', 'ilike', `%${search}%`)
-             .orWhere('referensi', 'ilike', `%${search}%`)
-             .orWhere('nomor_dokumen_pembeli', 'ilike', `%${search}%`);
+        .orWhere('referensi', 'ilike', `%${search}%`)
+        .orWhere('nomor_dokumen_pembeli', 'ilike', `%${search}%`);
     });
   }
 
@@ -29,11 +29,11 @@ const findAll = async (params) => {
     .orderBy(sort_by, sort_order)
     .limit(limit)
     .offset(offset);
-    
+
   const total = await query.clone()
     .count('faktur_id as count')
     .first();
-    
+
   return {
     items: data,
     pagination: {
@@ -50,14 +50,25 @@ const findAll = async (params) => {
  */
 const findById = async (id) => {
   const faktur = await db(TABLE_NAME)
-    .where({ faktur_id: id, is_delete: false })
+    .leftJoin('invoice_sales_orders', db.raw('fakturs.sales_invoice_id::text'), 'invoice_sales_orders.netsuite_id')
+    .leftJoin('customers', 'invoice_sales_orders.entity', 'customers.customer_id_netsuite')
+    .where({ 'fakturs.faktur_id': id, 'fakturs.is_delete': false })
+    .select([
+      'fakturs.*',
+      'customers.type_tax_buyer',
+      'customers.type_tax_buyer as jenis_id_pembeli',
+      'customers.name_tax_buyer',
+      'customers.no_tax_buyer',
+      'customers.no_tax_buyer as npwp_or_nik_pembeli',
+      db.raw("CASE WHEN customers.no_tax_buyer IS NOT NULL AND customers.no_tax_buyer != '' THEN CONCAT(customers.no_tax_buyer, '000000') ELSE '' END as id_tku_pembeli")
+    ])
     .first();
-    
+
   if (faktur) {
     faktur.details = await db(DETAILS_TABLE)
       .where({ faktur_id: id });
   }
-  
+
   return faktur;
 };
 
@@ -80,12 +91,12 @@ const create = async (data, details = []) => {
         ...detail,
         faktur_id: faktur.faktur_id
       }));
-      
+
       faktur.details = await trx(DETAILS_TABLE)
         .insert(detailsToInsert)
         .returning('*');
     }
-    
+
     return faktur;
   });
 };
@@ -98,7 +109,26 @@ const update = async (id, data, details = []) => {
     const [faktur] = await trx(TABLE_NAME)
       .where({ faktur_id: id, is_delete: false })
       .update({
-        ...data,
+        sales_invoice_id: data.sales_invoice_id,
+        baris: data.baris,
+        tanggal_faktur: data.tanggal_faktur,
+        jenis_faktur: data.jenis_faktur,
+        kode_transaksi: data.kode_transaksi,
+        keterangan_tambahan: data.keterangan_tambahan,
+        dokumen_pendukung: data.dokumen_pendukung,
+        referensi: data.referensi,
+        cap_fasilitas: data.cap_fasilitas,
+        id_tku_Penjual: data.id_tku_Penjual,
+        npwp_or_nik_pembeli: data.npwp_or_nik_pembeli,
+        jenis_id_pembeli: data.jenis_id_pembeli,
+        negara_pembeli: data.negara_pembeli,
+        nomor_dokumen_pembeli: data.nomor_dokumen_pembeli,
+        nama_pembeli: data.nama_pembeli,
+        alamat_pembeli: data.alamat_pembeli,
+        email_pembeli: data.email_pembeli,
+        id_tku_pembeli: data.id_tku_pembeli,
+        status: data.status,
+        updated_by: data.updated_by,
         updated_at: db.fn.now()
       })
       .returning('*');
@@ -106,17 +136,17 @@ const update = async (id, data, details = []) => {
     if (faktur && details && details.length > 0) {
       // Simple approach: delete existing details and re-insert
       await trx(DETAILS_TABLE).where({ faktur_id: id }).del();
-      
+
       const detailsToInsert = details.map(detail => ({
         ...detail,
         faktur_id: id
       }));
-      
+
       faktur.details = await trx(DETAILS_TABLE)
         .insert(detailsToInsert)
         .returning('*');
     }
-    
+
     return faktur;
   });
 };

@@ -20,10 +20,10 @@ const dbNetsuite = knex({
  */
 const getItemsList = async (body) => {
   try {
-    const page      = parseInt(body.page) || 1;
-    const limit     = parseInt(body.limit) || 10;
+    const page = parseInt(body.page) || 1;
+    const limit = parseInt(body.limit) || 10;
     const sortOrder = body.sort_order ? body.sort_order.toUpperCase() : 'DESC';
-    const offset    = (page - 1) * limit;
+    const offset = (page - 1) * limit;
 
     // Kolom yang boleh dijadikan sort_by
     const validSortColumns = [
@@ -31,23 +31,28 @@ const getItemsList = async (body) => {
       'last_modified_netsuite', 'created_at', 'updated_at'
     ];
     const sortByRaw = body.sort_by === 'created_at' ? 'last_modified_netsuite' : (body.sort_by || 'last_modified_netsuite');
-    const orderCol  = validSortColumns.includes(sortByRaw) ? sortByRaw : 'last_modified_netsuite';
+    const orderCol = validSortColumns.includes(sortByRaw) ? sortByRaw : 'last_modified_netsuite';
 
     let query = dbNetsuite('items').where('is_deleted', false);
+
+    if (body.item_type) {
+      const itemTypes = Array.isArray(body.item_type) ? body.item_type : [body.item_type];
+      query = query.whereIn('type', itemTypes);
+    }
 
     // Filter opsional
     if (body.search) {
       query = query.where(function () {
         this.whereILike('item_id', `%${body.search}%`)
-            .orWhereILike('display_name', `%${body.search}%`)
-            .orWhere('netsuite_id', body.search);
+          .orWhereILike('display_name', `%${body.search}%`)
+          .orWhere('netsuite_id', body.search);
       });
     }
 
     // Hitung total
     const countResult = await query.clone().count('* as total').first();
-    const total       = parseInt(countResult.total) || 0;
-    const totalPages  = Math.ceil(total / limit);
+    const total = parseInt(countResult.total) || 0;
+    const totalPages = Math.ceil(total / limit);
 
     // Select dengan alias sesuai format response
     const rows = await query
@@ -55,6 +60,7 @@ const getItemsList = async (body) => {
       .select([
         'netsuite_id as internalId',
         'item_id as itemId',
+        'type as itemType',
         'display_name as displayName',
         'last_modified_netsuite as lastModifiedDate',
         'data'
@@ -65,11 +71,12 @@ const getItemsList = async (body) => {
 
     // Map: ambil locations dari kolom data (JSONB), hapus data dari output
     const items = rows.map(row => ({
-      internalId:      row.internalId,
-      itemId:          row.itemId,
-      displayName:     row.displayName || '',
+      internalId: row.internalId,
+      itemId: row.itemId,
+      itemType: row.itemType,
+      displayName: row.displayName || '',
       lastModifiedDate: row.lastModifiedDate,
-      locations:       (row.data && row.data.locations) ? row.data.locations : []
+      locations: (row.data && row.data.locations) ? row.data.locations : []
     }));
 
     return {
@@ -96,11 +103,11 @@ const syncItemsList = async (body) => {
     const url = `${baseUrl}/api/v1/bridge/items/get`;
 
     const requestData = {
-      pageIndex:  body.page - 1 || 0,
-      pageSize:   body.limit   || 10,
-      sort_by:    body.sort_by === 'created_at' ? 'last_modified' : (body.sort_by || 'last_modified'),
+      pageIndex: body.page - 1 || 0,
+      pageSize: body.limit || 10,
+      sort_by: body.sort_by === 'created_at' ? 'last_modified' : (body.sort_by || 'last_modified'),
       sort_order: body.sort_order ? body.sort_order.toUpperCase() : 'DESC',
-      search:     body.search || null
+      search: body.search || null
     };
 
     const response = await axios.post(url, requestData, {
@@ -115,10 +122,10 @@ const syncItemsList = async (body) => {
     return {
       items: resData.data || resData.items || [],
       pagination: {
-        page:       resData.page       || resData.pageIndex  || body.page  || 1,
-        limit:      resData.page_size  || resData.pageSize   || body.limit || 10,
-        total:      resData.total_records || resData.totalRows   || 0,
-        totalPages: resData.total_pages   || resData.totalPages  || 0
+        page: resData.page || resData.pageIndex || body.page || 1,
+        limit: resData.page_size || resData.pageSize || body.limit || 10,
+        total: resData.total_records || resData.totalRows || 0,
+        totalPages: resData.total_pages || resData.totalPages || 0
       }
     };
 
