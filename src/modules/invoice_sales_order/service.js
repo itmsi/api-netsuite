@@ -233,7 +233,7 @@ const processFakturSync = async (records, search = null) => {
         custbody_me_description: record.custbody_me_description || null,
         lines: record.lines ? JSON.stringify(record.lines) : null,
         raw_data: JSON.stringify(record),
-        last_modified_netsuite: record.lastmodifieddate ? new Date(record.lastmodifieddate) : null,
+        last_modified_netsuite: record.last_modified_netsuite ? new Date(record.last_modified_netsuite) : null,
         is_deleted: record.is_deleted || false
       };
 
