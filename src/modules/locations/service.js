@@ -158,7 +158,54 @@ const syncLocationsList = async (body) => {
   }
 };
 
+const { pgCore: db } = require('../../config/database');
+
+/**
+ * Memproses sync ke tabel terms di gate_sso
+ */
+const processLocationsSync = async (records) => {
+  if (!records || records.length === 0) return;
+
+  const trx = await db.transaction();
+  try {
+    for (const record of records) {
+      const data = {
+        netsuite_id: record.netsuite_id || record.id,
+        name: record.name || null,
+        is_inactive: record.is_inactive || null,
+        parent_id: record.parent_id || null,
+        parent_name: record.parent_name || null,
+        subsidiary_id: record.subsidiary_id || null,
+        subsidiary_name: record.subsidiary_name || null,
+        location_type: record.location_type || null,
+        location_type_name: record.location_type_name || null,
+        timezone: record.timezone || null,
+        make_inventory_available: record.make_inventory_available || null,
+        data: record.data ? JSON.stringify(record.data) : null,
+        last_modified_netsuite: record.last_modified_netsuite ? new Date(record.last_modified_netsuite) : null,
+        is_deleted: record.is_deleted || null,
+        created_at: db.fn.now(),
+        updated_at: db.fn.now(),
+      };
+
+      const existing = await trx('locations').where('netsuite_id', data.netsuite_id.toString()).first();
+      if (existing) {
+        await trx('locations').where('netsuite_id', data.netsuite_id.toString()).update(data);
+      } else {
+        data.created_at = db.fn.now();
+        await trx('locations').insert(data);
+      }
+    }
+    await trx.commit();
+  } catch (error) {
+    await trx.rollback();
+    console.error('Error syncing locations to gate_sso:', error);
+    throw error;
+  }
+};
+
 module.exports = {
   getLocationsList,
-  syncLocationsList
+  syncLocationsList,
+  processLocationsSync
 };
