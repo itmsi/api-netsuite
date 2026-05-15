@@ -5,6 +5,7 @@ const syncService = require('../modules/sync/service');
 const authService = require('../modules/auth/service');
 const invoiceSalesOrderService = require('../modules/invoice_sales_order/service');
 const classesService = require('../modules/classes/service');
+const vendorService = require('../modules/vendor/service');
 const { dbNetsuite, pgCore } = require('../config/database');
 
 const processModuleSyncInvoiceSalesOrders = async () => {
@@ -109,6 +110,57 @@ const processModuleSyncClasses = async () => {
   }
 };
 
+const processModuleSyncVendors = async () => {
+  try {
+    // 1. Cek ke DB gate_sso (pgCore) ambil max last_modified_netsuite
+    const maxDateResult = await pgCore('vendors').max('last_modified_netsuite as max_date').first();
+    const maxDate = maxDateResult?.max_date;
+
+    const limit = 2;
+    let currentPage = 1;
+    let hasMoreData = true;
+    let totalProcessed = 0;
+
+    console.info(`[Worker] Starting DB Sync for vendors...`);
+
+    while (hasMoreData) {
+      let query = dbNetsuite('vendors')
+        .orderBy('last_modified_netsuite', 'asc')
+        .limit(limit)
+        .offset((currentPage - 1) * limit);
+
+      if (maxDate) {
+        query = query.where('last_modified_netsuite', '>=', maxDate);
+      }
+
+      const records = await query;
+
+      if (records && records.length > 0) {
+        // 3. Proses sync antar DB
+        await vendorService.processVendorsSync(records);
+
+        totalProcessed += records.length;
+        currentPage++;
+
+        // Jika data yang didapat kurang dari limit, artinya ini halaman terakhir
+        if (records.length < limit) {
+          hasMoreData = false;
+        }
+      } else {
+        hasMoreData = false;
+      }
+    }
+
+    if (totalProcessed === 0) {
+      console.info(`[Worker] No new data to sync for vendors`);
+    } else {
+      console.info(`[Worker] Successfully synced ${totalProcessed} records for vendors`);
+    }
+  } catch (err) {
+    throw err;
+  }
+};
+
 const methodExecution = async (payload, channel, msg) => {
   const { sync_id, module: moduleName, user } = payload;
 
@@ -145,6 +197,9 @@ const methodExecution = async (payload, channel, msg) => {
       }
       if (moduleName === 'classes') {
         await processModuleSyncClasses();
+      }
+      if (moduleName === 'vendors') {
+        await processModuleSyncVendors();
       }
     }
 
