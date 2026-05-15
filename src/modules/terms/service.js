@@ -132,7 +132,45 @@ const syncTermsList = async (body) => {
   }
 };
 
+const { pgCore: db } = require('../../config/database');
+
+/**
+ * Memproses sync ke tabel terms di gate_sso
+ */
+const processTermsSync = async (records) => {
+  if (!records || records.length === 0) return;
+
+  const trx = await db.transaction();
+  try {
+    for (const record of records) {
+      const data = {
+        netsuite_id: record.netsuite_id || record.id,
+        name: record.name || null,
+        isinactive: record.isinactive || null,
+        data: record.data ? JSON.stringify(record.data) : null,
+        last_modified_netsuite: record.last_modified_netsuite ? new Date(record.last_modified_netsuite) : null,
+        created_at: db.fn.now(),
+        updated_at: db.fn.now(),
+      };
+
+      const existing = await trx('terms').where('netsuite_id', data.netsuite_id.toString()).first();
+      if (existing) {
+        await trx('terms').where('netsuite_id', data.netsuite_id.toString()).update(data);
+      } else {
+        data.created_at = db.fn.now();
+        await trx('terms').insert(data);
+      }
+    }
+    await trx.commit();
+  } catch (error) {
+    await trx.rollback();
+    console.error('Error syncing vendors to gate_sso:', error);
+    throw error;
+  }
+};
+
 module.exports = {
   getTermsList,
-  syncTermsList
+  syncTermsList,
+  processTermsSync
 };
