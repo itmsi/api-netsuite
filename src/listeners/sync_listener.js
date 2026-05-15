@@ -7,6 +7,7 @@ const invoiceSalesOrderService = require('../modules/invoice_sales_order/service
 const classesService = require('../modules/classes/service');
 const vendorService = require('../modules/vendor/service');
 const termsService = require('../modules/terms/service');
+const locationsService = require('../modules/locations/service');
 const { dbNetsuite, pgCore } = require('../config/database');
 
 const processModuleSyncInvoiceSalesOrders = async () => {
@@ -213,6 +214,57 @@ const processModuleSyncTerms = async () => {
   }
 };
 
+const processModuleSyncLocations = async () => {
+  try {
+    // 1. Cek ke DB gate_sso (pgCore) ambil max last_modified_netsuite
+    const maxDateResult = await pgCore('locations').max('last_modified_netsuite as max_date').first();
+    const maxDate = maxDateResult?.max_date;
+
+    const limit = 2;
+    let currentPage = 1;
+    let hasMoreData = true;
+    let totalProcessed = 0;
+
+    console.info(`[Worker] Starting DB Sync for locations...`);
+
+    while (hasMoreData) {
+      let query = dbNetsuite('locations')
+        .orderBy('last_modified_netsuite', 'asc')
+        .limit(limit)
+        .offset((currentPage - 1) * limit);
+
+      if (maxDate) {
+        query = query.where('last_modified_netsuite', '>=', maxDate);
+      }
+
+      const records = await query;
+
+      if (records && records.length > 0) {
+        // 3. Proses sync antar DB
+        await locationsService.processLocationsSync(records);
+
+        totalProcessed += records.length;
+        currentPage++;
+
+        // Jika data yang didapat kurang dari limit, artinya ini halaman terakhir
+        if (records.length < limit) {
+          hasMoreData = false;
+        }
+      } else {
+        hasMoreData = false;
+      }
+    }
+
+    if (totalProcessed === 0) {
+      console.info(`[Worker] No new data to sync for terms`);
+    } else {
+      console.info(`[Worker] Successfully synced ${totalProcessed} records for terms`);
+    }
+  } catch (err) {
+    throw err;
+  }
+};
+
 const methodExecution = async (payload, channel, msg) => {
   const { sync_id, module: moduleName, user } = payload;
 
@@ -256,6 +308,10 @@ const methodExecution = async (payload, channel, msg) => {
       if (moduleName === 'terms') {
         await processModuleSyncTerms();
       }
+      if (moduleName === 'locations') {
+        await processModuleSyncLocations();
+      }
+
     }
 
     // Hitung total data di database lokal
