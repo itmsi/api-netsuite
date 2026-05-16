@@ -2,6 +2,13 @@ const express = require('express');
 const router = express.Router();
 const controller = require('./controller');
 const { verifyToken } = require('../../middlewares');
+const multer = require('multer');
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: parseInt(process.env.UPLOAD_MAX_SIZE || '52428800') }
+});
+
 
 /**
  * @route   POST /api/purchasing-orders/get-list
@@ -167,6 +174,29 @@ router.post(
   '/get-items',
   verifyToken,
   controller.getItems
+);
+
+/**
+ * @route   POST /api/purchasing-orders/upload
+ * @desc    Upload file to Nextcloud Temp Directory
+ * @access  Private
+ */
+router.post(
+  '/upload',
+  verifyToken,
+  upload.single('file'),
+  controller.uploadTempFile
+);
+
+/**
+ * @route   POST /api/purchasing-orders/upload/finalize
+ * @desc    Finalize file upload by moving from temp to po folder
+ * @access  Private
+ */
+router.post(
+  '/upload/finalize',
+  verifyToken,
+  controller.finalizeUpload
 );
 
 module.exports = router;

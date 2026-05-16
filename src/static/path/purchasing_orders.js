@@ -905,6 +905,98 @@ const purchasingOrdersPaths = {
         }
       }
     }
+  },
+  '/purchasing-orders/upload': {
+    post: {
+      tags: ['Purchasing Orders'],
+      summary: 'Upload file to Nextcloud Temp Directory',
+      description: 'Upload a file and get a temporary Nextcloud public share link.',
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          'multipart/form-data': {
+            schema: {
+              type: 'object',
+              properties: {
+                file: {
+                  type: 'string',
+                  format: 'binary',
+                  description: 'The file to upload'
+                },
+                po_id: {
+                  type: 'string',
+                  description: 'Optional PO ID'
+                }
+              }
+            }
+          }
+        }
+      },
+      responses: {
+        200: {
+          description: 'Success',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  success: { type: 'boolean', example: true },
+                  path: { type: 'string', example: 'https://cloud.inlinegroupdc.com/s/abcdefgh' },
+                  storage_path: { type: 'string', example: '/temp/123456789_file.pdf' },
+                  file_name: { type: 'string', example: '123456789_file.pdf' }
+                }
+              }
+            }
+          }
+        },
+        500: {
+          description: 'Internal Server Error'
+        }
+      }
+    }
+  },
+  '/purchasing-orders/upload/finalize': {
+    post: {
+      tags: ['Purchasing Orders'],
+      summary: 'Finalize file upload',
+      description: 'Move file from temp to final folder based on po_id',
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: ['po_id', 'storage_path'],
+              properties: {
+                po_id: { type: 'string', example: '1001' },
+                storage_path: { type: 'string', example: '/temp/123456789_file.pdf' }
+              }
+            }
+          }
+        }
+      },
+      responses: {
+        200: {
+          description: 'Success',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  success: { type: 'boolean', example: true },
+                  path: { type: 'string', example: '/uploads/po/2026/1001/123456789_file.pdf' }
+                }
+              }
+            }
+          }
+        },
+        500: {
+          description: 'Internal Server Error'
+        }
+      }
+    }
   }
 };
 

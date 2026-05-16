@@ -507,6 +507,102 @@ const getItems = async (req, res) => {
   }
 };
 
+const nextcloud = require('../../utils/nextcloud');
+const path = require('path');
+
+/**
+ * Upload file to Nextcloud Temp Directory
+ * @route POST /api/netsuite/purchasing-orders/upload
+ */
+const uploadTempFile = async (req, res) => {
+  try {
+    const file = req.file;
+    if (!file) {
+      return res.status(400).json({ success: false, message: 'No file uploaded' });
+    }
+
+    const { po_id } = req.body;
+    const fileName = `${Date.now()}_${file.originalname}`;
+    const uploadDir = nextcloud.NEXTCLOUD_UPLOAD_DIR;
+    const filePath = `${uploadDir}/${fileName}`;
+
+    // Ensure upload dir exists
+    await nextcloud.ensureDirectoryExists(uploadDir);
+
+    // Upload to Nextcloud WebDAV
+    await nextcloud.client.putFileContents(filePath, file.buffer);
+
+    // Generate public share link
+    const shareUrl = await nextcloud.generateShareLink(filePath);
+
+    // If po_id provided, save to DB now, else wait for finalize
+    if (po_id) {
+      await service.saveFileRecord({
+        po_id,
+        file_name: fileName,
+        storage_provider: 'nextcloud',
+        storage_path: filePath,
+        share_url: shareUrl
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      path: shareUrl,
+      storage_path: filePath,
+      file_name: fileName
+    });
+  } catch (error) {
+    console.error('Error uploading file:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to upload file to Nextcloud',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Finalize file upload by moving from temp to po folder
+ * @route POST /api/netsuite/purchasing-orders/upload/finalize
+ */
+const finalizeUpload = async (req, res) => {
+  try {
+    const { po_id, storage_path } = req.body;
+
+    if (!po_id || !storage_path) {
+      return res.status(400).json({ success: false, message: 'po_id and storage_path are required' });
+    }
+
+    const fileName = path.basename(storage_path);
+    const year = new Date().getFullYear();
+    const finalDir = `/uploads/po/${year}/${po_id}`;
+    const finalPath = `${finalDir}/${fileName}`;
+
+    // Ensure final dir exists
+    await nextcloud.ensureDirectoryExists(finalDir);
+
+    // Move file
+    await nextcloud.client.moveFile(storage_path, finalPath);
+
+    // We don't regenerate share link as requested, but we should update DB
+    await service.updateFileRecord(storage_path, finalPath, null);
+
+    return res.status(200).json({
+      success: true,
+      path: finalPath
+    });
+  } catch (error) {
+    console.error('Error finalizing upload:', error);
+    return res.status(500).json({
+      success: false,
+      path: null,
+      message: 'Failed to finalize file upload',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
 
   getList,
@@ -524,5 +620,7 @@ module.exports = {
   syncByIdAll,
   retry,
   getReceiveHistoryLogs,
-  getItems
+  getItems,
+  uploadTempFile,
+  finalizeUpload
 };
