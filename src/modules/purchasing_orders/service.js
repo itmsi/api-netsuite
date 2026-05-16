@@ -1,6 +1,7 @@
 const axios = require('axios');
 const knex = require('knex');
 const authService = require('../auth/service');
+const { pgCore } = require('../../config/database');
 
 // Knex instance untuk DB Netsuite (bridge_sanbox)
 const dbNetsuite = knex({
@@ -1793,6 +1794,22 @@ const getItems = async (body) => {
   }
 };
 
+const saveFileRecord = async (fileData) => {
+  const [record] = await pgCore('purchasing_orders_files').insert(fileData).returning('*');
+  return record;
+};
+
+const updateFileRecord = async (oldPath, newPath, newUrl) => {
+  const [record] = await pgCore('purchasing_orders_files')
+    .where('storage_path', oldPath)
+    .update({
+      storage_path: newPath,
+      share_url: newUrl
+    })
+    .returning('*');
+  return record;
+};
+
 module.exports = {
   getPurchaseOrders,
   printPurchaseOrder,
@@ -1823,5 +1840,7 @@ module.exports = {
   getReceiveHistoryLogs,
   approvePurchaseOrderToBridge,
   updatePurchaseOrderNotedsStatus,
-  getItems
+  getItems,
+  saveFileRecord,
+  updateFileRecord
 };
