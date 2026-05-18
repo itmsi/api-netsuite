@@ -507,6 +507,125 @@ const getItems = async (req, res) => {
   }
 };
 
+const nextcloud = require('../../utils/nextcloud');
+const path = require('path');
+
+/**
+ * Upload file to Nextcloud Temp Directory
+ * @route POST /api/netsuite/purchasing-orders/upload
+ */
+const uploadTempFile = async (req, res) => {
+  try {
+    const file = req.file;
+    if (!file) {
+      return res.status(400).json({ success: false, message: 'No file uploaded' });
+    }
+
+    const { po_id, file_name } = req.body;
+
+    // Extract original extension
+    const extension = path.extname(file.originalname);
+
+    // Determine the base name to use
+    let baseName = file_name || file.originalname;
+    if (path.extname(baseName)) {
+      baseName = path.basename(baseName, path.extname(baseName));
+    }
+
+    // Normalize characters to lowercase and replace spaces with underscore
+    const normalizedBaseName = baseName.toLowerCase().replace(/\s+/g, '_');
+
+    // Combine to form the finalized file name
+    const fileName = `${Date.now()}_${normalizedBaseName}${extension}`;
+    const uploadDir = nextcloud.NEXTCLOUD_UPLOAD_DIR;
+    const filePath = `${uploadDir}/${fileName}`;
+
+    // Ensure upload dir exists
+    await nextcloud.ensureDirectoryExists(uploadDir);
+
+    // Upload to Nextcloud WebDAV
+    await nextcloud.client.putFileContents(filePath, file.buffer);
+
+    // Generate public share link
+    const shareUrl = await nextcloud.generateShareLink(filePath);
+
+    // If po_id provided, save to DB now, else wait for finalize
+    if (po_id) {
+      await service.saveFileRecord({
+        po_id,
+        file_name: fileName,
+        file_name_original: file_name,
+        storage_provider: 'nextcloud',
+        storage_path: filePath,
+        share_url: shareUrl
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      poId: po_id,
+      fileUrl: shareUrl,
+      storagePath: filePath,
+      fileName: file_name
+    });
+  } catch (error) {
+    console.error('Error uploading file:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to upload file to Nextcloud',
+      error: error.message
+    });
+  }
+};
+/**
+ * 1. user create po
+ * 2. user masukan file attachment dan tekan add, otomatis UI akan hit ke api /purchasing-orders/upload ketika klik add file, 
+ * 3. ada rspin url dan path
+ * 4. user klik create po maka otomati dari UI akan menambahkan body "po_id": dari fe, di files, nanti dari api akan otomatis mengakses finalizeUpload
+ * 5. proses di api, ketika create po di listener, jika berhasil maka akan mendapatkan respon po_id, nah nanti pindahkan semua file dengan po_id sementara, masukn ke dalam folder /uploads/po/${year}/${po_id} ini po id nya pakek po id hasil respon create po di listener.
+ */
+
+/**
+ * Finalize file upload by moving from temp to po folder
+ * @route POST /api/netsuite/purchasing-orders/upload/finalize
+ */
+const finalizeUpload = async (req, res) => {
+  try {
+    const { po_id, storage_path } = req.body;
+
+    if (!po_id || !storage_path) {
+      return res.status(400).json({ success: false, message: 'po_id and storage_path are required' });
+    }
+
+    const fileName = path.basename(storage_path);
+    const year = new Date().getFullYear();
+    const finalDir = `/uploads/po/${year}/${po_id}`;
+    const finalPath = `${finalDir}/${fileName}`;
+
+    // Ensure final dir exists
+    await nextcloud.ensureDirectoryExists(finalDir);
+
+    // Move file
+    await nextcloud.client.moveFile(storage_path, finalPath);
+
+    // We don't regenerate share link as requested, but we should update DB
+    await service.updateFileRecord(storage_path, finalPath, null);
+
+    return res.status(200).json({
+      success: true,
+      path: finalPath
+    });
+  } catch (error) {
+    console.error('Error finalizing upload:', error);
+    return res.status(500).json({
+      success: false,
+      path: null,
+      message: 'Failed to finalize file upload',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
 
   getList,
@@ -524,5 +643,7 @@ module.exports = {
   syncByIdAll,
   retry,
   getReceiveHistoryLogs,
-  getItems
+  getItems,
+  uploadTempFile,
+  finalizeUpload
 };
