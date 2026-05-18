@@ -642,7 +642,12 @@ const deleteUpload = async (req, res) => {
     // 1. Get file record from DB to retrieve nextcloud storage_path and ID
     const fileRecord = await service.getFileRecordByShareUrl(fileUrl);
     if (!fileRecord) {
-      return res.status(404).json({ success: false, message: 'File record not found for the provided fileUrl' });
+      //jika file tidak ada maka di anggap sukses saja, karena file masuk bukan dari apps tapi dari netsuitenya langunsg, jadi ini jangan sampai stoper respon error
+      return res.status(200).json({
+        success: true,
+        message: 'File deleted successfully'
+      });
+      // return res.status(404).json({ success: false, message: 'File record not found for the provided fileUrl' });
     }
 
     // 2. Delete file from Nextcloud WebDAV
@@ -691,7 +696,7 @@ const updateUpload = async (req, res) => {
 
     // 1. Get existing file record from DB by share_url
     const fileRecord = await service.getFileRecordByShareUrl(fileUrl);
-    
+
     if (!fileRecord) {
       // SCENARIO C: File does not exist, CREATE a new one directly in the NetSuite PO folder
       if (!file) {
