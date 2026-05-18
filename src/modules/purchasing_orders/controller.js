@@ -550,8 +550,9 @@ const uploadTempFile = async (req, res) => {
     const shareUrl = await nextcloud.generateShareLink(filePath);
 
     // If po_id provided, save to DB now, else wait for finalize
+    let result = {};
     if (po_id) {
-      await service.saveFileRecord({
+      result = await service.saveFileRecord({
         po_id,
         file_name: fileName,
         file_name_original: file_name,
@@ -563,7 +564,8 @@ const uploadTempFile = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      poId: po_id,
+      id: result?.id || null,
+      poId: po_id || null,
       fileUrl: shareUrl,
       storagePath: filePath,
       fileName: file_name
@@ -626,6 +628,175 @@ const finalizeUpload = async (req, res) => {
   }
 };
 
+/**
+ * Delete file by ID from local database and Nextcloud
+ * @route DELETE /api/netsuite/purchasing-orders/upload/:id
+ */
+const deleteUpload = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res.status(400).json({ success: false, message: 'Parameter id is required' });
+    }
+
+    // 1. Get file record from DB to retrieve nextcloud storage_path
+    const fileRecord = await service.getFileRecordById(id);
+    if (!fileRecord) {
+      return res.status(404).json({ success: false, message: 'File record not found' });
+    }
+
+    // 2. Delete file from Nextcloud WebDAV
+    try {
+      const exists = await nextcloud.client.exists(fileRecord.storage_path);
+      if (exists) {
+        await nextcloud.client.deleteFile(fileRecord.storage_path);
+        console.info(`[Controller] Deleted file from Nextcloud: ${fileRecord.storage_path}`);
+      } else {
+        console.warn(`[Controller] File not found in Nextcloud at path: ${fileRecord.storage_path}`);
+      }
+    } catch (ncError) {
+      console.error(`[Controller] Failed to delete file from Nextcloud:`, ncError.message);
+      // We will still proceed to delete database record even if Nextcloud file is already deleted or missing
+    }
+
+    // 3. Delete file record from Database
+    await service.deleteFileRecord(id);
+
+    return res.status(200).json({
+      success: true,
+      message: 'File deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting uploaded file:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to delete file',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Update uploaded file (either replacement file, new file_name, or both)
+ * @route PUT /api/netsuite/purchasing-orders/upload/:id
+ */
+const updateUpload = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const file = req.file; // New file uploaded (optional)
+    const { file_name } = req.body; // New custom name (optional)
+
+    if (!id) {
+      return res.status(400).json({ success: false, message: 'Parameter id is required' });
+    }
+
+    // 1. Get existing file record from DB
+    const fileRecord = await service.getFileRecordById(id);
+    if (!fileRecord) {
+      return res.status(404).json({ success: false, message: 'File record not found' });
+    }
+
+    const oldStoragePath = fileRecord.storage_path;
+    const parentDir = path.dirname(oldStoragePath);
+
+    let finalFileName = fileRecord.file_name;
+    let finalOriginalName = fileRecord.file_name_original;
+    let finalStoragePath = oldStoragePath;
+    let finalShareUrl = fileRecord.share_url;
+
+    if (file) {
+      // SCENARIO A: A new file is uploaded
+      // 1. Delete old file from Nextcloud
+      try {
+        const oldExists = await nextcloud.client.exists(oldStoragePath);
+        if (oldExists) {
+          await nextcloud.client.deleteFile(oldStoragePath);
+        }
+      } catch (ncErr) {
+        console.warn(`[Controller] Could not delete old file in Nextcloud: ${oldStoragePath}`, ncErr.message);
+      }
+
+      // 2. Determine new file name
+      const extension = path.extname(file.originalname);
+      let baseName = file_name || file.originalname;
+      if (path.extname(baseName)) {
+        baseName = path.basename(baseName, path.extname(baseName));
+      }
+      const normalizedBaseName = baseName.toLowerCase().replace(/\s+/g, '_');
+      finalFileName = `${Date.now()}_${normalizedBaseName}${extension}`;
+      finalOriginalName = file_name || file.originalname;
+      finalStoragePath = `${parentDir}/${finalFileName}`;
+
+      // 3. Upload new file contents to Nextcloud
+      await nextcloud.client.putFileContents(finalStoragePath, file.buffer);
+
+      // 4. Generate new share link
+      try {
+        finalShareUrl = await nextcloud.generateShareLink(finalStoragePath);
+      } catch (shareErr) {
+        console.warn(`[Controller] Failed to generate new share link:`, shareErr.message);
+      }
+    } else if (file_name) {
+      // SCENARIO B: No new file uploaded, but file_name is changed (rename)
+      const extension = path.extname(fileRecord.file_name);
+      let baseName = file_name;
+      if (path.extname(baseName)) {
+        baseName = path.basename(baseName, path.extname(baseName));
+      }
+      const normalizedBaseName = baseName.toLowerCase().replace(/\s+/g, '_');
+      finalFileName = `${Date.now()}_${normalizedBaseName}${extension}`;
+      finalOriginalName = file_name;
+      finalStoragePath = `${parentDir}/${finalFileName}`;
+
+      // Move/rename in Nextcloud
+      try {
+        const oldExists = await nextcloud.client.exists(oldStoragePath);
+        if (oldExists) {
+          await nextcloud.client.moveFile(oldStoragePath, finalStoragePath);
+        }
+      } catch (ncErr) {
+        console.error(`[Controller] Failed to rename file in Nextcloud:`, ncErr.message);
+        return res.status(500).json({ success: false, message: 'Failed to rename file in Nextcloud', error: ncErr.message });
+      }
+
+      // Regenerate public link for renamed file path
+      try {
+        finalShareUrl = await nextcloud.generateShareLink(finalStoragePath);
+      } catch (shareErr) {
+        console.warn(`[Controller] Failed to generate new share link for renamed file:`, shareErr.message);
+      }
+    }
+
+    // Update database record
+    const updatedRecord = await service.updateFileRecordFields(id, {
+      file_name: finalFileName,
+      file_name_original: finalOriginalName,
+      storage_path: finalStoragePath,
+      share_url: finalShareUrl
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'File updated successfully',
+      data: {
+        id: updatedRecord.id,
+        poId: updatedRecord.po_id,
+        fileUrl: updatedRecord.share_url,
+        storagePath: updatedRecord.storage_path,
+        fileName: updatedRecord.file_name_original
+      }
+    });
+
+  } catch (error) {
+    console.error('Error updating uploaded file:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update file',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
 
   getList,
@@ -645,5 +816,7 @@ module.exports = {
   getReceiveHistoryLogs,
   getItems,
   uploadTempFile,
-  finalizeUpload
+  finalizeUpload,
+  deleteUpload,
+  updateUpload
 };

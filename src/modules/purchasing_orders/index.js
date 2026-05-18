@@ -199,4 +199,27 @@ router.post(
   controller.finalizeUpload
 );
 
+/**
+ * @route   DELETE /api/purchasing-orders/upload/:id
+ * @desc    Delete uploaded file by ID from database and Nextcloud
+ * @access  Private
+ */
+router.delete(
+  '/upload/:id',
+  verifyToken,
+  controller.deleteUpload
+);
+
+/**
+ * @route   PUT /api/purchasing-orders/upload/:id
+ * @desc    Update uploaded file (either replacement file, new file_name, or both)
+ * @access  Private
+ */
+router.put(
+  '/upload/:id',
+  verifyToken,
+  upload.single('file'),
+  controller.updateUpload
+);
+
 module.exports = router;
