@@ -1075,6 +1075,10 @@ const purchasingOrdersPaths = {
                 file_name: {
                   type: 'string',
                   description: 'Optional new filename. Will be normalized to lowercase with spaces replaced by underscores (_)'
+                },
+                po_id: {
+                  type: 'string',
+                  description: 'Optional PO ID. If the file record does not exist for the provided fileUrl, this is used to create a new file record directly in the NetSuite PO folder.'
                 }
               }
             }

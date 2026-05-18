@@ -676,13 +676,14 @@ const deleteUpload = async (req, res) => {
 };
 
 /**
- * Update uploaded file by share_url (either replacement file, new file_name, or both)
+ * Update or create uploaded file by share_url (either replacement file, new file_name, or both)
+ * If the file does not exist by share_url, it creates a new record using the provided po_id.
  * @route POST /api/netsuite/purchasing-orders/upload-update
  */
 const updateUpload = async (req, res) => {
   try {
-    const { fileUrl, file_name } = req.body;
-    const file = req.file; // New file uploaded (optional)
+    const { fileUrl, file_name, po_id } = req.body;
+    const file = req.file; // New file uploaded (optional for update, required for create)
 
     if (!fileUrl) {
       return res.status(400).json({ success: false, message: 'Parameter fileUrl is required' });
@@ -690,10 +691,80 @@ const updateUpload = async (req, res) => {
 
     // 1. Get existing file record from DB by share_url
     const fileRecord = await service.getFileRecordByShareUrl(fileUrl);
+    
     if (!fileRecord) {
-      return res.status(404).json({ success: false, message: 'File record not found for the provided fileUrl' });
+      // SCENARIO C: File does not exist, CREATE a new one directly in the NetSuite PO folder
+      if (!file) {
+        return res.status(400).json({ success: false, message: 'File record not found for the provided fileUrl, and no new file was uploaded to create a new record.' });
+      }
+
+      if (!po_id) {
+        return res.status(400).json({ success: false, message: 'po_id is required to create a new file record.' });
+      }
+
+      // Determine folder name by po_id or po_number
+      let folderName = po_id;
+      try {
+        const poRecord = await service.getPurchaseOrderByPoId(po_id);
+        if (poRecord && poRecord.po_number) {
+          folderName = poRecord.po_number;
+          console.info(`[Controller] Found po_number: ${folderName} for po_id: ${po_id}`);
+        }
+      } catch (dbErr) {
+        console.warn(`[Controller] Error fetching po_number for new upload:`, dbErr.message);
+      }
+
+      const year = new Date().getFullYear();
+      const finalDir = `/NetSuite/PurchasingOrders/${year}/${folderName}`;
+
+      // Ensure directory exists in Nextcloud
+      await nextcloud.ensureDirectoryExists(finalDir);
+
+      // Process the file name
+      const extension = path.extname(file.originalname);
+      let baseName = file_name || file.originalname;
+      if (path.extname(baseName)) {
+        baseName = path.basename(baseName, path.extname(baseName));
+      }
+      const normalizedBaseName = baseName.toLowerCase().replace(/\s+/g, '_');
+      const finalFileName = `${Date.now()}_${normalizedBaseName}${extension}`;
+      const finalStoragePath = `${finalDir}/${finalFileName}`;
+
+      // Upload file to Nextcloud
+      await nextcloud.client.putFileContents(finalStoragePath, file.buffer);
+
+      // Generate public share link
+      let finalShareUrl = '';
+      try {
+        finalShareUrl = await nextcloud.generateShareLink(finalStoragePath);
+      } catch (shareErr) {
+        console.warn(`[Controller] Failed to generate share link for new file:`, shareErr.message);
+      }
+
+      // Save to Database
+      const newRecord = await service.saveFileRecord({
+        po_id: po_id,
+        file_name: finalFileName,
+        file_name_original: file_name || file.originalname,
+        storage_provider: 'nextcloud',
+        storage_path: finalStoragePath,
+        share_url: finalShareUrl
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: 'File created successfully',
+        data: {
+          id: newRecord.id,
+          poId: newRecord.po_id,
+          fileUrl: newRecord.share_url,
+          storagePath: newRecord.storage_path,
+          fileName: newRecord.file_name_original
+        }
+      });
     }
 
+    // SCENARIO A & B: File exists, perform UPDATE
     const oldStoragePath = fileRecord.storage_path;
     const parentDir = path.dirname(oldStoragePath);
 
@@ -703,7 +774,6 @@ const updateUpload = async (req, res) => {
     let finalShareUrl = fileRecord.share_url;
 
     if (file) {
-      // SCENARIO A: A new file is uploaded
       // 1. Delete old file from Nextcloud
       try {
         const oldExists = await nextcloud.client.exists(oldStoragePath);
@@ -735,7 +805,6 @@ const updateUpload = async (req, res) => {
         console.warn(`[Controller] Failed to generate new share link:`, shareErr.message);
       }
     } else if (file_name) {
-      // SCENARIO B: No new file uploaded, but file_name is changed (rename)
       const extension = path.extname(fileRecord.file_name);
       let baseName = file_name;
       if (path.extname(baseName)) {
@@ -786,10 +855,10 @@ const updateUpload = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error updating uploaded file:', error);
+    console.error('Error updating/creating uploaded file:', error);
     return res.status(500).json({
       success: false,
-      message: 'Failed to update file',
+      message: 'Failed to update/create file',
       error: error.message
     });
   }
