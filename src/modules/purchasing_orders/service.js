@@ -1814,34 +1814,50 @@ const finalizeUploadedFilesForPO = async (tempPoId, realPoId) => {
   try {
     const nextcloud = require('../../utils/nextcloud');
     const path = require('path');
-    
+
     // 1. Ambil ke db gate_sso tabel purchasing_orders_files where po_id = po id temporary
     const files = await pgCore('purchasing_orders_files')
       .where('po_id', tempPoId);
-      
+
     if (!files || files.length === 0) {
       console.info(`[finalizeUploadedFilesForPO] No files found for temporary PO ID: ${tempPoId}`);
       return;
     }
-    
+
+    // Ambil po_number dari db netsuite di tabel purchase_orders kolom po_number
+    let folderName = realPoId;
+    try {
+      const poRecord = await dbNetsuite('purchase_orders')
+        .where('po_id', realPoId.toString())
+        .first();
+      if (poRecord && poRecord.po_number) {
+        folderName = poRecord.po_number;
+        console.info(`[finalizeUploadedFilesForPO] Found po_number: ${folderName} for po_id: ${realPoId}`);
+      } else {
+        console.warn(`[finalizeUploadedFilesForPO] No purchase order record or po_number found for po_id: ${realPoId}, falling back to po_id for folder name`);
+      }
+    } catch (dbErr) {
+      console.error(`[finalizeUploadedFilesForPO] Error retrieving po_number from DB Netsuite:`, dbErr.message);
+    }
+
     const year = new Date().getFullYear();
-    const finalDir = `/netsuite/purchasing_orders/${year}/${realPoId}`;
-    
+    const finalDir = `/NetSuite/PurchasingOrders/${year}/${folderName}`;
+
     // 2. Cek juga sebelum membuat folder, apakah sudah ada folder tersebut atau belum
     // ensureDirectoryExists already checks if directory exists, if not it creates it
     await nextcloud.ensureDirectoryExists(finalDir);
-    
+
     for (const file of files) {
       const oldStoragePath = file.storage_path;
       const fileName = path.basename(oldStoragePath);
       const newStoragePath = `${finalDir}/${fileName}`;
-      
+
       console.info(`[finalizeUploadedFilesForPO] Moving file from ${oldStoragePath} to ${newStoragePath}`);
-      
+
       try {
         // Move file in Nextcloud
         await nextcloud.client.moveFile(oldStoragePath, newStoragePath);
-        
+
         // Generate new share link for the new path so the link doesn't break
         let newShareUrl = file.share_url;
         try {
@@ -1849,7 +1865,7 @@ const finalizeUploadedFilesForPO = async (tempPoId, realPoId) => {
         } catch (shareErr) {
           console.warn(`[finalizeUploadedFilesForPO] Failed to generate new share link for ${newStoragePath}:`, shareErr.message);
         }
-        
+
         // Update database: storage_path, share_url, and po_id (to the real NetSuite po_id)
         await pgCore('purchasing_orders_files')
           .where('id', file.id)
@@ -1858,7 +1874,7 @@ const finalizeUploadedFilesForPO = async (tempPoId, realPoId) => {
             storage_path: newStoragePath,
             share_url: newShareUrl
           });
-          
+
         console.info(`[finalizeUploadedFilesForPO] File record updated successfully for file ID: ${file.id}`);
       } catch (moveErr) {
         console.error(`[finalizeUploadedFilesForPO] Failed to move file ${oldStoragePath}:`, moveErr.message);
