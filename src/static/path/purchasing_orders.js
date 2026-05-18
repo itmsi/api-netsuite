@@ -924,9 +924,13 @@ const purchasingOrdersPaths = {
                   format: 'binary',
                   description: 'The file to upload'
                 },
+                file_name: {
+                  type: 'string',
+                  description: 'Optional custom file name. Will be normalized to lowercase with spaces replaced by underscores (_)'
+                },
                 po_id: {
                   type: 'string',
-                  description: 'Optional PO ID'
+                  description: 'Optional PO ID, po id sementara yg akan di buat oleh FE, prosesnya ketika add file akan insert file dan po_id sementara, jangan sampe ui di refres, jika di refres maka akan generated po_id baru di FE'
                 }
               }
             }
