@@ -6,6 +6,7 @@ const purchasingOrdersSchemas = {
   PurchaseOrderFile: {
     type: 'object',
     properties: {
+      poId: { type: 'string', example: 'temp-001' },
       fileUrl: { type: 'string', example: 'https://cloud.inlinegroupdc.com/s/xR34c667kEKZRsj' },
       fileName: { type: 'string', example: 'Invoice Vendor' }
     }
