@@ -521,8 +521,22 @@ const uploadTempFile = async (req, res) => {
       return res.status(400).json({ success: false, message: 'No file uploaded' });
     }
 
-    const { po_id } = req.body;
-    const fileName = `${Date.now()}_${file.originalname}`;
+    const { po_id, file_name } = req.body;
+
+    // Extract original extension
+    const extension = path.extname(file.originalname);
+
+    // Determine the base name to use
+    let baseName = file_name || file.originalname;
+    if (path.extname(baseName)) {
+      baseName = path.basename(baseName, path.extname(baseName));
+    }
+
+    // Normalize characters to lowercase and replace spaces with underscore
+    const normalizedBaseName = baseName.toLowerCase().replace(/\s+/g, '_');
+
+    // Combine to form the finalized file name
+    const fileName = `${Date.now()}_${normalizedBaseName}${extension}`;
     const uploadDir = nextcloud.NEXTCLOUD_UPLOAD_DIR;
     const filePath = `${uploadDir}/${fileName}`;
 
@@ -540,6 +554,7 @@ const uploadTempFile = async (req, res) => {
       await service.saveFileRecord({
         po_id,
         file_name: fileName,
+        file_name_original: file_name,
         storage_provider: 'nextcloud',
         storage_path: filePath,
         share_url: shareUrl
@@ -548,9 +563,10 @@ const uploadTempFile = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      path: shareUrl,
-      storage_path: filePath,
-      file_name: fileName
+      poId: po_id,
+      fileUrl: shareUrl,
+      storagePath: filePath,
+      fileName: file_name
     });
   } catch (error) {
     console.error('Error uploading file:', error);
@@ -561,6 +577,13 @@ const uploadTempFile = async (req, res) => {
     });
   }
 };
+/**
+ * 1. user create po
+ * 2. user masukan file attachment dan tekan add, otomatis UI akan hit ke api /purchasing-orders/upload ketika klik add file, 
+ * 3. ada rspin url dan path
+ * 4. user klik create po maka otomati dari UI akan menambahkan body "po_id": dari fe, di files, nanti dari api akan otomatis mengakses finalizeUpload
+ * 5. proses di api, ketika create po di listener, jika berhasil maka akan mendapatkan respon po_id, nah nanti pindahkan semua file dengan po_id sementara, masukn ke dalam folder /uploads/po/${year}/${po_id} ini po id nya pakek po id hasil respon create po di listener.
+ */
 
 /**
  * Finalize file upload by moving from temp to po folder
