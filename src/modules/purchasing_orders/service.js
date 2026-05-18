@@ -1914,6 +1914,13 @@ const getFileRecordByShareUrl = async (shareUrl) => {
   return record;
 };
 
+const getPurchaseOrderByPoId = async (poId) => {
+  const record = await dbNetsuite('purchase_orders')
+    .where('po_id', poId.toString())
+    .first();
+  return record;
+};
+
 module.exports = {
   getPurchaseOrders,
   printPurchaseOrder,
@@ -1951,5 +1958,6 @@ module.exports = {
   getFileRecordById,
   deleteFileRecord,
   updateFileRecordFields,
-  getFileRecordByShareUrl
+  getFileRecordByShareUrl,
+  getPurchaseOrderByPoId
 };
