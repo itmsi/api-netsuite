@@ -629,20 +629,20 @@ const finalizeUpload = async (req, res) => {
 };
 
 /**
- * Delete file by ID from local database and Nextcloud
- * @route DELETE /api/netsuite/purchasing-orders/upload/:id
+ * Delete file by share_url from local database and Nextcloud
+ * @route POST /api/netsuite/purchasing-orders/upload-delete
  */
 const deleteUpload = async (req, res) => {
   try {
-    const { id } = req.params;
-    if (!id) {
-      return res.status(400).json({ success: false, message: 'Parameter id is required' });
+    const { fileUrl } = req.body;
+    if (!fileUrl) {
+      return res.status(400).json({ success: false, message: 'Parameter fileUrl is required' });
     }
 
-    // 1. Get file record from DB to retrieve nextcloud storage_path
-    const fileRecord = await service.getFileRecordById(id);
+    // 1. Get file record from DB to retrieve nextcloud storage_path and ID
+    const fileRecord = await service.getFileRecordByShareUrl(fileUrl);
     if (!fileRecord) {
-      return res.status(404).json({ success: false, message: 'File record not found' });
+      return res.status(404).json({ success: false, message: 'File record not found for the provided fileUrl' });
     }
 
     // 2. Delete file from Nextcloud WebDAV
@@ -656,11 +656,10 @@ const deleteUpload = async (req, res) => {
       }
     } catch (ncError) {
       console.error(`[Controller] Failed to delete file from Nextcloud:`, ncError.message);
-      // We will still proceed to delete database record even if Nextcloud file is already deleted or missing
     }
 
     // 3. Delete file record from Database
-    await service.deleteFileRecord(id);
+    await service.deleteFileRecord(fileRecord.id);
 
     return res.status(200).json({
       success: true,
@@ -677,23 +676,22 @@ const deleteUpload = async (req, res) => {
 };
 
 /**
- * Update uploaded file (either replacement file, new file_name, or both)
- * @route PUT /api/netsuite/purchasing-orders/upload/:id
+ * Update uploaded file by share_url (either replacement file, new file_name, or both)
+ * @route POST /api/netsuite/purchasing-orders/upload-update
  */
 const updateUpload = async (req, res) => {
   try {
-    const { id } = req.params;
+    const { fileUrl, file_name } = req.body;
     const file = req.file; // New file uploaded (optional)
-    const { file_name } = req.body; // New custom name (optional)
 
-    if (!id) {
-      return res.status(400).json({ success: false, message: 'Parameter id is required' });
+    if (!fileUrl) {
+      return res.status(400).json({ success: false, message: 'Parameter fileUrl is required' });
     }
 
-    // 1. Get existing file record from DB
-    const fileRecord = await service.getFileRecordById(id);
+    // 1. Get existing file record from DB by share_url
+    const fileRecord = await service.getFileRecordByShareUrl(fileUrl);
     if (!fileRecord) {
-      return res.status(404).json({ success: false, message: 'File record not found' });
+      return res.status(404).json({ success: false, message: 'File record not found for the provided fileUrl' });
     }
 
     const oldStoragePath = fileRecord.storage_path;
@@ -767,8 +765,8 @@ const updateUpload = async (req, res) => {
       }
     }
 
-    // Update database record
-    const updatedRecord = await service.updateFileRecordFields(id, {
+    // Update database record by ID
+    const updatedRecord = await service.updateFileRecordFields(fileRecord.id, {
       file_name: finalFileName,
       file_name_original: finalOriginalName,
       storage_path: finalStoragePath,

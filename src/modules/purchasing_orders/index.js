@@ -200,23 +200,23 @@ router.post(
 );
 
 /**
- * @route   DELETE /api/purchasing-orders/upload/:id
- * @desc    Delete uploaded file by ID from database and Nextcloud
+ * @route   POST /api/purchasing-orders/upload-delete
+ * @desc    Delete uploaded file by share_url from database and Nextcloud
  * @access  Private
  */
-router.delete(
-  '/upload/:id',
+router.post(
+  '/upload-delete',
   verifyToken,
   controller.deleteUpload
 );
 
 /**
- * @route   PUT /api/purchasing-orders/upload/:id
- * @desc    Update uploaded file (either replacement file, new file_name, or both)
+ * @route   POST /api/purchasing-orders/upload-update
+ * @desc    Update uploaded file by share_url (either replacement file, new file_name, or both)
  * @access  Private
  */
-router.put(
-  '/upload/:id',
+router.post(
+  '/upload-update',
   verifyToken,
   upload.single('file'),
   controller.updateUpload
