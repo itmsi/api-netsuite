@@ -1004,21 +1004,26 @@ const purchasingOrdersPaths = {
       }
     }
   },
-  '/purchasing-orders/upload/{id}': {
-    delete: {
+  '/purchasing-orders/upload-delete': {
+    post: {
       tags: ['Purchasing Orders'],
-      summary: 'Delete uploaded file',
-      description: 'Delete uploaded file by ID from local database and Nextcloud WebDAV.',
+      summary: 'Delete uploaded file by share URL',
+      description: 'Delete uploaded file by share URL (fileUrl) from local database and Nextcloud WebDAV.',
       security: [{ bearerAuth: [] }],
-      parameters: [
-        {
-          name: 'id',
-          in: 'path',
-          required: true,
-          description: 'The UUID of the file record in purchasing_orders_files table',
-          schema: { type: 'string', format: 'uuid', example: 'f0b57258-5f33-4e03-81f7-cd70d833b5c5' }
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: ['fileUrl'],
+              properties: {
+                fileUrl: { type: 'string', example: 'https://cloud.inlinegroupdc.com/s/abcdefgh' }
+              }
+            }
+          }
         }
-      ],
+      },
       responses: {
         200: {
           description: 'Success',
@@ -1041,27 +1046,27 @@ const purchasingOrdersPaths = {
           description: 'Internal Server Error'
         }
       }
-    },
-    put: {
+    }
+  },
+  '/purchasing-orders/upload-update': {
+    post: {
       tags: ['Purchasing Orders'],
-      summary: 'Update uploaded file',
-      description: 'Update uploaded file by ID. Can replace the file itself, change the filename, or both.',
+      summary: 'Update uploaded file by share URL',
+      description: 'Update uploaded file by share URL. Can replace the file itself, change the filename, or both.',
       security: [{ bearerAuth: [] }],
-      parameters: [
-        {
-          name: 'id',
-          in: 'path',
-          required: true,
-          description: 'The UUID of the file record in purchasing_orders_files table',
-          schema: { type: 'string', format: 'uuid', example: 'f0b57258-5f33-4e03-81f7-cd70d833b5c5' }
-        }
-      ],
       requestBody: {
+        required: true,
         content: {
           'multipart/form-data': {
             schema: {
               type: 'object',
+              required: ['fileUrl'],
               properties: {
+                fileUrl: {
+                  type: 'string',
+                  description: 'The share URL of the existing file to update',
+                  example: 'https://cloud.inlinegroupdc.com/s/abcdefgh'
+                },
                 file: {
                   type: 'string',
                   format: 'binary',

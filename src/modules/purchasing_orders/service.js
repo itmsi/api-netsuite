@@ -1891,6 +1891,13 @@ const updateFileRecordFields = async (id, updateData) => {
   return record;
 };
 
+const getFileRecordByShareUrl = async (shareUrl) => {
+  const record = await pgCore('purchasing_orders_files')
+    .where('share_url', shareUrl)
+    .first();
+  return record;
+};
+
 module.exports = {
   getPurchaseOrders,
   printPurchaseOrder,
@@ -1927,5 +1934,6 @@ module.exports = {
   finalizeUploadedFilesForPO,
   getFileRecordById,
   deleteFileRecord,
-  updateFileRecordFields
+  updateFileRecordFields,
+  getFileRecordByShareUrl
 };
