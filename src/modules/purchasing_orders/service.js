@@ -1810,6 +1810,87 @@ const updateFileRecord = async (oldPath, newPath, newUrl) => {
   return record;
 };
 
+const finalizeUploadedFilesForPO = async (tempPoId, realPoId) => {
+  try {
+    const nextcloud = require('../../utils/nextcloud');
+    const path = require('path');
+    
+    // 1. Ambil ke db gate_sso tabel purchasing_orders_files where po_id = po id temporary
+    const files = await pgCore('purchasing_orders_files')
+      .where('po_id', tempPoId);
+      
+    if (!files || files.length === 0) {
+      console.info(`[finalizeUploadedFilesForPO] No files found for temporary PO ID: ${tempPoId}`);
+      return;
+    }
+    
+    const year = new Date().getFullYear();
+    const finalDir = `/netsuite/purchasing_orders/${year}/${realPoId}`;
+    
+    // 2. Cek juga sebelum membuat folder, apakah sudah ada folder tersebut atau belum
+    // ensureDirectoryExists already checks if directory exists, if not it creates it
+    await nextcloud.ensureDirectoryExists(finalDir);
+    
+    for (const file of files) {
+      const oldStoragePath = file.storage_path;
+      const fileName = path.basename(oldStoragePath);
+      const newStoragePath = `${finalDir}/${fileName}`;
+      
+      console.info(`[finalizeUploadedFilesForPO] Moving file from ${oldStoragePath} to ${newStoragePath}`);
+      
+      try {
+        // Move file in Nextcloud
+        await nextcloud.client.moveFile(oldStoragePath, newStoragePath);
+        
+        // Generate new share link for the new path so the link doesn't break
+        let newShareUrl = file.share_url;
+        try {
+          newShareUrl = await nextcloud.generateShareLink(newStoragePath);
+        } catch (shareErr) {
+          console.warn(`[finalizeUploadedFilesForPO] Failed to generate new share link for ${newStoragePath}:`, shareErr.message);
+        }
+        
+        // Update database: storage_path, share_url, and po_id (to the real NetSuite po_id)
+        await pgCore('purchasing_orders_files')
+          .where('id', file.id)
+          .update({
+            po_id: realPoId.toString(),
+            storage_path: newStoragePath,
+            share_url: newShareUrl
+          });
+          
+        console.info(`[finalizeUploadedFilesForPO] File record updated successfully for file ID: ${file.id}`);
+      } catch (moveErr) {
+        console.error(`[finalizeUploadedFilesForPO] Failed to move file ${oldStoragePath}:`, moveErr.message);
+      }
+    }
+  } catch (error) {
+    console.error(`[finalizeUploadedFilesForPO] Error finalizing files for PO ${realPoId}:`, error.message);
+  }
+};
+
+const getFileRecordById = async (id) => {
+  const record = await pgCore('purchasing_orders_files')
+    .where('id', id)
+    .first();
+  return record;
+};
+
+const deleteFileRecord = async (id) => {
+  const count = await pgCore('purchasing_orders_files')
+    .where('id', id)
+    .delete();
+  return count;
+};
+
+const updateFileRecordFields = async (id, updateData) => {
+  const [record] = await pgCore('purchasing_orders_files')
+    .where('id', id)
+    .update(updateData)
+    .returning('*');
+  return record;
+};
+
 module.exports = {
   getPurchaseOrders,
   printPurchaseOrder,
@@ -1842,5 +1923,9 @@ module.exports = {
   updatePurchaseOrderNotedsStatus,
   getItems,
   saveFileRecord,
-  updateFileRecord
+  updateFileRecord,
+  finalizeUploadedFilesForPO,
+  getFileRecordById,
+  deleteFileRecord,
+  updateFileRecordFields
 };
