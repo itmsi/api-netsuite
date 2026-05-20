@@ -29,8 +29,11 @@ class SmtpProvider {
   }
 
   async sendMail({ to, cc, subject, html, attachments }) {
+    const fromName = process.env.APP_NAME || 'Netsuite MSI';
+    const fromEmail = process.env.EMAIL_FROM || process.env.SMTP_USER;
+
     const mailOptions = {
-      from: process.env.EMAIL_FROM || process.env.SMTP_USER,
+      from: `"${fromName}" <${fromEmail}>`,
       to,
       cc,
       subject,
