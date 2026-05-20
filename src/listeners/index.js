@@ -10,6 +10,7 @@ const { initPurchaseOrderApprovalServices } = require('./purchase_order_approval
 const { initSalesOrderServices } = require('./sales_order_listener')
 const { initSalesOrderUpdateServices } = require('./sales_order_update_listener')
 const { initSyncOrchestratorServices } = require('./sync_orchestrator_listener')
+const { initEmailNotificationServices } = require('./email_notification_listener')
 
 const initListener = async () => {
   // Increase max listeners for SIGINT as we have many listeners (11)
@@ -28,6 +29,7 @@ const initListener = async () => {
     await initSalesOrderServices()
     await initSalesOrderUpdateServices()
     await initSyncOrchestratorServices()
+    await initEmailNotificationServices()
     logger(fileName, 'listener').write(`Listener is working waiting for message ${fullDateFormat(new Date().toISOString())} \n`)
   } catch (error) {
     console.info('Listener is not working with error', error)

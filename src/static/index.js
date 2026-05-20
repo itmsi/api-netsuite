@@ -49,6 +49,7 @@ const salesOrdersSchema = require('./schema/sales_orders');
 const bankSchema = require('./schema/bank');
 const poStatusSchema = require('./schema/po_status');
 const approvalStatusSchema = require('./schema/approval_status');
+const emailSchema = require('./schema/email');
 
 // Import paths
 // Tambahkan path module Anda di sini
@@ -72,6 +73,7 @@ const salesOrdersPaths = require('./path/sales_orders');
 const bankPaths = require('./path/bank');
 const poStatusPaths = require('./path/po_status');
 const approvalStatusPaths = require('./path/approval_status');
+const emailPaths = require('./path/email');
 
 // Combine all schemas
 const schemas = {
@@ -96,6 +98,7 @@ const schemas = {
   ...bankSchema,
   ...poStatusSchema,
   ...approvalStatusSchema,
+  ...emailSchema,
   // ...yourModuleSchema,
 };
 
@@ -121,6 +124,7 @@ const paths = {
   ...bankPaths,
   ...poStatusPaths,
   ...approvalStatusPaths,
+  ...emailPaths,
   // ...yourModulePaths,
 };
 

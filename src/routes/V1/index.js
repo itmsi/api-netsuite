@@ -80,4 +80,7 @@ routing.use(`${API_TAG}/po_status`, poStatusModule);
 const approvalStatusModule = require('../../modules/approval_status');
 routing.use(`${API_TAG}/approval_status`, approvalStatusModule);
 
+const emailModule = require('../../modules/email');
+routing.use(`${API_TAG}/email`, emailModule);
+
 module.exports = routing;
