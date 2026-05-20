@@ -66,7 +66,7 @@ const methodExecution = async (payload, channel, msg) => {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`
       },
-      timeout: 120000
+      timeout: 1500000
     });
 
     if (response.data) {
@@ -90,7 +90,7 @@ const methodExecution = async (payload, channel, msg) => {
       // 5. Update status to success
       await syncService.updateSync(sync_id, { sync_status: 'success', count_data: countData }, user);
       console.info(`[Orchestrator] Module ${moduleName} sync completed successfully with ${countData} records`);
-      
+
       // 6. Determine next module and queue it
       const nextModule = getNextModule(moduleName);
       if (nextModule) {
@@ -135,7 +135,7 @@ const methodExecution = async (payload, channel, msg) => {
       channel.ack(msg);
     } else {
       console.error(`[Orchestrator] Max retries reached for ${moduleName}. Sending to DLQ.`);
-      channel.nack(msg, false, false); 
+      channel.nack(msg, false, false);
     }
   }
 };
@@ -161,7 +161,7 @@ const initSyncOrchestratorServices = async () => {
     await channel.bindQueue(dlqName, dlxExchange, '');
 
     await channel.assertExchange(exchangeName, 'fanout', { durable: true });
-    await channel.assertQueue(queueName, { 
+    await channel.assertQueue(queueName, {
       durable: true,
       arguments: {
         'x-dead-letter-exchange': dlxExchange
