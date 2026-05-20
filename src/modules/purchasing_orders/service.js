@@ -927,9 +927,9 @@ const getPurchaseOrderById = async (id) => {
           ) FILTER (WHERE line IS NOT NULL) AS lines
         `),
         dbNetsuite.raw("COUNT(line) AS count_item"),
-        dbNetsuite.raw("SUM((line->>'quantity')::numeric) AS sum_quantity"),
-        dbNetsuite.raw("SUM((line->>'netamount')::numeric) AS subtotal"),
-        dbNetsuite.raw("SUM((line->>'tax1amt')::numeric) AS tax_total")
+        dbNetsuite.raw("SUM(NULLIF(line->>'quantity', '')::numeric) AS sum_quantity"),
+        dbNetsuite.raw("SUM(NULLIF(line->>'netamount', '')::numeric) AS subtotal"),
+        dbNetsuite.raw("SUM(NULLIF(line->>'tax1amt', '')::numeric) AS tax_total")
       ])
       .groupBy([
         'po.id',
