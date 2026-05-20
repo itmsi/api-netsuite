@@ -6,7 +6,9 @@ const {
   updateValidation,
   getByIdValidation,
   listValidation,
-  statusBulkValidation
+  statusBulkValidation,
+  syncFromInvoiceValidation,
+  syncFromInvoiceByIdValidation
 } = require('./validation');
 const { validateMiddleware } = require('../../middlewares/validation');
 const { verifyToken } = require('../../middlewares/token');
@@ -22,6 +24,32 @@ router.post(
   listValidation,
   validateMiddleware,
   controller.getList
+);
+
+/**
+ * @route   POST /api/netsuite/faktur/sync-from-invoice
+ * @desc    Sync faktur dari invoice_sales_orders lokal by netsuite_id
+ * @access  Private
+ */
+router.post(
+  '/sync-from-invoice',
+  verifyToken,
+  syncFromInvoiceValidation,
+  validateMiddleware,
+  controller.syncFromInvoice
+);
+
+/**
+ * @route   POST /api/netsuite/faktur/sync-from-invoice/:netsuite_id
+ * @desc    Sync faktur dari invoice_sales_orders lokal by single netsuite_id
+ * @access  Private
+ */
+router.post(
+  '/sync-from-invoice/:netsuite_id',
+  verifyToken,
+  syncFromInvoiceByIdValidation,
+  validateMiddleware,
+  controller.syncFromInvoiceById
 );
 
 /**

@@ -80,10 +80,46 @@ const statusBulkValidation = [
     .withMessage('status harus berupa boolean')
 ];
 
+/**
+ * Validation rules for sync faktur from invoice_sales_orders by netsuite_id
+ */
+const syncFromInvoiceValidation = [
+  body('netsuite_id')
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage('netsuite_id harus berupa angka positif'),
+  body('netsuite_ids')
+    .optional()
+    .isArray({ min: 1 })
+    .withMessage('netsuite_ids harus berupa array dan tidak boleh kosong'),
+  body('netsuite_ids.*')
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage('Setiap netsuite_ids harus berupa angka positif'),
+  body().custom((_, { req }) => {
+    const hasSingle = req.body.netsuite_id !== undefined && req.body.netsuite_id !== null && req.body.netsuite_id !== '';
+    const hasArray = Array.isArray(req.body.netsuite_ids) && req.body.netsuite_ids.length > 0;
+    if (!hasSingle && !hasArray) {
+      throw new Error('netsuite_id atau netsuite_ids wajib diisi');
+    }
+    return true;
+  })
+];
+
+const syncFromInvoiceByIdValidation = [
+  param('netsuite_id')
+    .notEmpty()
+    .withMessage('netsuite_id wajib diisi')
+    .isInt({ min: 1 })
+    .withMessage('netsuite_id harus berupa angka positif')
+];
+
 module.exports = {
   createValidation,
   updateValidation,
   getByIdValidation,
   listValidation,
-  statusBulkValidation
+  statusBulkValidation,
+  syncFromInvoiceValidation,
+  syncFromInvoiceByIdValidation
 };

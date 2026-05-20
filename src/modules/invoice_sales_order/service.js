@@ -552,5 +552,6 @@ module.exports = {
   getInvoiceSalesOrders,
   syncInvoiceSalesOrders,
   syncInvoiceSalesOrderById,
-  processFakturSync
+  processFakturSync,
+  syncToFakturs
 };

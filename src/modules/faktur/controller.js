@@ -111,6 +111,51 @@ const remove = async (req, res) => {
   }
 };
 
+const syncFromInvoice = async (req, res) => {
+  try {
+    const netsuiteIds = req.body.netsuite_ids
+      ? req.body.netsuite_ids
+      : [req.body.netsuite_id];
+
+    const result = await service.syncFromInvoiceSalesOrders(netsuiteIds);
+    return baseResponse(res, {
+      data: {
+        success: true,
+        data: result,
+        message: 'Data faktur berhasil di-sync dari invoice sales order'
+      }
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || 'Internal Server Error',
+      errors: error.errors || error
+    });
+  }
+};
+
+const syncFromInvoiceById = async (req, res) => {
+  try {
+    const { netsuite_id } = req.params;
+    const result = await service.syncFromInvoiceSalesOrders([netsuite_id]);
+    return baseResponse(res, {
+      data: {
+        success: true,
+        data: result.items[0] || null,
+        message: 'Data faktur berhasil di-sync dari invoice sales order'
+      }
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || 'Internal Server Error',
+      errors: error.errors || error
+    });
+  }
+};
+
 const updateStatusBulk = async (req, res) => {
   try {
     const data = await service.updateStatusBulk(req.body);
@@ -137,5 +182,7 @@ module.exports = {
   create,
   update,
   remove,
-  updateStatusBulk
+  updateStatusBulk,
+  syncFromInvoice,
+  syncFromInvoiceById
 };

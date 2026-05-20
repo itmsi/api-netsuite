@@ -138,6 +138,82 @@ const fakturPaths = {
       }
     }
   },
+  '/faktur/sync-from-invoice': {
+    post: {
+      tags: ['Faktur'],
+      summary: 'Sync faktur dari invoice sales order lokal',
+      description: 'Membaca data dari tabel `invoice_sales_orders` berdasarkan `netsuite_id`, lalu membuat atau mengupdate record di tabel `fakturs` dan `faktur_details` menggunakan proses yang sama dengan `syncToFakturs`.',
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: { $ref: '#/components/schemas/FakturSyncFromInvoiceRequest' }
+          }
+        }
+      },
+      responses: {
+        200: {
+          description: 'Success',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/FakturSyncFromInvoiceResponse' }
+            }
+          }
+        },
+        400: {
+          description: 'Bad Request',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+            }
+          }
+        },
+        404: {
+          description: 'Not Found',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+            }
+          }
+        }
+      }
+    }
+  },
+  '/faktur/sync-from-invoice/{netsuite_id}': {
+    post: {
+      tags: ['Faktur'],
+      summary: 'Sync faktur dari invoice sales order lokal by single netsuite_id',
+      description: 'Sama seperti `/faktur/sync-from-invoice`, tetapi `netsuite_id` dikirim melalui path parameter.',
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        {
+          name: 'netsuite_id',
+          in: 'path',
+          required: true,
+          schema: { type: 'integer', example: 2532 }
+        }
+      ],
+      responses: {
+        200: {
+          description: 'Success',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/FakturSyncFromInvoiceByIdResponse' }
+            }
+          }
+        },
+        404: {
+          description: 'Not Found',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+            }
+          }
+        }
+      }
+    }
+  },
   '/faktur/status-bulk': {
     post: {
       tags: ['Faktur'],

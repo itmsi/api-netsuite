@@ -134,6 +134,60 @@ const fakturSchemas = {
         }
       }
     }
+  },
+  FakturSyncFromInvoiceRequest: {
+    type: 'object',
+    description: 'Isi salah satu: netsuite_id (single) atau netsuite_ids (bulk)',
+    properties: {
+      netsuite_id: { type: 'integer', example: 2532 },
+      netsuite_ids: {
+        type: 'array',
+        items: { type: 'integer' },
+        example: [2532, 2533]
+      }
+    }
+  },
+  FakturSyncFromInvoiceItem: {
+    type: 'object',
+    properties: {
+      netsuite_id: { type: 'integer', example: 2532 },
+      tranid: { type: 'string', example: 'SI-IEC-2026-000009' },
+      entity: { type: 'string', example: '205' },
+      trandate: { type: 'string', format: 'date', example: '2026-03-24' },
+      subsidiary: { type: 'string', example: '5' },
+      memo: { type: 'string', example: 'bill untuk unit IEC-VIN-1' },
+      fakture_id: { type: 'string', format: 'uuid', example: 'e3b0c442-98fc-1c14-9afb-f4c59f1910d2' },
+      faktur_updated_at: { type: 'string', format: 'date-time', nullable: true },
+      faktur_updated_by_name: { type: 'string', nullable: true, example: 'Ari Kurniawan' },
+      lines: {
+        type: 'array',
+        items: { $ref: '#/components/schemas/InvoiceSalesOrderLine' }
+      }
+    }
+  },
+  FakturSyncFromInvoiceResponse: {
+    type: 'object',
+    properties: {
+      success: { type: 'boolean', example: true },
+      message: { type: 'string', example: 'Data faktur berhasil di-sync dari invoice sales order' },
+      data: {
+        type: 'object',
+        properties: {
+          items: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/FakturSyncFromInvoiceItem' }
+          }
+        }
+      }
+    }
+  },
+  FakturSyncFromInvoiceByIdResponse: {
+    type: 'object',
+    properties: {
+      success: { type: 'boolean', example: true },
+      message: { type: 'string', example: 'Data faktur berhasil di-sync dari invoice sales order' },
+      data: { $ref: '#/components/schemas/FakturSyncFromInvoiceItem' }
+    }
   }
 };
 

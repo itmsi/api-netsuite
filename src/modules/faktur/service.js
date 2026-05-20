@@ -1,8 +1,56 @@
 const repository = require('./repository');
+const { pgCore: db } = require('../../config/database');
+const { syncToFakturs } = require('../invoice_sales_order/service');
 
 /**
  * Service Layer - Business Logic
  */
+
+const normalizeInvoiceSalesOrderRecord = (row) => {
+  let lines = row.lines;
+  if (typeof lines === 'string') {
+    try {
+      lines = JSON.parse(lines);
+    } catch {
+      lines = [];
+    }
+  }
+  return {
+    ...row,
+    netsuite_id: row.netsuite_id,
+    lines: lines || []
+  };
+};
+
+/**
+ * Sync faktur dari data invoice_sales_orders lokal berdasarkan netsuite_id
+ */
+const syncFromInvoiceSalesOrders = async (netsuiteIds) => {
+  const ids = [...new Set(netsuiteIds.map((id) => parseInt(id)).filter((id) => !isNaN(id)))];
+
+  if (ids.length === 0) {
+    throw { message: 'netsuite_id wajib diisi dan harus berupa angka', statusCode: 400 };
+  }
+
+  const rows = await db('invoice_sales_orders')
+    .whereIn('netsuite_id', ids)
+    .where('is_deleted', false);
+
+  const foundIds = new Set(rows.map((r) => parseInt(r.netsuite_id)));
+  const notFoundIds = ids.filter((id) => !foundIds.has(id));
+
+  if (notFoundIds.length > 0) {
+    throw {
+      message: `Data invoice sales order tidak ditemukan untuk netsuite_id: ${notFoundIds.join(', ')}`,
+      statusCode: 404
+    };
+  }
+
+  const records = rows.map(normalizeInvoiceSalesOrderRecord);
+  await syncToFakturs(records);
+
+  return { items: records };
+};
 
 const getList = async (params) => {
   const result = await repository.findAll(params);
@@ -71,5 +119,6 @@ module.exports = {
   create,
   update,
   remove,
-  updateStatusBulk
+  updateStatusBulk,
+  syncFromInvoiceSalesOrders
 };
