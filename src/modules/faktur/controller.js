@@ -130,7 +130,7 @@ const syncFromInvoice = async (req, res) => {
     return res.status(statusCode).json({
       success: false,
       message: error.message || 'Internal Server Error',
-      errors: error.errors || error
+      ...(process.env.NODE_ENV === 'development' && { errors: error.errors || error })
     });
   }
 };
@@ -151,7 +151,7 @@ const syncFromInvoiceById = async (req, res) => {
     return res.status(statusCode).json({
       success: false,
       message: error.message || 'Internal Server Error',
-      errors: error.errors || error
+      ...(process.env.NODE_ENV === 'development' && { errors: error.errors || error })
     });
   }
 };

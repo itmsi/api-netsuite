@@ -2,6 +2,8 @@ const repository = require('./repository');
 const { pgCore: db } = require('../../config/database');
 const { syncToFakturs } = require('../invoice_sales_order/service');
 
+const FETCH_INVOICE_CHUNK_SIZE = parseInt(process.env.SYNC_FAKTUR_LOOKUP_CHUNK_SIZE) || 1000;
+
 /**
  * Service Layer - Business Logic
  */
@@ -15,10 +17,20 @@ const normalizeInvoiceSalesOrderRecord = (row) => {
       lines = [];
     }
   }
+
+  if (!Array.isArray(lines)) {
+    lines = [];
+  }
+
   return {
-    ...row,
     netsuite_id: row.netsuite_id,
-    lines: lines || []
+    tranid: row.tranid,
+    entity: row.entity,
+    entityid: row.entityid,
+    trandate: row.trandate,
+    memo: row.memo,
+    subsidiary: row.subsidiary,
+    lines
   };
 };
 
@@ -32,9 +44,14 @@ const syncFromInvoiceSalesOrders = async (netsuiteIds) => {
     throw { message: 'netsuite_id wajib diisi dan harus berupa angka', statusCode: 400 };
   }
 
-  const rows = await db('invoice_sales_orders')
-    .whereIn('netsuite_id', ids)
-    .where('is_deleted', false);
+  const rows = [];
+  for (let i = 0; i < ids.length; i += FETCH_INVOICE_CHUNK_SIZE) {
+    const chunkIds = ids.slice(i, i + FETCH_INVOICE_CHUNK_SIZE);
+    const chunkRows = await db('invoice_sales_orders')
+      .whereIn('netsuite_id', chunkIds)
+      .where('is_deleted', false);
+    rows.push(...chunkRows);
+  }
 
   const foundIds = new Set(rows.map((r) => parseInt(r.netsuite_id)));
   const notFoundIds = ids.filter((id) => !foundIds.has(id));
