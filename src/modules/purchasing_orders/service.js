@@ -879,7 +879,7 @@ const getPurchaseOrderById = async (id) => {
         'po.nextapprover', 'po.custbody_me_validity_date', 'po.department',
         dbNetsuite.raw("COALESCE(NULLIF(po.department_display, ''), d.name) AS department_display"),
         dbNetsuite.raw("COALESCE(NULLIF(po.datecreated, '')::timestamp, po.created_at) AS created_at"),
-        'po.custbody_me_wf_next_approver_blank', 'po.custbody_me_wf_next_approver_blank_display', 'po.user_notes', 'po.files',
+        'po.custbody_me_wf_next_approver_blank', 'po.custbody_me_wf_next_approver_blank_display', 'po.user_notes', 'po.files', 'po.type_proccess', 'po.status_proccess', 'po.status_proccess_message',
         dbNetsuite.raw(`
           jsonb_agg(
             jsonb_build_object(
@@ -960,16 +960,16 @@ const getPurchaseOrderById = async (id) => {
     }
 
     // Tambahkan message_error jika status failed
-    if (record.po_status === 'failed') {
-      const lastEvent = await dbNetsuite('outbox_events')
-        .where('aggregate_id', record.id)
-        .orderBy('created_at', 'desc')
-        .first();
+    // if (record.po_status === 'failed') {
+    //   const lastEvent = await dbNetsuite('outbox_events')
+    //     .where('aggregate_id', record.id)
+    //     .orderBy('created_at', 'desc')
+    //     .first();
 
-      if (lastEvent && lastEvent.properties) {
-        record.message_error = lastEvent.properties;
-      }
-    }
+    //   if (lastEvent && lastEvent.properties) {
+    //     record.message_error = lastEvent.properties;
+    //   }
+    // }
 
     if (record && record.lines) {
       // record.sum_quantity = parseFloat(record.lines.reduce((sum, line) => sum + (parseFloat(line.quantity) || 0), 0));
