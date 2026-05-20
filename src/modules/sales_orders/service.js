@@ -77,6 +77,9 @@ const getBaseQuery = () => {
       'so.intercostatus',
       'so.intercostatus_name',
       'so.datecreated as created_at_netsuite',
+      'so.type_proccess',
+      'so.status_proccess',
+      'so.status_proccess_message',
       dbNetsuite.raw(`
         jsonb_agg(
           jsonb_build_object(
@@ -195,25 +198,25 @@ const getSalesOrderById = async (id) => {
     const mappedRow = mapSalesOrder(row);
 
     // Tambahkan message_error jika status failed
-    if (mappedRow.status_name === 'failed') {
-      const lastEventLog = await dbNetsuite('outbox_events')
-        .join('outbox_event_logs', 'outbox_event_logs.outbox_event_id', 'outbox_events.id')
-        .where('outbox_events.aggregate_id', mappedRow.id)
-        .whereNotNull('outbox_event_logs.http_status')
-        .orderBy('outbox_event_logs.created_at', 'desc')
-        .select('outbox_event_logs.properties', 'outbox_events.last_error')
-        .first();
+    // if (mappedRow.status_name === 'failed') {
+    //   const lastEventLog = await dbNetsuite('outbox_events')
+    //     .join('outbox_event_logs', 'outbox_event_logs.outbox_event_id', 'outbox_events.id')
+    //     .where('outbox_events.aggregate_id', mappedRow.id)
+    //     .whereNotNull('outbox_event_logs.http_status')
+    //     .orderBy('outbox_event_logs.created_at', 'desc')
+    //     .select('outbox_event_logs.properties', 'outbox_events.last_error')
+    //     .first();
 
-      if (lastEventLog && lastEventLog.properties) {
-        try {
-          mappedRow.message_error = typeof lastEventLog.properties === 'string'
-            ? JSON.parse(lastEventLog.properties)
-            : lastEventLog.properties;
-        } catch (e) {
-          mappedRow.message_error = lastEventLog.last_error;
-        }
-      }
-    }
+    //   if (lastEventLog && lastEventLog.properties) {
+    //     try {
+    //       mappedRow.message_error = typeof lastEventLog.properties === 'string'
+    //         ? JSON.parse(lastEventLog.properties)
+    //         : lastEventLog.properties;
+    //     } catch (e) {
+    //       mappedRow.message_error = lastEventLog.last_error;
+    //     }
+    //   }
+    // }
 
     return {
       items: [mappedRow],
