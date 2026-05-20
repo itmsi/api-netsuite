@@ -179,7 +179,7 @@ const syncPurchaseOrders = async (body) => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       },
-      timeout: 120000
+      timeout: 1500000
     });
 
     const resData = response.data;
@@ -329,7 +329,7 @@ const createPurchaseOrderToBridge = async (body) => {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`
     },
-    timeout: 120000
+    timeout: 1500000
   });
 
   return response.data;
@@ -350,7 +350,7 @@ const updatePurchaseOrderToBridge = async (body) => {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`
     },
-    timeout: 120000
+    timeout: 1500000
   });
 
   return response.data;
@@ -699,7 +699,7 @@ const approvePurchaseOrderToBridge = async (noted_internal_id, body) => {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`
     },
-    timeout: 120000
+    timeout: 1500000
   });
 
   return response.data;
@@ -826,7 +826,7 @@ const receiveItemPurchaseOrderToBridge = async (body, internalId) => {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`
     },
-    timeout: 120000
+    timeout: 1500000
   });
 
   return response.data;
@@ -1226,7 +1226,7 @@ const syncPurchaseOrderByIdInternalId = async (id, internal_id) => {
       headers: {
         'Authorization': `Bearer ${token}`
       },
-      timeout: 120000
+      timeout: 1500000
     });
 
     return response.data;
@@ -1316,7 +1316,7 @@ const syncPurchaseOrdersByIdAll = async () => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       },
-      timeout: 120000
+      timeout: 1500000
     });
 
     return response.data;
@@ -1348,7 +1348,7 @@ const printPurchaseOrder = async (body) => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       },
-      timeout: 120000
+      timeout: 1500000
     });
 
     return response.data;
@@ -1557,7 +1557,7 @@ const syncReceiveList = async (body) => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       },
-      timeout: 120000
+      timeout: 1500000
     });
 
     const resData = response.data;

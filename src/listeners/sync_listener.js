@@ -342,7 +342,7 @@ const methodExecution = async (payload, channel, msg) => {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`
       },
-      timeout: 120000
+      timeout: 1500000
     });
 
     if (!response.data || response.data.success === false) {

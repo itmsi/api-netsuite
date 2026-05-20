@@ -614,7 +614,7 @@ const syncSalesOrderByIdInternalId = async (id, internal_id) => {
       headers: {
         'Authorization': `Bearer ${token}`
       },
-      timeout: 120000
+      timeout: 1500000
     });
 
     return response.data;
