@@ -416,9 +416,11 @@ const processFakturSync = async (records, search = null) => {
   } catch (error) {
     await trx.rollback();
     console.error('Error syncing invoice_sales_orders to gate_sso:', error);
+    throw error;
   }
 
-  // 2. Sync ke fakturs (proses lama)
+  // 2. Sync ke fakturs
+  // Skip jika faktur sudah ada DAN sudah pernah di-update (updated_at terisi) — artinya data sudah diedit manual
   const ids = records.map(r => parseInt(r.netsuite_id || r.id));
   const existingFakturs = await db('fakturs')
     .leftJoin('employees', 'fakturs.updated_by', 'employees.employee_id')
@@ -438,9 +440,9 @@ const processFakturSync = async (records, search = null) => {
 
   records.forEach(record => {
     const id = parseInt(record.netsuite_id || record.id);
-    if (search) {
-      recordsToSync.push(record);
-    } else if (existingMap.has(id)) {
+    const existing = existingMap.get(id);
+    // Skip jika faktur sudah ada dan kolom updated_at sudah terisi (sudah pernah di-edit)
+    if (existing && existing.updated_at) {
       recordsToSkip.push(record);
     } else {
       recordsToSync.push(record);

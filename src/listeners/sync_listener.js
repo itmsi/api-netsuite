@@ -13,16 +13,19 @@ const { dbNetsuite, pgCore } = require('../config/database');
 
 const processModuleSyncInvoiceSalesOrders = async () => {
   try {
-    // 1. Cek ke DB gate_sso (pgCore) ambil max last_modified_netsuite
-    const maxDateResult = await pgCore('invoice_sales_orders').max('last_modified_netsuite as max_date').first();
-    const maxDate = maxDateResult?.max_date;
-
-    const limit = 2;
-    let currentPage = 1;
-    let hasMoreData = true;
+    const limit = 100;
     let totalProcessed = 0;
 
     console.info(`[Worker] Starting DB Sync for invoice_sales_orders...`);
+
+    // 1. Ambil max last_modified_netsuite dari gate_sso sebagai checkpoint
+    const maxDateResult = await pgCore('invoice_sales_orders').max('last_modified_netsuite as max_date').first();
+    const maxDate = maxDateResult?.max_date || null;
+
+    // 2. Fetch dari Netsuite hanya yang dimodifikasi setelah checkpoint (incremental sync)
+    //    Jika gate_sso masih kosong (maxDate null), ambil semua data
+    let currentPage = 1;
+    let hasMoreData = true;
 
     while (hasMoreData) {
       let query = dbNetsuite('invoice_sales_orders')
@@ -31,19 +34,17 @@ const processModuleSyncInvoiceSalesOrders = async () => {
         .offset((currentPage - 1) * limit);
 
       if (maxDate) {
-        query = query.where('last_modified_netsuite', '>=', maxDate);
+        query = query.where('last_modified_netsuite', '>', maxDate);
       }
 
       const records = await query;
 
       if (records && records.length > 0) {
-        // 3. Proses sync antar DB
         await invoiceSalesOrderService.processFakturSync(records);
 
         totalProcessed += records.length;
         currentPage++;
 
-        // Jika data yang didapat kurang dari limit, artinya ini halaman terakhir
         if (records.length < limit) {
           hasMoreData = false;
         }
@@ -61,6 +62,7 @@ const processModuleSyncInvoiceSalesOrders = async () => {
     throw err;
   }
 };
+
 
 const processModuleSyncClasses = async () => {
   try {
