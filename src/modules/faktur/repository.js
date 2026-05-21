@@ -144,6 +144,8 @@ const update = async (id, data, details = []) => {
         email_pembeli: data.email_pembeli,
         id_tku_pembeli: data.id_tku_pembeli,
         status: data.status,
+        subsidiary: data.subsidiary,
+        subsidiary_display: data.subsidiary_display,
         updated_by: data.updated_by,
         updated_at: db.fn.now()
       })

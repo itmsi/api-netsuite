@@ -118,6 +118,8 @@ const buildFakturData = (record, customerFields, id_tku_Penjual, barisFaktur, sy
   nama_pembeli: customerFields.nama_pembeli,
   alamat_pembeli: customerFields.alamat_pembeli,
   id_tku_pembeli: customerFields.id_tku_pembeli,
+  subsidiary: record.subsidiary || null,
+  subsidiary_display: record.subsidiary_display || null,
   updated_at: syncTimestamp
 });
 

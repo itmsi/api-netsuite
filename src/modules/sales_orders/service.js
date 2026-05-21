@@ -24,7 +24,7 @@ const mapSalesOrder = (row) => {
     id: row.id ? row.id.toString() : null,
     customer_id: row.customer_id ? row.customer_id.toString() : '',
     last_modified: row.last_modified_netsuite || row.updated_at || null,
-    items: row.items || []
+    // items: row.items || []
   };
 };
 
@@ -39,8 +39,14 @@ const getBaseQuery = () => {
     .leftJoin('departments as d', dbNetsuite.raw('d.netsuite_id::integer = so.department::integer'))
     .leftJoin('class as c3', dbNetsuite.raw('c3.netsuite_id::integer = so.class::integer'))
     .leftJoin('locations as l', dbNetsuite.raw('l.netsuite_id::integer = so.location::integer'))
-    // JOIN ITEMS LATERAL
-    .leftJoin(dbNetsuite.raw("LATERAL jsonb_array_elements(COALESCE(so.items, '[]'::jsonb)) AS item_row ON TRUE"))
+    // JOIN ITEMS LATERAL — hanya expand jika items adalah array (bukan null, {}, atau object)
+    .leftJoin(dbNetsuite.raw(`LATERAL jsonb_array_elements(
+        CASE
+          WHEN so.items IS NULL THEN '[]'::jsonb
+          WHEN jsonb_typeof(so.items) = 'array' THEN so.items
+          ELSE '[]'::jsonb
+        END
+      ) AS item_row ON TRUE`))
     .leftJoin('items as i', dbNetsuite.raw("(item_row->>'item_id') = i.netsuite_id::text"))
     .leftJoin('class as ic', dbNetsuite.raw("(item_row->>'class') = ic.netsuite_id::text"))
     .leftJoin('locations as il', dbNetsuite.raw("(item_row->>'location') = il.netsuite_id::text"))
@@ -124,7 +130,27 @@ const getSalesOrders = async (body) => {
     const sortBy = validSortColumns.includes(body.sort_by) ? body.sort_by : 'last_modified_netsuite';
 
     let countQuery = dbNetsuite('sales_orders').where('is_deleted', false);
-    let dataQuery = getBaseQuery().where('so.is_deleted', false);
+    let dataQuery = dbNetsuite('sales_orders as so')
+      .leftJoin('customers as c', 'c.netsuite_id', 'so.customer_id')
+      .leftJoin('currencys as c2', 'c2.currency_id', 'so.currency')
+      .select([
+        'so.id',
+        'so.netsuite_id',
+        'so.tranid',
+        'so.tran_date',
+        'so.status_code',
+        'so.status_name',
+        'so.customer_id',
+        dbNetsuite.raw("COALESCE(NULLIF(so.customer_name, ''), c.entity_id) AS customer_name"),
+        'so.memo',
+        'so.last_modified_netsuite',
+        'so.created_at',
+        'so.updated_at',
+        'so.currency',
+        dbNetsuite.raw("COALESCE(NULLIF(so.currency_name, ''), c2.currency_name) AS currency_name"),
+        'so.datecreated as created_at_netsuite'
+      ])
+      .where('so.is_deleted', false);
 
     if (body.search) {
       const searchFn = function () {
