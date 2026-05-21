@@ -1,6 +1,6 @@
 const repository = require('./repository');
 const { pgCore: db } = require('../../config/database');
-const { syncToFakturs } = require('../invoice_sales_order/service');
+const { syncToFakturs, sanitizeSyncRecord } = require('../invoice_sales_order/service');
 
 const FETCH_INVOICE_CHUNK_SIZE = parseInt(process.env.SYNC_FAKTUR_LOOKUP_CHUNK_SIZE) || 1000;
 
@@ -8,30 +8,15 @@ const FETCH_INVOICE_CHUNK_SIZE = parseInt(process.env.SYNC_FAKTUR_LOOKUP_CHUNK_S
  * Service Layer - Business Logic
  */
 
-const normalizeInvoiceSalesOrderRecord = (row) => {
-  let lines = row.lines;
-  if (typeof lines === 'string') {
-    try {
-      lines = JSON.parse(lines);
-    } catch {
-      lines = [];
-    }
-  }
-
-  if (!Array.isArray(lines)) {
-    lines = [];
-  }
-
-  return {
-    netsuite_id: row.netsuite_id,
-    tranid: row.tranid,
-    entity: row.entity,
-    entityid: row.entityid,
-    trandate: row.trandate,
-    memo: row.memo,
-    subsidiary: row.subsidiary,
-    lines
-  };
+const normalizeInvoiceSalesOrderRecord = (row) => sanitizeSyncRecord(row) || {
+  netsuite_id: row?.netsuite_id ?? null,
+  tranid: row?.tranid ?? null,
+  entity: row?.entity ?? null,
+  entityid: row?.entityid ?? null,
+  trandate: row?.trandate ?? null,
+  memo: row?.memo ?? null,
+  subsidiary: row?.subsidiary ?? null,
+  lines: []
 };
 
 /**
@@ -64,9 +49,9 @@ const syncFromInvoiceSalesOrders = async (netsuiteIds) => {
   }
 
   const records = rows.map(normalizeInvoiceSalesOrderRecord);
-  await syncToFakturs(records);
+  const { skipped = [] } = await syncToFakturs(records);
 
-  return { items: records };
+  return { items: records, skipped };
 };
 
 const getList = async (params) => {

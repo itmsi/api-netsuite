@@ -64,28 +64,81 @@ const mapSyncDbError = (error) => {
   };
 };
 
+const toSafeString = (value, fallback = '-') => {
+  if (value === null || value === undefined) return fallback;
+  const str = String(value).trim();
+  return str === '' ? fallback : str;
+};
+
+const toSafeNumber = (value, fallback = 0) => {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : fallback;
+};
+
+const toSafeInt = (value) => {
+  const num = parseInt(value, 10);
+  return Number.isFinite(num) ? num : null;
+};
+
+const roundDecimal = (value, decimals = 2) => {
+  const num = toSafeNumber(value, 0);
+  return Math.round(num * 10 ** decimals) / 10 ** decimals;
+};
+
+const normalizeRecordLines = (lines) => {
+  if (typeof lines === 'string') {
+    try {
+      lines = JSON.parse(lines);
+    } catch {
+      return [];
+    }
+  }
+  return Array.isArray(lines) ? lines.filter((line) => line && typeof line === 'object') : [];
+};
+
+const sanitizeSyncRecord = (record) => {
+  if (!record || typeof record !== 'object') return null;
+
+  const netsuiteId = toSafeInt(record.netsuite_id ?? record.id);
+  if (netsuiteId === null) return null;
+
+  return {
+    netsuite_id: netsuiteId,
+    tranid: record.tranid ?? null,
+    entity: record.entity ?? null,
+    entityid: record.entityid ?? null,
+    trandate: record.trandate ?? null,
+    memo: record.memo ?? null,
+    subsidiary: record.subsidiary ?? null,
+    lines: normalizeRecordLines(record.lines)
+  };
+};
+
 const resolveCustomerFields = (record, customer) => {
   let npwp_or_nik_pembeli = '0000000000000000';
   let jenis_id_pembeli = 'TIN';
-  let nama_pembeli = record.entity;
+  let nama_pembeli = toSafeString(record.entity ?? record.entityid, '-');
   let alamat_pembeli = '-';
   let id_tku_pembeli = '000000';
   let nomor_dokumen_pembeli = '-';
 
   if (customer) {
-    jenis_id_pembeli = customer.type_tax_buyer || 'TIN';
+    jenis_id_pembeli = toSafeString(customer.type_tax_buyer, 'TIN');
 
     if (jenis_id_pembeli === 'TIN') {
-      npwp_or_nik_pembeli = customer.no_tax_buyer || '0000000000000000';
+      npwp_or_nik_pembeli = toSafeString(customer.no_tax_buyer, '0000000000000000');
     } else {
       npwp_or_nik_pembeli = '0000000000000000';
     }
 
-    nama_pembeli = customer.name_tax_buyer || customer.customer_name || '-';
-    alamat_pembeli = customer.customer_address || '-';
+    nama_pembeli = toSafeString(
+      customer.name_tax_buyer ?? customer.customer_name ?? record.entity ?? record.entityid,
+      '-'
+    );
+    alamat_pembeli = toSafeString(customer.customer_address, '-');
 
     if (jenis_id_pembeli === 'TIN') {
-      id_tku_pembeli = (customer.no_tax_buyer || '') + '000000';
+      id_tku_pembeli = toSafeString(customer.no_tax_buyer, '') + '000000';
     } else {
       id_tku_pembeli = '000000';
     }
@@ -104,20 +157,20 @@ const resolveCustomerFields = (record, customer) => {
 };
 
 const buildFakturData = (record, customerFields, id_tku_Penjual, barisFaktur, syncTimestamp) => ({
-  sales_invoice_id: parseInt(record.netsuite_id),
-  baris: barisFaktur,
+  sales_invoice_id: record.netsuite_id,
+  baris: toSafeString(barisFaktur, '1'),
   tanggal_faktur: formatTrandate(record.trandate),
   jenis_faktur: 'Normal',
   kode_transaksi: '04',
-  referensi: ((record.tranid || '') + ' ' + (record.memo || '')).trim(),
-  id_tku_Penjual,
-  npwp_or_nik_pembeli: customerFields.npwp_or_nik_pembeli,
-  jenis_id_pembeli: customerFields.jenis_id_pembeli,
+  referensi: toSafeString(`${record.tranid || ''} ${record.memo || ''}`.trim(), '-'),
+  id_tku_Penjual: toSafeString(id_tku_Penjual, '0000000000000000'),
+  npwp_or_nik_pembeli: toSafeString(customerFields.npwp_or_nik_pembeli, '0000000000000000'),
+  jenis_id_pembeli: toSafeString(customerFields.jenis_id_pembeli, 'TIN'),
   negara_pembeli: 'IDN',
-  nomor_dokumen_pembeli: customerFields.nomor_dokumen_pembeli,
-  nama_pembeli: customerFields.nama_pembeli,
-  alamat_pembeli: customerFields.alamat_pembeli,
-  id_tku_pembeli: customerFields.id_tku_pembeli,
+  nomor_dokumen_pembeli: toSafeString(customerFields.nomor_dokumen_pembeli, '-'),
+  nama_pembeli: toSafeString(customerFields.nama_pembeli, '-'),
+  alamat_pembeli: toSafeString(customerFields.alamat_pembeli, '-'),
+  id_tku_pembeli: toSafeString(customerFields.id_tku_pembeli, '000000'),
   updated_at: syncTimestamp
 });
 
@@ -131,18 +184,19 @@ const buildFakturDetailRows = (faktur_id, lines) => {
   if (normalizedLines.length === 0) return [];
 
   return normalizedLines.map((line, index) => {
-    const rate = Number(line.rate) || 0;
-    const quantity = Number(line.quantity) || 0;
-    const dpp = rate * quantity;
-    const dpp_nilai_lain = (11 / 12) * dpp;
-    const tarif_ppn = Number(line.taxrate ?? line.taxrate1 ?? 0) || 0;
+    const rate = toSafeNumber(line.rate, 0);
+    const quantity = toSafeNumber(line.quantity, 0);
+    const dpp = roundDecimal(rate * quantity);
+    const dpp_nilai_lain = roundDecimal((11 / 12) * dpp);
+    const tarif_ppn = roundDecimal(line.taxrate ?? line.taxrate1 ?? 0);
+    const productCategory = line.custitem_me_product_category_display ?? line.itemtype ?? null;
 
     return {
       faktur_id,
       baris: (index + 1).toString(),
       barang_or_jasa: 'A',
-      kode_barang_jasa: line.custitem_me_product_category_display === 'UNIT' ? '870900' : '980200',
-      nama_barang_or_jasa: line.item_display || line.item_display_name || '-',
+      kode_barang_jasa: productCategory === 'UNIT' ? '870900' : '980200',
+      nama_barang_or_jasa: toSafeString(line.item_display ?? line.item_display_name ?? line.item, '-'),
       nama_satuan_ukur: 'UM.0018',
       harga_satuan: rate,
       jumlah_barang_jasa: quantity,
@@ -150,11 +204,109 @@ const buildFakturDetailRows = (faktur_id, lines) => {
       dpp,
       dpp_nilai_lain,
       tarif_ppn,
-      ppn: (12 / 100) * dpp_nilai_lain,
+      ppn: roundDecimal((12 / 100) * dpp_nilai_lain),
       tarif_ppnnbm: 0,
       ppnbm: 0
     };
   });
+};
+
+const prepareFakturSyncRows = (records, chunkStart, existingMap, customerMap, npwpMap, syncTimestamp, skipped) => {
+  const fakturRowsToInsert = [];
+  const fakturRowsToUpdate = [];
+  const updateFakturIds = [];
+  const fakturIdBySalesInvoiceId = new Map();
+  const validRecords = [];
+
+  records.forEach((record, idx) => {
+    try {
+      const salesInvoiceId = record.netsuite_id;
+      const customer = record.entity ? customerMap.get(record.entity) : null;
+      const customerFields = resolveCustomerFields(record, customer);
+      const subsidiaryId = toSafeInt(record.subsidiary);
+      const npwpInline = subsidiaryId !== null ? npwpMap.get(subsidiaryId) : null;
+      const id_tku_Penjual = npwpInline?.nitku ?? '0000000000000000';
+      const barisFaktur = (chunkStart + idx + 1).toString();
+      const fakturData = buildFakturData(record, customerFields, id_tku_Penjual, barisFaktur, syncTimestamp);
+
+      const existing = existingMap.get(salesInvoiceId);
+      if (existing) {
+        fakturRowsToUpdate.push({ faktur_id: existing.faktur_id, data: fakturData });
+        updateFakturIds.push(existing.faktur_id);
+        fakturIdBySalesInvoiceId.set(salesInvoiceId, existing.faktur_id);
+      } else {
+        fakturRowsToInsert.push({
+          salesInvoiceId,
+          data: { ...fakturData, created_at: syncTimestamp }
+        });
+      }
+
+      validRecords.push(record);
+    } catch (error) {
+      skipped.push({
+        netsuite_id: record?.netsuite_id ?? null,
+        reason: error?.message || 'Gagal menyiapkan data faktur'
+      });
+    }
+  });
+
+  return {
+    fakturRowsToInsert,
+    fakturRowsToUpdate,
+    updateFakturIds,
+    fakturIdBySalesInvoiceId,
+    validRecords
+  };
+};
+
+const buildInvoiceSalesOrderPayload = (record, syncTimestamp) => {
+  const lines = normalizeRecordLines(record.lines);
+
+  return {
+    netsuite_id: record.netsuite_id,
+    tranid: record.tranid ?? null,
+    entity: record.entity ?? null,
+    entityid: record.entityid ?? null,
+    trandate: formatTrandate(record.trandate),
+    startdate: formatTrandate(record.startdate),
+    enddate: formatTrandate(record.enddate),
+    postingperiod: record.postingperiod ?? null,
+    postingperiod_display: record.postingperiod_display ?? null,
+    otherrefnum: record.otherrefnum ?? null,
+    memo: record.memo ?? null,
+    custbody_me_related_fulfillment: record.custbody_me_related_fulfillment ?? null,
+    terms: record.terms ?? null,
+    account: record.account ?? null,
+    account_display: record.account_display ?? null,
+    currency: record.currency ?? null,
+    currency_display: record.currency_display ?? null,
+    exchangerate: record.exchangerate != null && record.exchangerate !== '' ? toSafeNumber(record.exchangerate, null) : null,
+    custbody_msi_bank_payment_so: record.custbody_msi_bank_payment_so ?? null,
+    custbody_msi_bank_payment_so_display: record.custbody_msi_bank_payment_so_display ?? null,
+    approvalstatus: record.approvalstatus ?? null,
+    custbody_me_wf_created_by: record.custbody_me_wf_created_by ?? null,
+    custbody_me_wf_created_by_display: record.custbody_me_wf_created_by_display ?? null,
+    custbody_me_wf_next_approver_blank: record.custbody_me_wf_next_approver_blank ?? null,
+    saleseffectivedate: formatTrandate(record.saleseffectivedate),
+    createdfrom: record.createdfrom ?? null,
+    createdfrom_display: record.createdfrom_display ?? null,
+    subsidiary: record.subsidiary ?? null,
+    subsidiary_display: record.subsidiary_display ?? null,
+    department: record.department ?? null,
+    department_display: record.department_display ?? null,
+    class: record.class ?? null,
+    class_display: record.class_display ?? null,
+    location: record.location ?? null,
+    location_display: record.location_display ?? null,
+    custbody_cseg_cn_cfi: record.custbody_cseg_cn_cfi ?? null,
+    custbody_cseg_cn_cfi_display: record.custbody_cseg_cn_cfi_display ?? null,
+    custbody_me_description: record.custbody_me_description ?? null,
+    lines: lines.length > 0 ? JSON.stringify(lines) : null,
+    raw_data: JSON.stringify(record),
+    last_modified_netsuite: record.last_modified_netsuite ? new Date(record.last_modified_netsuite) : null,
+    is_deleted: record.is_deleted === true,
+    updated_at: syncTimestamp
+  };
 };
 
 const getSafeInsertChunkSize = (rows, maxChunkSize) => {
@@ -175,7 +327,7 @@ const bulkInsertInChunks = async (trx, table, rows, chunkSize) => {
 };
 
 const prefetchSyncLookups = async (records) => {
-  const salesInvoiceIds = [...new Set(records.map((r) => parseInt(r.netsuite_id)).filter((id) => !isNaN(id)))];
+  const salesInvoiceIds = [...new Set(records.map((r) => r.netsuite_id).filter((id) => id != null))];
   const entityIds = [...new Set(records.map((r) => r.entity).filter(Boolean))];
   const subsidiaryIds = [...new Set(records.map((r) => r.subsidiary).filter((v) => v !== null && v !== undefined && v !== ''))];
 
@@ -212,7 +364,7 @@ const prefetchSyncLookups = async (records) => {
 };
 
 const attachFakturInfoToRecords = async (records) => {
-  const salesInvoiceIds = [...new Set(records.map((r) => parseInt(r.netsuite_id)).filter((id) => !isNaN(id)))];
+  const salesInvoiceIds = [...new Set(records.map((r) => r.netsuite_id).filter((id) => id != null))];
   const infoMap = new Map();
 
   for (let i = 0; i < salesInvoiceIds.length; i += SYNC_FAKTUR_LOOKUP_CHUNK_SIZE) {
@@ -227,11 +379,11 @@ const attachFakturInfoToRecords = async (records) => {
         'employees.employee_name'
       );
 
-    rows.forEach((row) => infoMap.set(parseInt(row.sales_invoice_id), row));
+    rows.forEach((row) => infoMap.set(parseInt(row.sales_invoice_id, 10), row));
   }
 
   records.forEach((record) => {
-    const info = infoMap.get(parseInt(record.netsuite_id));
+    const info = infoMap.get(record.netsuite_id);
     if (info) {
       record.fakture_id = info.faktur_id;
       record.faktur_updated_at = info.updated_at || '';
@@ -244,43 +396,44 @@ const attachFakturInfoToRecords = async (records) => {
  * Sync invoice sales order to local fakturs and faktur_details tables (bulk-optimized)
  */
 const syncToFakturs = async (records) => {
-  if (!records || records.length === 0) return;
+  if (!records || records.length === 0) return { skipped: [] };
+
+  const skipped = [];
 
   try {
-    const { existingMap, customerMap, npwpMap } = await prefetchSyncLookups(records);
+    const sanitizedRecords = [];
+    records.forEach((record) => {
+      const sanitized = sanitizeSyncRecord(record);
+      if (sanitized) {
+        sanitizedRecords.push(sanitized);
+      } else {
+        skipped.push({
+          netsuite_id: record?.netsuite_id ?? record?.id ?? null,
+          reason: 'netsuite_id tidak valid atau kosong'
+        });
+      }
+    });
 
-    for (let chunkStart = 0; chunkStart < records.length; chunkStart += SYNC_FAKTUR_CHUNK_SIZE) {
-      const chunk = records.slice(chunkStart, chunkStart + SYNC_FAKTUR_CHUNK_SIZE);
+    if (sanitizedRecords.length === 0) {
+      return { skipped };
+    }
+
+    const { existingMap, customerMap, npwpMap } = await prefetchSyncLookups(sanitizedRecords);
+
+    for (let chunkStart = 0; chunkStart < sanitizedRecords.length; chunkStart += SYNC_FAKTUR_CHUNK_SIZE) {
+      const chunk = sanitizedRecords.slice(chunkStart, chunkStart + SYNC_FAKTUR_CHUNK_SIZE);
 
       await db.transaction(async (trx) => {
         const syncTimestamp = new Date();
-        const fakturRowsToInsert = [];
-        const fakturRowsToUpdate = [];
-        const updateFakturIds = [];
-        const fakturIdBySalesInvoiceId = new Map();
-        const detailsToInsert = [];
+        const {
+          fakturRowsToInsert,
+          fakturRowsToUpdate,
+          updateFakturIds,
+          fakturIdBySalesInvoiceId,
+          validRecords
+        } = prepareFakturSyncRows(chunk, chunkStart, existingMap, customerMap, npwpMap, syncTimestamp, skipped);
 
-        chunk.forEach((record, idx) => {
-          const salesInvoiceId = parseInt(record.netsuite_id);
-          const customer = customerMap.get(record.entity);
-          const customerFields = resolveCustomerFields(record, customer);
-          const npwpInline = npwpMap.get(parseInt(record.subsidiary));
-          const id_tku_Penjual = npwpInline ? npwpInline.nitku : '0000000000000000';
-          const barisFaktur = (chunkStart + idx + 1).toString();
-          const fakturData = buildFakturData(record, customerFields, id_tku_Penjual, barisFaktur, syncTimestamp);
-
-          const existing = existingMap.get(salesInvoiceId);
-          if (existing) {
-            fakturRowsToUpdate.push({ faktur_id: existing.faktur_id, data: fakturData });
-            updateFakturIds.push(existing.faktur_id);
-            fakturIdBySalesInvoiceId.set(salesInvoiceId, existing.faktur_id);
-          } else {
-            fakturRowsToInsert.push({
-              salesInvoiceId,
-              data: { ...fakturData, created_at: syncTimestamp }
-            });
-          }
-        });
+        if (validRecords.length === 0) return;
 
         if (fakturRowsToInsert.length > 0) {
           const insertPayload = fakturRowsToInsert.map((row) => row.data);
@@ -293,7 +446,7 @@ const syncToFakturs = async (records) => {
               .returning(['faktur_id', 'sales_invoice_id']);
 
             inserted.forEach((row) => {
-              const salesInvoiceId = parseInt(row.sales_invoice_id);
+              const salesInvoiceId = parseInt(row.sales_invoice_id, 10);
               fakturIdBySalesInvoiceId.set(salesInvoiceId, row.faktur_id);
               existingMap.set(salesInvoiceId, { faktur_id: row.faktur_id, sales_invoice_id: row.sales_invoice_id });
             });
@@ -308,9 +461,9 @@ const syncToFakturs = async (records) => {
           await trx('faktur_details').whereIn('faktur_id', updateFakturIds).del();
         }
 
-        chunk.forEach((record) => {
-          const salesInvoiceId = parseInt(record.netsuite_id);
-          const faktur_id = fakturIdBySalesInvoiceId.get(salesInvoiceId);
+        const detailsToInsert = [];
+        validRecords.forEach((record) => {
+          const faktur_id = fakturIdBySalesInvoiceId.get(record.netsuite_id);
           if (faktur_id) {
             detailsToInsert.push(...buildFakturDetailRows(faktur_id, record.lines));
           }
@@ -322,119 +475,107 @@ const syncToFakturs = async (records) => {
       });
     }
 
-    await attachFakturInfoToRecords(records);
+    await attachFakturInfoToRecords(sanitizedRecords);
+
+    const syncedById = new Map(sanitizedRecords.map((record) => [record.netsuite_id, record]));
+    records.forEach((record) => {
+      const netsuiteId = toSafeInt(record?.netsuite_id ?? record?.id);
+      if (netsuiteId === null) return;
+
+      const synced = syncedById.get(netsuiteId);
+      if (!synced) return;
+
+      record.fakture_id = synced.fakture_id;
+      record.faktur_updated_at = synced.faktur_updated_at;
+      record.faktur_updated_by_name = synced.faktur_updated_by_name;
+    });
   } catch (error) {
     console.error('[syncToFakturs]', error);
     throw mapSyncDbError(error);
   }
+
+  return { skipped };
 };
 
 /**
- * Memproses sync ke fakturs
+ * Memproses sync ke invoice_sales_orders lokal + fakturs (resilient, tidak stop per record error)
  */
 const processFakturSync = async (records, search = null) => {
-  if (!records || records.length === 0) return;
+  if (!records || records.length === 0) return { skipped: [] };
 
-  // Normalize netsuite_id
-  for (const r of records) {
-    // Pastikan kita memiliki netsuite_id numerik. Jika 'id' adalah UUID, abaikan untuk netsuite_id.
-    if (!r.netsuite_id && r.id && !isNaN(parseInt(r.id))) {
-      r.netsuite_id = r.id;
+  const skipped = [];
+  const syncTimestamp = new Date();
+
+  records.forEach((record) => {
+    if (!record.netsuite_id && record.id != null && !isNaN(parseInt(record.id, 10))) {
+      record.netsuite_id = record.id;
     }
-    if (typeof r.lines === 'string') {
-      try {
-        r.lines = JSON.parse(r.lines);
-      } catch (e) {
-        r.lines = [];
+    record.lines = normalizeRecordLines(record.lines);
+  });
+
+  // 1. Sync ke DB lokal gate_sso (invoice_sales_orders) — per record, error tidak stop batch
+  for (const record of records) {
+    try {
+      const netsuiteId = toSafeInt(record.netsuite_id ?? record.id);
+      if (netsuiteId === null) {
+        skipped.push({
+          netsuite_id: record?.netsuite_id ?? record?.id ?? null,
+          reason: 'netsuite_id tidak valid, dilewati saat sync invoice_sales_orders'
+        });
+        continue;
       }
-    }
-  }
 
-  // 1. Sync ke DB lokal gate_sso (invoice_sales_orders)
-  const trx = await db.transaction();
-  try {
-    for (const record of records) {
-      const data = {
-        netsuite_id: parseInt(record.netsuite_id || record.id),
-        tranid: record.tranid || null,
-        entity: record.entity || null,
-        entityid: record.entityid || null,
-        trandate: formatTrandate(record.trandate),
-        startdate: formatTrandate(record.startdate),
-        enddate: formatTrandate(record.enddate),
-        postingperiod: record.postingperiod || null,
-        postingperiod_display: record.postingperiod_display || null,
-        otherrefnum: record.otherrefnum || null,
-        memo: record.memo || null,
-        custbody_me_related_fulfillment: record.custbody_me_related_fulfillment || null,
-        terms: record.terms || null,
-        account: record.account || null,
-        account_display: record.account_display || null,
-        currency: record.currency || null,
-        currency_display: record.currency_display || null,
-        exchangerate: record.exchangerate ? parseFloat(record.exchangerate) : null,
-        custbody_msi_bank_payment_so: record.custbody_msi_bank_payment_so || null,
-        custbody_msi_bank_payment_so_display: record.custbody_msi_bank_payment_so_display || null,
-        approvalstatus: record.approvalstatus || null,
-        custbody_me_wf_created_by: record.custbody_me_wf_created_by || null,
-        custbody_me_wf_created_by_display: record.custbody_me_wf_created_by_display || null,
-        custbody_me_wf_next_approver_blank: record.custbody_me_wf_next_approver_blank || null,
-        saleseffectivedate: formatTrandate(record.saleseffectivedate),
-        createdfrom: record.createdfrom || null,
-        createdfrom_display: record.createdfrom_display || null,
-        subsidiary: record.subsidiary || null,
-        subsidiary_display: record.subsidiary_display || null,
-        department: record.department || null,
-        department_display: record.department_display || null,
-        class: record.class || null,
-        class_display: record.class_display || null,
-        location: record.location || null,
-        location_display: record.location_display || null,
-        custbody_cseg_cn_cfi: record.custbody_cseg_cn_cfi || null,
-        custbody_cseg_cn_cfi_display: record.custbody_cseg_cn_cfi_display || null,
-        custbody_me_description: record.custbody_me_description || null,
-        lines: record.lines ? JSON.stringify(record.lines) : null,
-        raw_data: JSON.stringify(record),
-        last_modified_netsuite: record.last_modified_netsuite ? new Date(record.last_modified_netsuite) : null,
-        is_deleted: record.is_deleted || false
-      };
+      record.netsuite_id = netsuiteId;
+      const data = buildInvoiceSalesOrderPayload(record, syncTimestamp);
+      const existing = await db('invoice_sales_orders').where('netsuite_id', netsuiteId).first();
 
-      const existing = await trx('invoice_sales_orders').where('netsuite_id', data.netsuite_id).first();
       if (existing) {
-        data.updated_at = db.fn.now();
-        await trx('invoice_sales_orders').where('netsuite_id', data.netsuite_id).update(data);
+        await db('invoice_sales_orders').where('netsuite_id', netsuiteId).update(data);
       } else {
-        data.created_at = db.fn.now();
-        data.updated_at = db.fn.now();
-        await trx('invoice_sales_orders').insert(data);
+        await db('invoice_sales_orders').insert({
+          ...data,
+          created_at: syncTimestamp
+        });
       }
+    } catch (error) {
+      skipped.push({
+        netsuite_id: record?.netsuite_id ?? record?.id ?? null,
+        reason: error?.message || 'Gagal sync invoice_sales_orders'
+      });
+      console.error('[processFakturSync] invoice_sales_orders:', record?.netsuite_id, error);
     }
-    await trx.commit();
-  } catch (error) {
-    await trx.rollback();
-    console.error('Error syncing invoice_sales_orders to gate_sso:', error);
   }
 
-  // 2. Sync ke fakturs (proses lama)
-  const ids = records.map(r => parseInt(r.netsuite_id || r.id));
-  const existingFakturs = await db('fakturs')
-    .leftJoin('employees', 'fakturs.updated_by', 'employees.employee_id')
-    .whereIn('fakturs.sales_invoice_id', ids)
-    .select(
-      'fakturs.faktur_id',
-      'fakturs.sales_invoice_id',
-      'fakturs.updated_at',
-      'employees.employee_name as updated_by_name'
-    );
+  // 2. Sync ke fakturs — skip yang sudah ada kecuali mode search (force re-sync)
+  const validIds = [...new Set(
+    records
+      .map((r) => toSafeInt(r.netsuite_id ?? r.id))
+      .filter((id) => id !== null)
+  )];
 
   const existingMap = new Map();
-  existingFakturs.forEach(f => existingMap.set(parseInt(f.sales_invoice_id), f));
+  for (let i = 0; i < validIds.length; i += SYNC_FAKTUR_LOOKUP_CHUNK_SIZE) {
+    const chunkIds = validIds.slice(i, i + SYNC_FAKTUR_LOOKUP_CHUNK_SIZE);
+    const existingFakturs = await db('fakturs')
+      .leftJoin('employees', 'fakturs.updated_by', 'employees.employee_id')
+      .whereIn('fakturs.sales_invoice_id', chunkIds)
+      .select(
+        'fakturs.faktur_id',
+        'fakturs.sales_invoice_id',
+        'fakturs.updated_at',
+        'employees.employee_name as updated_by_name'
+      );
+
+    existingFakturs.forEach((f) => existingMap.set(parseInt(f.sales_invoice_id, 10), f));
+  }
 
   const recordsToSync = [];
   const recordsToSkip = [];
 
-  records.forEach(record => {
-    const id = parseInt(record.netsuite_id || record.id);
+  records.forEach((record) => {
+    const id = toSafeInt(record.netsuite_id ?? record.id);
+    if (id === null) return;
+
     if (search) {
       recordsToSync.push(record);
     } else if (existingMap.has(id)) {
@@ -444,19 +585,23 @@ const processFakturSync = async (records, search = null) => {
     }
   });
 
+  let fakturSkipped = [];
   if (recordsToSync.length > 0) {
-    await syncToFakturs(recordsToSync);
+    const syncResult = await syncToFakturs(recordsToSync);
+    fakturSkipped = syncResult?.skipped || [];
   }
 
-  recordsToSkip.forEach(record => {
-    const id = parseInt(record.netsuite_id || record.id);
-    const existing = existingMap.get(id);
+  recordsToSkip.forEach((record) => {
+    const id = toSafeInt(record.netsuite_id ?? record.id);
+    const existing = id !== null ? existingMap.get(id) : null;
     if (existing) {
       record.fakture_id = existing.faktur_id;
       record.faktur_updated_at = existing.updated_at;
       record.faktur_updated_by_name = existing.updated_by_name || '';
     }
   });
+
+  return { skipped: [...skipped, ...fakturSkipped] };
 };
 
 /**
@@ -715,5 +860,6 @@ module.exports = {
   syncInvoiceSalesOrders,
   syncInvoiceSalesOrderById,
   processFakturSync,
-  syncToFakturs
+  syncToFakturs,
+  sanitizeSyncRecord
 };
