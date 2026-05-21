@@ -4,12 +4,70 @@ const { EXCHANGES, QUEUE, SYNC_CONFIG } = require('../utils/constant');
 const syncService = require('../modules/sync/service');
 const authService = require('../modules/auth/service');
 const invoiceSalesOrderService = require('../modules/invoice_sales_order/service');
+const classesService = require('../modules/classes/service');
+const vendorService = require('../modules/vendor/service');
+const termsService = require('../modules/terms/service');
+const locationsService = require('../modules/locations/service');
+const itemsService = require('../modules/items/service');
 const { dbNetsuite, pgCore } = require('../config/database');
 
 const processModuleSyncInvoiceSalesOrders = async () => {
   try {
-    // 1. Cek ke DB gate_sso (pgCore) ambil max last_modified_netsuite
+    const limit = 100;
+    let totalProcessed = 0;
+
+    console.info(`[Worker] Starting DB Sync for invoice_sales_orders...`);
+
+    // 1. Ambil max last_modified_netsuite dari gate_sso sebagai checkpoint
     const maxDateResult = await pgCore('invoice_sales_orders').max('last_modified_netsuite as max_date').first();
+    const maxDate = maxDateResult?.max_date || null;
+
+    // 2. Fetch dari Netsuite hanya yang dimodifikasi setelah checkpoint (incremental sync)
+    //    Jika gate_sso masih kosong (maxDate null), ambil semua data
+    let currentPage = 1;
+    let hasMoreData = true;
+
+    while (hasMoreData) {
+      let query = dbNetsuite('invoice_sales_orders')
+        .orderBy('last_modified_netsuite', 'asc')
+        .limit(limit)
+        .offset((currentPage - 1) * limit);
+
+      if (maxDate) {
+        query = query.where('last_modified_netsuite', '>', maxDate);
+      }
+
+      const records = await query;
+
+      if (records && records.length > 0) {
+        await invoiceSalesOrderService.processFakturSync(records);
+
+        totalProcessed += records.length;
+        currentPage++;
+
+        if (records.length < limit) {
+          hasMoreData = false;
+        }
+      } else {
+        hasMoreData = false;
+      }
+    }
+
+    if (totalProcessed === 0) {
+      console.info(`[Worker] No new data to sync for invoice_sales_orders`);
+    } else {
+      console.info(`[Worker] Successfully synced ${totalProcessed} records for invoice_sales_orders`);
+    }
+  } catch (err) {
+    throw err;
+  }
+};
+
+
+const processModuleSyncClasses = async () => {
+  try {
+    // 1. Cek ke DB gate_sso (pgCore) ambil max last_modified_netsuite
+    const maxDateResult = await pgCore('class').max('last_modified_netsuite as max_date').first();
     const maxDate = maxDateResult?.max_date;
 
     const limit = 2;
@@ -17,10 +75,10 @@ const processModuleSyncInvoiceSalesOrders = async () => {
     let hasMoreData = true;
     let totalProcessed = 0;
 
-    console.info(`[Worker] Starting DB Sync for invoice_sales_orders...`);
+    console.info(`[Worker] Starting DB Sync for class...`);
 
     while (hasMoreData) {
-      let query = dbNetsuite('invoice_sales_orders')
+      let query = dbNetsuite('class')
         .orderBy('last_modified_netsuite', 'asc')
         .limit(limit)
         .offset((currentPage - 1) * limit);
@@ -33,7 +91,7 @@ const processModuleSyncInvoiceSalesOrders = async () => {
 
       if (records && records.length > 0) {
         // 3. Proses sync antar DB
-        await invoiceSalesOrderService.processFakturSync(records);
+        await classesService.processClassSync(records);
 
         totalProcessed += records.length;
         currentPage++;
@@ -48,9 +106,213 @@ const processModuleSyncInvoiceSalesOrders = async () => {
     }
 
     if (totalProcessed === 0) {
-      console.info(`[Worker] No new data to sync for invoice_sales_orders`);
+      console.info(`[Worker] No new data to sync for classes`);
     } else {
-      console.info(`[Worker] Successfully synced ${totalProcessed} records for invoice_sales_orders`);
+      console.info(`[Worker] Successfully synced ${totalProcessed} records for classes`);
+    }
+  } catch (err) {
+    throw err;
+  }
+};
+
+const processModuleSyncVendors = async () => {
+  try {
+    // 1. Cek ke DB gate_sso (pgCore) ambil max last_modified_netsuite
+    const maxDateResult = await pgCore('vendors').max('last_modified_netsuite as max_date').first();
+    const maxDate = maxDateResult?.max_date;
+
+    const limit = 2;
+    let currentPage = 1;
+    let hasMoreData = true;
+    let totalProcessed = 0;
+
+    console.info(`[Worker] Starting DB Sync for vendors...`);
+
+    while (hasMoreData) {
+      let query = dbNetsuite('vendors')
+        .orderBy('last_modified_netsuite', 'asc')
+        .limit(limit)
+        .offset((currentPage - 1) * limit);
+
+      if (maxDate) {
+        query = query.where('last_modified_netsuite', '>=', maxDate);
+      }
+
+      const records = await query;
+
+      if (records && records.length > 0) {
+        // 3. Proses sync antar DB
+        await vendorService.processVendorsSync(records);
+
+        totalProcessed += records.length;
+        currentPage++;
+
+        // Jika data yang didapat kurang dari limit, artinya ini halaman terakhir
+        if (records.length < limit) {
+          hasMoreData = false;
+        }
+      } else {
+        hasMoreData = false;
+      }
+    }
+
+    if (totalProcessed === 0) {
+      console.info(`[Worker] No new data to sync for vendors`);
+    } else {
+      console.info(`[Worker] Successfully synced ${totalProcessed} records for vendors`);
+    }
+  } catch (err) {
+    throw err;
+  }
+};
+
+const processModuleSyncTerms = async () => {
+  try {
+    // 1. Cek ke DB gate_sso (pgCore) ambil max last_modified_netsuite
+    const maxDateResult = await pgCore('terms').max('last_modified_netsuite as max_date').first();
+    const maxDate = maxDateResult?.max_date;
+
+    const limit = 2;
+    let currentPage = 1;
+    let hasMoreData = true;
+    let totalProcessed = 0;
+
+    console.info(`[Worker] Starting DB Sync for terms...`);
+
+    while (hasMoreData) {
+      let query = dbNetsuite('terms')
+        .orderBy('last_modified_netsuite', 'asc')
+        .limit(limit)
+        .offset((currentPage - 1) * limit);
+
+      if (maxDate) {
+        query = query.where('last_modified_netsuite', '>=', maxDate);
+      }
+
+      const records = await query;
+
+      if (records && records.length > 0) {
+        // 3. Proses sync antar DB
+        await termsService.processTermsSync(records);
+
+        totalProcessed += records.length;
+        currentPage++;
+
+        // Jika data yang didapat kurang dari limit, artinya ini halaman terakhir
+        if (records.length < limit) {
+          hasMoreData = false;
+        }
+      } else {
+        hasMoreData = false;
+      }
+    }
+
+    if (totalProcessed === 0) {
+      console.info(`[Worker] No new data to sync for terms`);
+    } else {
+      console.info(`[Worker] Successfully synced ${totalProcessed} records for terms`);
+    }
+  } catch (err) {
+    throw err;
+  }
+};
+
+const processModuleSyncLocations = async () => {
+  try {
+    // 1. Cek ke DB gate_sso (pgCore) ambil max last_modified_netsuite
+    const maxDateResult = await pgCore('locations').max('last_modified_netsuite as max_date').first();
+    const maxDate = maxDateResult?.max_date;
+
+    const limit = 2;
+    let currentPage = 1;
+    let hasMoreData = true;
+    let totalProcessed = 0;
+
+    console.info(`[Worker] Starting DB Sync for locations...`);
+
+    while (hasMoreData) {
+      let query = dbNetsuite('locations')
+        .orderBy('last_modified_netsuite', 'asc')
+        .limit(limit)
+        .offset((currentPage - 1) * limit);
+
+      if (maxDate) {
+        query = query.where('last_modified_netsuite', '>=', maxDate);
+      }
+
+      const records = await query;
+
+      if (records && records.length > 0) {
+        // 3. Proses sync antar DB
+        await locationsService.processLocationsSync(records);
+
+        totalProcessed += records.length;
+        currentPage++;
+
+        // Jika data yang didapat kurang dari limit, artinya ini halaman terakhir
+        if (records.length < limit) {
+          hasMoreData = false;
+        }
+      } else {
+        hasMoreData = false;
+      }
+    }
+
+    if (totalProcessed === 0) {
+      console.info(`[Worker] No new data to sync for terms`);
+    } else {
+      console.info(`[Worker] Successfully synced ${totalProcessed} records for terms`);
+    }
+  } catch (err) {
+    throw err;
+  }
+};
+
+const processModuleSyncItems = async () => {
+  try {
+    // 1. Cek ke DB gate_sso (pgCore) ambil max last_modified_netsuite
+    const maxDateResult = await pgCore('items').max('last_modified_netsuite as max_date').first();
+    const maxDate = maxDateResult?.max_date;
+
+    const limit = 2;
+    let currentPage = 1;
+    let hasMoreData = true;
+    let totalProcessed = 0;
+
+    console.info(`[Worker] Starting DB Sync for items...`);
+
+    while (hasMoreData) {
+      let query = dbNetsuite('items')
+        .orderBy('last_modified_netsuite', 'asc')
+        .limit(limit)
+        .offset((currentPage - 1) * limit);
+
+      if (maxDate) {
+        query = query.where('last_modified_netsuite', '>=', maxDate);
+      }
+
+      const records = await query;
+
+      if (records && records.length > 0) {
+        // 3. Proses sync antar DB
+        await itemsService.processItemsSync(records);
+
+        totalProcessed += records.length;
+        currentPage++;
+
+        // Jika data yang didapat kurang dari limit, artinya ini halaman terakhir
+        if (records.length < limit) {
+          hasMoreData = false;
+        }
+      } else {
+        hasMoreData = false;
+      }
+    }
+
+    if (totalProcessed === 0) {
+      console.info(`[Worker] No new data to sync for items`);
+    } else {
+      console.info(`[Worker] Successfully synced ${totalProcessed} records for items`);
     }
   } catch (err) {
     throw err;
@@ -82,7 +344,7 @@ const methodExecution = async (payload, channel, msg) => {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`
       },
-      timeout: 120000
+      timeout: 1500000
     });
 
     if (!response.data || response.data.success === false) {
@@ -91,6 +353,22 @@ const methodExecution = async (payload, channel, msg) => {
       if (moduleName === 'invoice_sales_orders') {
         await processModuleSyncInvoiceSalesOrders();
       }
+      if (moduleName === 'classes') {
+        await processModuleSyncClasses();
+      }
+      if (moduleName === 'vendors') {
+        await processModuleSyncVendors();
+      }
+      if (moduleName === 'terms') {
+        await processModuleSyncTerms();
+      }
+      if (moduleName === 'locations') {
+        await processModuleSyncLocations();
+      }
+      if (moduleName === 'items') {
+        await processModuleSyncItems();
+      }
+
     }
 
     // Hitung total data di database lokal

@@ -35,6 +35,21 @@ const methodExecution = async (payload, channel, msg) => {
 
     if (result && (result.success || result.poId || result.po_id)) {
       const poId = result.poId || result.po_id || result.data?.id
+      
+      // Check if there are temporary files in the payload to finalize
+      const files = data.files || [];
+      if (files.length > 0) {
+        const tempFile = files.find(f => f.poId || f.po_id);
+        const tempPoId = tempFile ? (tempFile.poId || tempFile.po_id) : null;
+        if (tempPoId && poId) {
+          console.info(`[Worker] Found temporary PO ID: ${tempPoId}, finalizing files to real PO ID: ${poId}`);
+          try {
+            await purchasingService.finalizeUploadedFilesForPO(tempPoId, poId);
+          } catch (finalizeErr) {
+            console.error(`[Worker] Error finalizing uploaded files for PO:`, finalizeErr.message);
+          }
+        }
+      }
 
       // 5. Update po_id di tabel purchase_orders
       // await purchasingService.updateLocalPOId(po_internal_id, poId)

@@ -905,6 +905,219 @@ const purchasingOrdersPaths = {
         }
       }
     }
+  },
+  '/purchasing-orders/upload': {
+    post: {
+      tags: ['Purchasing Orders'],
+      summary: 'Upload file to Nextcloud Temp Directory',
+      description: 'Upload a file and get a temporary Nextcloud public share link.',
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          'multipart/form-data': {
+            schema: {
+              type: 'object',
+              properties: {
+                file: {
+                  type: 'string',
+                  format: 'binary',
+                  description: 'The file to upload'
+                },
+                file_name: {
+                  type: 'string',
+                  description: 'Optional custom file name. Will be normalized to lowercase with spaces replaced by underscores (_)'
+                },
+                po_id: {
+                  type: 'string',
+                  description: 'Optional PO ID, po id sementara yg akan di buat oleh FE, prosesnya ketika add file akan insert file dan po_id sementara, jangan sampe ui di refres, jika di refres maka akan generated po_id baru di FE'
+                }
+              }
+            }
+          }
+        }
+      },
+      responses: {
+        200: {
+          description: 'Success',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  success: { type: 'boolean', example: true },
+                  id: { type: 'string', example: 'f0b57258-5f33-4e03-81f7-cd70d833b5c5' },
+                  poId: { type: 'string', example: 'temp-001' },
+                  fileUrl: { type: 'string', example: 'https://cloud.inlinegroupdc.com/s/abcdefgh' },
+                  storagePath: { type: 'string', example: '/temp/123456789_file.pdf' },
+                  fileName: { type: 'string', example: '123456789_file.pdf' }
+                }
+              }
+            }
+          }
+        },
+        500: {
+          description: 'Internal Server Error'
+        }
+      }
+    }
+  },
+  '/purchasing-orders/upload/finalize': {
+    post: {
+      tags: ['Purchasing Orders'],
+      summary: 'Finalize file upload',
+      description: 'Move file from temp to final folder based on po_id',
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: ['po_id', 'storage_path'],
+              properties: {
+                po_id: { type: 'string', example: '1001' },
+                storage_path: { type: 'string', example: '/temp/123456789_file.pdf' }
+              }
+            }
+          }
+        }
+      },
+      responses: {
+        200: {
+          description: 'Success',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  success: { type: 'boolean', example: true },
+                  path: { type: 'string', example: '/uploads/po/2026/1001/123456789_file.pdf' }
+                }
+              }
+            }
+          }
+        },
+        500: {
+          description: 'Internal Server Error'
+        }
+      }
+    }
+  },
+  '/purchasing-orders/upload-delete': {
+    post: {
+      tags: ['Purchasing Orders'],
+      summary: 'Delete uploaded file by share URL',
+      description: 'Delete uploaded file by share URL (fileUrl) from local database and Nextcloud WebDAV.',
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: ['fileUrl'],
+              properties: {
+                fileUrl: { type: 'string', example: 'https://cloud.inlinegroupdc.com/s/abcdefgh' }
+              }
+            }
+          }
+        }
+      },
+      responses: {
+        200: {
+          description: 'Success',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  success: { type: 'boolean', example: true },
+                  message: { type: 'string', example: 'File deleted successfully' }
+                }
+              }
+            }
+          }
+        },
+        404: {
+          description: 'File not found'
+        },
+        500: {
+          description: 'Internal Server Error'
+        }
+      }
+    }
+  },
+  '/purchasing-orders/upload-update': {
+    post: {
+      tags: ['Purchasing Orders'],
+      summary: 'Update uploaded file by share URL',
+      description: 'Update uploaded file by share URL. Can replace the file itself, change the filename, or both.',
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          'multipart/form-data': {
+            schema: {
+              type: 'object',
+              required: ['fileUrl'],
+              properties: {
+                fileUrl: {
+                  type: 'string',
+                  description: 'The share URL of the existing file to update',
+                  example: 'https://cloud.inlinegroupdc.com/s/abcdefgh'
+                },
+                file: {
+                  type: 'string',
+                  format: 'binary',
+                  description: 'Optional new file to replace the existing file'
+                },
+                file_name: {
+                  type: 'string',
+                  description: 'Optional new filename. Will be normalized to lowercase with spaces replaced by underscores (_)'
+                },
+                po_id: {
+                  type: 'string',
+                  description: 'Optional PO ID. If the file record does not exist for the provided fileUrl, this is used to create a new file record directly in the NetSuite PO folder.'
+                }
+              }
+            }
+          }
+        }
+      },
+      responses: {
+        200: {
+          description: 'Success',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  success: { type: 'boolean', example: true },
+                  message: { type: 'string', example: 'File updated successfully' },
+                  data: {
+                    type: 'object',
+                    properties: {
+                      id: { type: 'string', example: 'f0b57258-5f33-4e03-81f7-cd70d833b5c5' },
+                      poId: { type: 'string', example: 'temp-001' },
+                      fileUrl: { type: 'string', example: 'https://cloud.inlinegroupdc.com/s/abcdefgh' },
+                      storagePath: { type: 'string', example: '/temp/123456789_file.pdf' },
+                      fileName: { type: 'string', example: 'file.pdf' }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          404: {
+            description: 'File not found'
+          },
+          500: {
+            description: 'Internal Server Error'
+          }
+        }
+      }
+    }
   }
 };
 

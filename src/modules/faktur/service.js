@@ -30,6 +30,7 @@ const normalizeInvoiceSalesOrderRecord = (row) => {
     trandate: row.trandate,
     memo: row.memo,
     subsidiary: row.subsidiary,
+    subsidiary_display: row.subsidiary_display,
     lines
   };
 };

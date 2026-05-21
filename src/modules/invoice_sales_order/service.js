@@ -118,6 +118,8 @@ const buildFakturData = (record, customerFields, id_tku_Penjual, barisFaktur, sy
   nama_pembeli: customerFields.nama_pembeli,
   alamat_pembeli: customerFields.alamat_pembeli,
   id_tku_pembeli: customerFields.id_tku_pembeli,
+  subsidiary: record.subsidiary || null,
+  subsidiary_display: record.subsidiary_display || null,
   updated_at: syncTimestamp
 });
 
@@ -143,6 +145,7 @@ const buildFakturDetailRows = (faktur_id, lines) => {
       barang_or_jasa: 'A',
       kode_barang_jasa: line.custitem_me_product_category_display === 'UNIT' ? '870900' : '980200',
       nama_barang_or_jasa: line.item_display || line.item_display_name || '-',
+      item_displayname: line.item_display || line.item_display_name || null,
       nama_satuan_ukur: 'UM.0018',
       harga_satuan: rate,
       jumlah_barang_jasa: quantity,
@@ -413,9 +416,11 @@ const processFakturSync = async (records, search = null) => {
   } catch (error) {
     await trx.rollback();
     console.error('Error syncing invoice_sales_orders to gate_sso:', error);
+    throw error;
   }
 
-  // 2. Sync ke fakturs (proses lama)
+  // 2. Sync ke fakturs
+  // Skip jika faktur sudah ada DAN sudah pernah di-update (updated_at terisi) — artinya data sudah diedit manual
   const ids = records.map(r => parseInt(r.netsuite_id || r.id));
   const existingFakturs = await db('fakturs')
     .leftJoin('employees', 'fakturs.updated_by', 'employees.employee_id')
@@ -435,9 +440,9 @@ const processFakturSync = async (records, search = null) => {
 
   records.forEach(record => {
     const id = parseInt(record.netsuite_id || record.id);
-    if (search) {
-      recordsToSync.push(record);
-    } else if (existingMap.has(id)) {
+    const existing = existingMap.get(id);
+    // Skip jika faktur sudah ada dan kolom updated_at sudah terisi (sudah pernah di-edit)
+    if (existing && existing.updated_at) {
       recordsToSkip.push(record);
     } else {
       recordsToSync.push(record);

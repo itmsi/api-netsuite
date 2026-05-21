@@ -45,6 +45,8 @@ const fakturSchemas = {
       alamat_pembeli: { type: 'string' },
       email_pembeli: { type: 'string' },
       id_tku_pembeli: { type: 'string' },
+      subsidiary: { type: 'string' },
+      subsidiary_display: { type: 'string' },
       created_at: { type: 'string', format: 'date-time' },
       created_by: { type: 'string', format: 'uuid' },
       updated_at: { type: 'string', format: 'date-time' },
@@ -75,6 +77,8 @@ const fakturSchemas = {
       alamat_pembeli: { type: 'string' },
       email_pembeli: { type: 'string' },
       id_tku_pembeli: { type: 'string' },
+      subsidiary: { type: 'string' },
+      subsidiary_display: { type: 'string' },
       status: { type: 'boolean' },
       details: {
         type: 'array',

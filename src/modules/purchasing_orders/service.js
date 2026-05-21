@@ -1,6 +1,7 @@
 const axios = require('axios');
 const knex = require('knex');
 const authService = require('../auth/service');
+const { pgCore } = require('../../config/database');
 
 // Knex instance untuk DB Netsuite (bridge_sanbox)
 const dbNetsuite = knex({
@@ -178,7 +179,7 @@ const syncPurchaseOrders = async (body) => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       },
-      timeout: 120000
+      timeout: 1500000
     });
 
     const resData = response.data;
@@ -328,7 +329,7 @@ const createPurchaseOrderToBridge = async (body) => {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`
     },
-    timeout: 120000
+    timeout: 1500000
   });
 
   return response.data;
@@ -349,7 +350,7 @@ const updatePurchaseOrderToBridge = async (body) => {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`
     },
-    timeout: 120000
+    timeout: 1500000
   });
 
   return response.data;
@@ -698,7 +699,7 @@ const approvePurchaseOrderToBridge = async (noted_internal_id, body) => {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`
     },
-    timeout: 120000
+    timeout: 1500000
   });
 
   return response.data;
@@ -825,7 +826,7 @@ const receiveItemPurchaseOrderToBridge = async (body, internalId) => {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`
     },
-    timeout: 120000
+    timeout: 1500000
   });
 
   return response.data;
@@ -878,7 +879,7 @@ const getPurchaseOrderById = async (id) => {
         'po.nextapprover', 'po.custbody_me_validity_date', 'po.department',
         dbNetsuite.raw("COALESCE(NULLIF(po.department_display, ''), d.name) AS department_display"),
         dbNetsuite.raw("COALESCE(NULLIF(po.datecreated, '')::timestamp, po.created_at) AS created_at"),
-        'po.custbody_me_wf_next_approver_blank', 'po.custbody_me_wf_next_approver_blank_display', 'po.user_notes', 'po.files',
+        'po.custbody_me_wf_next_approver_blank', 'po.custbody_me_wf_next_approver_blank_display', 'po.user_notes', 'po.files', 'po.type_proccess', 'po.status_proccess', 'po.status_proccess_message',
         dbNetsuite.raw(`
           jsonb_agg(
             jsonb_build_object(
@@ -926,9 +927,9 @@ const getPurchaseOrderById = async (id) => {
           ) FILTER (WHERE line IS NOT NULL) AS lines
         `),
         dbNetsuite.raw("COUNT(line) AS count_item"),
-        dbNetsuite.raw("SUM((line->>'quantity')::numeric) AS sum_quantity"),
-        dbNetsuite.raw("SUM((line->>'netamount')::numeric) AS subtotal"),
-        dbNetsuite.raw("SUM((line->>'tax1amt')::numeric) AS tax_total")
+        dbNetsuite.raw("SUM(NULLIF(line->>'quantity', '')::numeric) AS sum_quantity"),
+        dbNetsuite.raw("SUM(NULLIF(line->>'netamount', '')::numeric) AS subtotal"),
+        dbNetsuite.raw("SUM(NULLIF(line->>'tax1amt', '')::numeric) AS tax_total")
       ])
       .groupBy([
         'po.id',
@@ -959,16 +960,16 @@ const getPurchaseOrderById = async (id) => {
     }
 
     // Tambahkan message_error jika status failed
-    if (record.po_status === 'failed') {
-      const lastEvent = await dbNetsuite('outbox_events')
-        .where('aggregate_id', record.id)
-        .orderBy('created_at', 'desc')
-        .first();
+    // if (record.po_status === 'failed') {
+    //   const lastEvent = await dbNetsuite('outbox_events')
+    //     .where('aggregate_id', record.id)
+    //     .orderBy('created_at', 'desc')
+    //     .first();
 
-      if (lastEvent && lastEvent.properties) {
-        record.message_error = lastEvent.properties;
-      }
-    }
+    //   if (lastEvent && lastEvent.properties) {
+    //     record.message_error = lastEvent.properties;
+    //   }
+    // }
 
     if (record && record.lines) {
       // record.sum_quantity = parseFloat(record.lines.reduce((sum, line) => sum + (parseFloat(line.quantity) || 0), 0));
@@ -1225,7 +1226,7 @@ const syncPurchaseOrderByIdInternalId = async (id, internal_id) => {
       headers: {
         'Authorization': `Bearer ${token}`
       },
-      timeout: 120000
+      timeout: 1500000
     });
 
     return response.data;
@@ -1315,7 +1316,7 @@ const syncPurchaseOrdersByIdAll = async () => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       },
-      timeout: 120000
+      timeout: 1500000
     });
 
     return response.data;
@@ -1347,7 +1348,7 @@ const printPurchaseOrder = async (body) => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       },
-      timeout: 120000
+      timeout: 1500000
     });
 
     return response.data;
@@ -1556,7 +1557,7 @@ const syncReceiveList = async (body) => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       },
-      timeout: 120000
+      timeout: 1500000
     });
 
     const resData = response.data;
@@ -1793,6 +1794,133 @@ const getItems = async (body) => {
   }
 };
 
+const saveFileRecord = async (fileData) => {
+  const [record] = await pgCore('purchasing_orders_files').insert(fileData).returning('*');
+  return record;
+};
+
+const updateFileRecord = async (oldPath, newPath, newUrl) => {
+  const [record] = await pgCore('purchasing_orders_files')
+    .where('storage_path', oldPath)
+    .update({
+      storage_path: newPath,
+      share_url: newUrl
+    })
+    .returning('*');
+  return record;
+};
+
+const finalizeUploadedFilesForPO = async (tempPoId, realPoId) => {
+  try {
+    const nextcloud = require('../../utils/nextcloud');
+    const path = require('path');
+
+    // 1. Ambil ke db gate_sso tabel purchasing_orders_files where po_id = po id temporary
+    const files = await pgCore('purchasing_orders_files')
+      .where('po_id', tempPoId);
+
+    if (!files || files.length === 0) {
+      console.info(`[finalizeUploadedFilesForPO] No files found for temporary PO ID: ${tempPoId}`);
+      return;
+    }
+
+    // Ambil po_number dari db netsuite di tabel purchase_orders kolom po_number
+    let folderName = realPoId;
+    try {
+      const poRecord = await dbNetsuite('purchase_orders')
+        .where('po_id', realPoId.toString())
+        .first();
+      if (poRecord && poRecord.po_number) {
+        folderName = poRecord.po_number;
+        console.info(`[finalizeUploadedFilesForPO] Found po_number: ${folderName} for po_id: ${realPoId}`);
+      } else {
+        console.warn(`[finalizeUploadedFilesForPO] No purchase order record or po_number found for po_id: ${realPoId}, falling back to po_id for folder name`);
+      }
+    } catch (dbErr) {
+      console.error(`[finalizeUploadedFilesForPO] Error retrieving po_number from DB Netsuite:`, dbErr.message);
+    }
+
+    const year = new Date().getFullYear();
+    const finalDir = `/NetSuite/PurchasingOrders/${year}/${folderName}`;
+
+    // 2. Cek juga sebelum membuat folder, apakah sudah ada folder tersebut atau belum
+    // ensureDirectoryExists already checks if directory exists, if not it creates it
+    await nextcloud.ensureDirectoryExists(finalDir);
+
+    for (const file of files) {
+      const oldStoragePath = file.storage_path;
+      const fileName = path.basename(oldStoragePath);
+      const newStoragePath = `${finalDir}/${fileName}`;
+
+      console.info(`[finalizeUploadedFilesForPO] Moving file from ${oldStoragePath} to ${newStoragePath}`);
+
+      try {
+        // Move file in Nextcloud
+        await nextcloud.client.moveFile(oldStoragePath, newStoragePath);
+
+        // Generate new share link for the new path so the link doesn't break
+        let newShareUrl = file.share_url;
+        try {
+          newShareUrl = await nextcloud.generateShareLink(newStoragePath);
+        } catch (shareErr) {
+          console.warn(`[finalizeUploadedFilesForPO] Failed to generate new share link for ${newStoragePath}:`, shareErr.message);
+        }
+
+        // Update database: storage_path, share_url, and po_id (to the real NetSuite po_id)
+        await pgCore('purchasing_orders_files')
+          .where('id', file.id)
+          .update({
+            po_id: realPoId.toString(),
+            storage_path: newStoragePath,
+            share_url: newShareUrl
+          });
+
+        console.info(`[finalizeUploadedFilesForPO] File record updated successfully for file ID: ${file.id}`);
+      } catch (moveErr) {
+        console.error(`[finalizeUploadedFilesForPO] Failed to move file ${oldStoragePath}:`, moveErr.message);
+      }
+    }
+  } catch (error) {
+    console.error(`[finalizeUploadedFilesForPO] Error finalizing files for PO ${realPoId}:`, error.message);
+  }
+};
+
+const getFileRecordById = async (id) => {
+  const record = await pgCore('purchasing_orders_files')
+    .where('id', id)
+    .first();
+  return record;
+};
+
+const deleteFileRecord = async (id) => {
+  const count = await pgCore('purchasing_orders_files')
+    .where('id', id)
+    .delete();
+  return count;
+};
+
+const updateFileRecordFields = async (id, updateData) => {
+  const [record] = await pgCore('purchasing_orders_files')
+    .where('id', id)
+    .update(updateData)
+    .returning('*');
+  return record;
+};
+
+const getFileRecordByShareUrl = async (shareUrl) => {
+  const record = await pgCore('purchasing_orders_files')
+    .where('share_url', shareUrl)
+    .first();
+  return record;
+};
+
+const getPurchaseOrderByPoId = async (poId) => {
+  const record = await dbNetsuite('purchase_orders')
+    .where('po_id', poId.toString())
+    .first();
+  return record;
+};
+
 module.exports = {
   getPurchaseOrders,
   printPurchaseOrder,
@@ -1823,5 +1951,13 @@ module.exports = {
   getReceiveHistoryLogs,
   approvePurchaseOrderToBridge,
   updatePurchaseOrderNotedsStatus,
-  getItems
+  getItems,
+  saveFileRecord,
+  updateFileRecord,
+  finalizeUploadedFilesForPO,
+  getFileRecordById,
+  deleteFileRecord,
+  updateFileRecordFields,
+  getFileRecordByShareUrl,
+  getPurchaseOrderByPoId
 };

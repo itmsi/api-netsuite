@@ -65,8 +65,9 @@ const findById = async (id) => {
     .first();
 
   if (faktur) {
-    faktur.details = await db(DETAILS_TABLE)
+    const details = await db(DETAILS_TABLE)
       .where({ faktur_id: id });
+    faktur.details = details.map(d => ({ ...d, is_delete: false }));
   }
 
   return faktur;
@@ -88,13 +89,28 @@ const create = async (data, details = []) => {
 
     if (details && details.length > 0) {
       const detailsToInsert = details.map(detail => ({
-        ...detail,
-        faktur_id: faktur.faktur_id
+        faktur_id: faktur.faktur_id,
+        baris: detail.baris,
+        barang_or_jasa: detail.barang_or_jasa,
+        kode_barang_jasa: detail.kode_barang_jasa,
+        nama_barang_or_jasa: detail.nama_barang_or_jasa,
+        nama_satuan_ukur: detail.nama_satuan_ukur,
+        harga_satuan: detail.harga_satuan,
+        jumlah_barang_jasa: detail.jumlah_barang_jasa,
+        total_diskon: detail.total_diskon,
+        dpp: detail.dpp,
+        dpp_nilai_lain: detail.dpp_nilai_lain,
+        tarif_ppn: detail.tarif_ppn,
+        ppn: detail.ppn,
+        tarif_ppnnbm: detail.tarif_ppnnbm,
+        ppnbm: detail.ppnbm
       }));
 
-      faktur.details = await trx(DETAILS_TABLE)
+      const inserted = await trx(DETAILS_TABLE)
         .insert(detailsToInsert)
         .returning('*');
+
+      faktur.details = inserted.map(d => ({ ...d, is_delete: false }));
     }
 
     return faktur;
@@ -128,23 +144,75 @@ const update = async (id, data, details = []) => {
         email_pembeli: data.email_pembeli,
         id_tku_pembeli: data.id_tku_pembeli,
         status: data.status,
+        subsidiary: data.subsidiary,
+        subsidiary_display: data.subsidiary_display,
         updated_by: data.updated_by,
         updated_at: db.fn.now()
       })
       .returning('*');
 
-    if (faktur && details && details.length > 0) {
-      // Simple approach: delete existing details and re-insert
-      await trx(DETAILS_TABLE).where({ faktur_id: id }).del();
+    if (faktur) {
+      if (details && details.length > 0) {
+        for (const detail of details) {
+          const hasId = detail.faktur_detail_id !== null && 
+                        detail.faktur_detail_id !== undefined && 
+                        String(detail.faktur_detail_id).trim() !== '' && 
+                        String(detail.faktur_detail_id).trim().toLowerCase() !== 'null' && 
+                        String(detail.faktur_detail_id).trim().toLowerCase() !== 'undefined';
 
-      const detailsToInsert = details.map(detail => ({
-        ...detail,
-        faktur_id: id
-      }));
+          if (!hasId) {
+            // CREATE
+            if (detail.is_delete !== true && detail.is_delete !== 'true') {
+              await trx(DETAILS_TABLE).insert({
+                faktur_id: id,
+                baris: detail.baris,
+                barang_or_jasa: detail.barang_or_jasa,
+                kode_barang_jasa: detail.kode_barang_jasa,
+                nama_barang_or_jasa: detail.nama_barang_or_jasa,
+                nama_satuan_ukur: detail.nama_satuan_ukur,
+                harga_satuan: detail.harga_satuan,
+                jumlah_barang_jasa: detail.jumlah_barang_jasa,
+                total_diskon: detail.total_diskon,
+                dpp: detail.dpp,
+                dpp_nilai_lain: detail.dpp_nilai_lain,
+                tarif_ppn: detail.tarif_ppn,
+                ppn: detail.ppn,
+                tarif_ppnnbm: detail.tarif_ppnnbm,
+                ppnbm: detail.ppnbm
+              });
+            }
+          } else if (detail.is_delete === true || detail.is_delete === 'true') {
+            // DELETE
+            await trx(DETAILS_TABLE)
+              .where({ faktur_detail_id: detail.faktur_detail_id, faktur_id: id })
+              .del();
+          } else {
+            // UPDATE
+            await trx(DETAILS_TABLE)
+              .where({ faktur_detail_id: detail.faktur_detail_id, faktur_id: id })
+              .update({
+                baris: detail.baris,
+                barang_or_jasa: detail.barang_or_jasa,
+                kode_barang_jasa: detail.kode_barang_jasa,
+                nama_barang_or_jasa: detail.nama_barang_or_jasa,
+                nama_satuan_ukur: detail.nama_satuan_ukur,
+                harga_satuan: detail.harga_satuan,
+                jumlah_barang_jasa: detail.jumlah_barang_jasa,
+                total_diskon: detail.total_diskon,
+                dpp: detail.dpp,
+                dpp_nilai_lain: detail.dpp_nilai_lain,
+                tarif_ppn: detail.tarif_ppn,
+                ppn: detail.ppn,
+                tarif_ppnnbm: detail.tarif_ppnnbm,
+                ppnbm: detail.ppnbm
+              });
+          }
+        }
+      }
 
-      faktur.details = await trx(DETAILS_TABLE)
-        .insert(detailsToInsert)
-        .returning('*');
+      const finalDetails = await trx(DETAILS_TABLE)
+        .where({ faktur_id: id });
+      faktur.details = finalDetails.map(d => ({ ...d, is_delete: false }));
     }
 
     return faktur;

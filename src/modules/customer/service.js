@@ -26,7 +26,7 @@ const getCustomerList = async (body) => {
     // Apply filters if provided
     if (body.filters) {
       const { filters } = body;
-      
+
       // internalid (can be array or string/number)
       if (filters.internalid) {
         if (Array.isArray(filters.internalid)) {
@@ -211,7 +211,7 @@ const createCustomerToBridge = async (body) => {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`
     },
-    timeout: 120000
+    timeout: 1500000
   });
 
   return response.data;
