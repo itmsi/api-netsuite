@@ -145,6 +145,7 @@ const buildFakturDetailRows = (faktur_id, lines) => {
       barang_or_jasa: 'A',
       kode_barang_jasa: line.custitem_me_product_category_display === 'UNIT' ? '870900' : '980200',
       nama_barang_or_jasa: line.item_display || line.item_display_name || '-',
+      item_displayname: line.item_display || line.item_display_name || null,
       nama_satuan_ukur: 'UM.0018',
       harga_satuan: rate,
       jumlah_barang_jasa: quantity,
