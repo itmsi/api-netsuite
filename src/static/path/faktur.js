@@ -180,6 +180,32 @@ const fakturPaths = {
       }
     }
   },
+  '/faktur/sync-from-invoice/sync-item_displayname': {
+    post: {
+      tags: ['Faktur'],
+      summary: 'Sync item_displayname di faktur_details dari invoice_sales_orders',
+      description: 'Membaca semua data dari tabel `invoice_sales_orders` (kolom `lines` JSONB), mengekstrak atribut `item_display` dan `item_displayname` dari setiap line item, lalu mengupdate kolom `item_displayname` di tabel `faktur_details` yang `nama_barang_or_jasa`-nya cocok. Hanya row yang `item_displayname` masih null/kosong yang akan diupdate.',
+      security: [{ bearerAuth: [] }],
+      responses: {
+        200: {
+          description: 'Success',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/FakturSyncItemDisplaynameResponse' }
+            }
+          }
+        },
+        500: {
+          description: 'Internal Server Error',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+            }
+          }
+        }
+      }
+    }
+  },
   '/faktur/sync-from-invoice/{netsuite_id}': {
     post: {
       tags: ['Faktur'],
