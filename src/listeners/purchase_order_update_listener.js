@@ -25,7 +25,7 @@ const methodExecution = async (payload, channel, msg) => {
     // Log start of process
     await purchasingService.logEvent(event_id, 'processing', 'Starting update request to bridge API', data);
     const result = await purchasingService.updatePurchaseOrderToBridge(data);
-    
+
     if (result && (result.success || result.poId || result.po_id)) {
       const poId = result.poId || result.po_id || (result.data && result.data.id);
 
@@ -68,13 +68,30 @@ const methodExecution = async (payload, channel, msg) => {
       } else {
         // retry_count sudah mencapai max_retry → FAILED, harus manual retry
         console.error(`[Worker] Max retries reached for PO Update Event ${event_id}, marking as FAILED (manual retry required)`);
-        await purchasingService.updateLocalPOStatus(po_internal_id);
+        await purchasingService.updateLocalPOStatus(po_internal_id, 'failed');
 
         // Simpan request & response ke properties untuk audit
         const failureProperties = { request: data, response: errorDetail };
         await purchasingService.updateEventStatus(event_id, 'FAILED', errorMessage, failureProperties);
 
         await purchasingService.logEvent(event_id, 'failed', `Max retries reached: ${errorMessage}`, errorDetail);
+
+        // Fallback sync: Karena ini update, data sebelumnya sudah ada poId di DB lokal atau di data payload.
+
+        const poRecord = await purchasingService.getPurchaseOrderById(po_internal_id);
+        poId = poRecord?.data?.po_id || null;
+
+        if (poId) {
+          console.info(`[Worker] Triggering sync for PO ID after update failure: ${poId}`);
+          try {
+            await purchasingService.syncPurchaseOrderByIdInternalId(poId, po_internal_id);
+            await purchasingService.logEvent(event_id, 'purchase_order_synced', 'Purchase order data synced to local DB after update failure', { po_id: poId });
+          } catch (syncError) {
+            console.error(`[Worker] Sync failed for PO ID ${poId} after update failure:`, syncError.message);
+            await purchasingService.logEvent(event_id, 'sync_failed', syncError.message, syncError);
+          }
+        }
+
         channel.ack(msg); // ACK agar tidak retry lagi di RabbitMQ
       }
     } catch (retryErr) {

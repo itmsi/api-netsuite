@@ -40,8 +40,21 @@ router.post(
 );
 
 /**
+ * @route   POST /api/netsuite/faktur/sync-from-invoice/sync-item_displayname
+ * @desc    Sync item_displayname di faktur_details dari kolom lines invoice_sales_orders
+ * untuk update semua data di faktur_details (items) untuk insert data di kolom item_displayname
+ * @access  Private
+ */
+router.post(
+  '/sync-from-invoice/sync-item_displayname',
+  verifyToken,
+  controller.syncItemDisplayname
+);
+
+/**
  * @route   POST /api/netsuite/faktur/sync-from-invoice/:netsuite_id
  * @desc    Sync faktur dari invoice_sales_orders lokal by single netsuite_id
+ * digunakan untuk membentuk data faktur beserta faktur detail (item) berdasakan netsuite_id invoice sales
  * @access  Private
  */
 router.post(

@@ -12,6 +12,7 @@ const fakturSchemas = {
       barang_or_jasa: { type: 'string' },
       kode_barang_jasa: { type: 'string' },
       nama_barang_or_jasa: { type: 'string' },
+      item_displayname: { type: 'string', nullable: true, description: 'Display name item dari invoice_sales_orders.lines' },
       nama_satuan_ukur: { type: 'string' },
       harga_satuan: { type: 'number' },
       jumlah_barang_jasa: { type: 'number' },
@@ -191,6 +192,19 @@ const fakturSchemas = {
       success: { type: 'boolean', example: true },
       message: { type: 'string', example: 'Data faktur berhasil di-sync dari invoice sales order' },
       data: { $ref: '#/components/schemas/FakturSyncFromInvoiceItem' }
+    }
+  },
+  FakturSyncItemDisplaynameResponse: {
+    type: 'object',
+    properties: {
+      success: { type: 'boolean', example: true },
+      message: { type: 'string', example: 'Sync item_displayname selesai. Total diupdate: 120 baris' },
+      data: {
+        type: 'object',
+        properties: {
+          total_updated: { type: 'integer', example: 120, description: 'Jumlah baris faktur_details yang berhasil diupdate' }
+        }
+      }
     }
   }
 };

@@ -131,6 +131,101 @@ const updateStatusBulk = async (payload) => {
   return await repository.updateStatusBulk(payload);
 };
 
+const SYNC_ITEM_DISPLAY_CHUNK_SIZE = 1000;
+const SYNC_ITEM_DISPLAY_UPDATE_CHUNK = 500;
+
+/**
+ * Sync item_displayname di faktur_details dari kolom lines di invoice_sales_orders.
+ * Proses:
+ * 1. Baca invoice_sales_orders.lines secara batch
+ * 2. Dari setiap line, ambil item_display dan item_displayname
+ * 3. Cari faktur_details yang nama_barang_or_jasa = item_display
+ * 4. Jika item_displayname tidak null/kosong, update kolom item_displayname di faktur_details
+ */
+const syncItemDisplayname = async () => {
+  let offset = 0;
+  let totalUpdated = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    // Ambil batch invoice_sales_orders yang punya kolom lines tidak null
+    const invoices = await db('invoice_sales_orders')
+      .select('netsuite_id', 'lines')
+      .whereNotNull('lines')
+      .limit(SYNC_ITEM_DISPLAY_CHUNK_SIZE)
+      .offset(offset);
+
+    if (!invoices || invoices.length === 0) {
+      hasMore = false;
+      break;
+    }
+
+    // Bangun mapping: item_display → item_displayname dari semua lines di batch ini
+    // Hanya ambil yang item_displayname tidak null/kosong
+    const displaynameMap = new Map(); // key: item_display (nama_barang_or_jasa), value: item_displayname
+
+    for (const invoice of invoices) {
+      let lines = invoice.lines;
+      if (typeof lines === 'string') {
+        try { lines = JSON.parse(lines); } catch { lines = []; }
+      }
+      if (!Array.isArray(lines)) continue;
+
+      for (const line of lines) {
+        const itemDisplay = line.item_display;
+        const itemDisplayname = line.item_displayname;
+        if (itemDisplay && itemDisplayname && itemDisplayname.toString().trim() !== '') {
+          displaynameMap.set(itemDisplay, itemDisplayname);
+        }
+      }
+    }
+
+    if (displaynameMap.size > 0) {
+      // Ambil faktur_details yang nama_barang_or_jasa ada di map DAN item_displayname masih null/kosong
+      const namaList = [...displaynameMap.keys()];
+
+      // Proses dalam chunk supaya tidak overload query IN
+      for (let i = 0; i < namaList.length; i += SYNC_ITEM_DISPLAY_UPDATE_CHUNK) {
+        const chunkNama = namaList.slice(i, i + SYNC_ITEM_DISPLAY_UPDATE_CHUNK);
+
+        const detailRows = await db('faktur_details')
+          .select('faktur_detail_id', 'nama_barang_or_jasa')
+          .whereIn('nama_barang_or_jasa', chunkNama)
+          .where(function () {
+            this.whereNull('item_displayname').orWhere('item_displayname', '');
+          });
+
+        if (detailRows.length === 0) continue;
+
+        // Bulk update menggunakan CASE WHEN
+        const caseStatements = detailRows.map(row => {
+          const val = displaynameMap.get(row.nama_barang_or_jasa);
+          return { id: row.faktur_detail_id, val };
+        }).filter(r => r.val);
+
+        if (caseStatements.length === 0) continue;
+
+        // Update satu per satu dalam batch untuk safety (bisa diganti bulk jika perlu)
+        for (const { id, val } of caseStatements) {
+          await db('faktur_details')
+            .where('faktur_detail_id', id)
+            .update({ item_displayname: val });
+        }
+
+        totalUpdated += caseStatements.length;
+      }
+    }
+
+    offset += SYNC_ITEM_DISPLAY_CHUNK_SIZE;
+
+    if (invoices.length < SYNC_ITEM_DISPLAY_CHUNK_SIZE) {
+      hasMore = false;
+    }
+  }
+
+  return { total_updated: totalUpdated };
+};
+
 module.exports = {
   getList,
   getById,
@@ -138,5 +233,6 @@ module.exports = {
   update,
   remove,
   updateStatusBulk,
-  syncFromInvoiceSalesOrders
+  syncFromInvoiceSalesOrders,
+  syncItemDisplayname
 };
