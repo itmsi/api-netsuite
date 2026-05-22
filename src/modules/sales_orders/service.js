@@ -82,6 +82,7 @@ const getBaseQuery = () => {
       'so.intercotransaction_name',
       'so.intercostatus',
       'so.intercostatus_name',
+      'so.total_amount',
       'so.datecreated as created_at_netsuite',
       'so.type_proccess',
       'so.status_proccess',
@@ -147,6 +148,7 @@ const getSalesOrders = async (body) => {
         'so.created_at',
         'so.updated_at',
         'so.currency',
+        'so.total_amount',
         dbNetsuite.raw("COALESCE(NULLIF(so.currency_name, ''), c2.currency_name) AS currency_name"),
         'so.datecreated as created_at_netsuite'
       ])
