@@ -206,7 +206,21 @@ const fakturSchemas = {
         }
       }
     }
+  },
+  FakturSyncSubsidiaryResponse: {
+    type: 'object',
+    properties: {
+      success: { type: 'boolean', example: true },
+      message: { type: 'string', example: 'Sync subsidiary selesai. Total diupdate: 45 baris' },
+      data: {
+        type: 'object',
+        properties: {
+          total_updated: { type: 'integer', example: 45, description: 'Jumlah baris fakturs yang berhasil diupdate' }
+        }
+      }
+    }
   }
 };
 
 module.exports = fakturSchemas;
+

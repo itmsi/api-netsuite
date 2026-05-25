@@ -196,6 +196,26 @@ const syncItemDisplayname = async (req, res) => {
   }
 };
 
+const syncSubsidiary = async (req, res) => {
+  try {
+    const result = await service.syncSubsidiary();
+    return baseResponse(res, {
+      data: {
+        success: true,
+        data: result,
+        message: `Sync subsidiary selesai. Total diupdate: ${result.total_updated} baris`
+      }
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || 'Internal Server Error',
+      errors: error.errors || error
+    });
+  }
+};
+
 module.exports = {
   getList,
   getById,
@@ -205,5 +225,7 @@ module.exports = {
   updateStatusBulk,
   syncFromInvoice,
   syncFromInvoiceById,
-  syncItemDisplayname
+  syncItemDisplayname,
+  syncSubsidiary
 };
+

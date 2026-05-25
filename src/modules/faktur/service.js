@@ -84,15 +84,15 @@ const getById = async (id) => {
   if (!data) {
     throw { message: 'Data faktur tidak ditemukan', statusCode: 404 };
   }
-  
+
   data.nomor_id_penjual = data.id_tku_Penjual ? data.id_tku_Penjual.replace(/000000$/, '') : null;
-  
+
   return data;
 };
 
 const create = async (payload) => {
   const { details, users_id, is_admin, roles, ...data } = payload;
-  
+
   // Clean up potential invalid UUIDs from decodeToken defaults
   if (data.created_by === 0 || data.created_by === '0') delete data.created_by;
   if (data.updated_by === 0 || data.updated_by === '0') delete data.updated_by;
@@ -226,6 +226,76 @@ const syncItemDisplayname = async () => {
   return { total_updated: totalUpdated };
 };
 
+/**
+ * Sync subsidiary dan subsidiary_display di fakturs dari invoice_sales_orders.
+ * Proses:
+ * 1. Ambil batch fakturs yang subsidiary/subsidiary_display nya kosong dan punya sales_invoice_id
+ * 2. Dari batch tersebut, cari invoice_sales_orders berdasarkan netsuite_id = sales_invoice_id
+ * 3. Update kolom subsidiary dan subsidiary_display di fakturs
+ */
+const syncSubsidiary = async () => {
+  let totalUpdated = 0;
+
+  // Fetch all fakturs that have empty subsidiary AND subsidiary_display
+  const fakturs = await db('fakturs')
+    .select('faktur_id', 'sales_invoice_id')
+    .where(function () {
+      this.where(function () {
+        this.whereNull('subsidiary').orWhere('subsidiary', '');
+      }).andWhere(function () {
+        this.whereNull('subsidiary_display').orWhere('subsidiary_display', '');
+      });
+    })
+    .whereNotNull('sales_invoice_id')
+    .where('is_delete', false);
+
+  if (!fakturs || fakturs.length === 0) {
+    return { total_updated: 0 };
+  }
+
+  const BATCH_SIZE = 500;
+  for (let i = 0; i < fakturs.length; i += BATCH_SIZE) {
+    const chunk = fakturs.slice(i, i + BATCH_SIZE);
+
+    // Ambil unique sales_invoice_ids
+    const invoiceIds = [...new Set(
+      chunk
+        .map((f) => parseInt(f.sales_invoice_id))
+        .filter((id) => !isNaN(id))
+    )];
+
+    if (invoiceIds.length > 0) {
+      const invoices = await db('invoice_sales_orders')
+        .select('netsuite_id', 'subsidiary', 'subsidiary_display')
+        .whereIn('netsuite_id', invoiceIds)
+        .where('is_deleted', false);
+
+      const invoiceMap = new Map();
+      for (const inv of invoices) {
+        invoiceMap.set(String(inv.netsuite_id), {
+          subsidiary: inv.subsidiary,
+          subsidiary_display: inv.subsidiary_display
+        });
+      }
+
+      for (const faktur of chunk) {
+        const invData = invoiceMap.get(String(faktur.sales_invoice_id));
+        if (invData && (invData.subsidiary || invData.subsidiary_display)) {
+          await db('fakturs')
+            .where('faktur_id', faktur.faktur_id)
+            .update({
+              subsidiary: invData.subsidiary || null,
+              subsidiary_display: invData.subsidiary_display || null
+            });
+          totalUpdated++;
+        }
+      }
+    }
+  }
+
+  return { total_updated: totalUpdated };
+};
+
 module.exports = {
   getList,
   getById,
@@ -234,5 +304,7 @@ module.exports = {
   remove,
   updateStatusBulk,
   syncFromInvoiceSalesOrders,
-  syncItemDisplayname
+  syncItemDisplayname,
+  syncSubsidiary
 };
+

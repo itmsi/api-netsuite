@@ -52,6 +52,18 @@ router.post(
 );
 
 /**
+ * @route   POST /api/netsuite/faktur/sync-from-invoice/sync-subsidiary
+ * @desc    Sync subsidiary dan subsidiary_display di faktur dari invoice_sales_orders
+ * @access  Private
+ */
+router.post(
+  '/sync-from-invoice/sync-subsidiary',
+  verifyToken,
+  controller.syncSubsidiary
+);
+
+
+/**
  * @route   POST /api/netsuite/faktur/sync-from-invoice/:netsuite_id
  * @desc    Sync faktur dari invoice_sales_orders lokal by single netsuite_id
  * digunakan untuk membentuk data faktur beserta faktur detail (item) berdasakan netsuite_id invoice sales
