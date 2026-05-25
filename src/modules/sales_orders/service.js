@@ -458,14 +458,22 @@ const updateSalesOrder = async (body, user) => {
   const trx = await dbNetsuite.transaction();
   try {
 
-    const localId = body.id;
-    if (!localId) throw { message: 'Local ID is required for update', statusCode: 400 };
+    const { id } = body;
+    if (!id) throw { message: 'ID is required for update', statusCode: 400 };
 
-    const record = await trx('sales_orders').where('id', localId).first();
+    // const record = await trx('sales_orders').where('id', localId).first();
+    const record = await trx('sales_orders')
+      .where(function () {
+        this.where('netsuite_id', id)
+          .orWhereRaw('id::text = ?', [id]);
+      })
+      .first();
+
     if (!record) {
       throw { message: `Sales order dengan ID ${localId} tidak ditemukan secara lokal`, statusCode: 404 };
     }
 
+    const localId = record.id;
     const netsuiteId = record.netsuite_id;
     const is_update = record.netsuite_id ? true : false;
 
