@@ -84,6 +84,12 @@ const getBaseQuery = () => {
       'so.intercostatus_name',
       'so.total_amount',
       'so.datecreated as created_at_netsuite',
+      'so.startdate',
+      'so.enddate',
+      'so.terms',
+      'so.terms_name',
+      'so.custbody_me_approval_status',
+      'so.custbody_me_approval_status_name',
       'so.type_proccess',
       'so.status_proccess',
       'so.status_proccess_message',
@@ -141,6 +147,8 @@ const getSalesOrders = async (body) => {
         'so.tran_date',
         'so.status_code',
         'so.status_name',
+        'so.custbody_me_approval_status',
+        'so.custbody_me_approval_status_name',
         'so.customer_id',
         dbNetsuite.raw("COALESCE(NULLIF(so.customer_name, ''), c.entity_id) AS customer_name"),
         'so.memo',
@@ -449,8 +457,17 @@ const updateSalesOrderToBridge = async (body) => {
 const updateSalesOrder = async (body, user) => {
   const trx = await dbNetsuite.transaction();
   try {
+
     const localId = body.id;
-    if (!localId) throw { message: 'Local ID (UUID) is required for update', statusCode: 400 };
+    if (!localId) throw { message: 'Local ID is required for update', statusCode: 400 };
+
+    const record = await trx('sales_orders').where('id', localId).first();
+    if (!record) {
+      throw { message: `Sales order dengan ID ${localId} tidak ditemukan secara lokal`, statusCode: 404 };
+    }
+
+    const netsuiteId = record.netsuite_id;
+    const is_update = record.netsuite_id ? true : false;
 
     // 1. Update data ke DB netsuite tabel sales_orders
     const updateData = {
@@ -483,10 +500,10 @@ const updateSalesOrder = async (body, user) => {
 
     // 2. Insert data ke tabel outbox_events dan outbox_event_logs
     const eventData = {
-      event_type: 'UPDATE',
+      event_type: is_update ? 'UPDATE' : 'CREATE',
       payload: JSON.stringify(body),
       aggregate_id: localId,
-      aggregate_type: 'sales_order_update',
+      aggregate_type: is_update ? 'sales_order_update' : 'sales_order_create',
       status: 'WAITING',
       retry_count: 0,
       max_retry: 3,
@@ -503,7 +520,7 @@ const updateSalesOrder = async (body, user) => {
     await trx('outbox_event_logs').insert({
       outbox_event_id: eventId,
       properties: JSON.stringify({
-        message: 'Sales order update queued for processing',
+        message: is_update ? 'Sales order update queued for processing' : 'Sales order create queued for processing',
         status: 'WAITING'
       }),
       created_by: user?.email || 'MSI',
@@ -512,25 +529,53 @@ const updateSalesOrder = async (body, user) => {
 
     await trx.commit();
 
-    // 3. buatkan queue untuk rabbit mq untuk memproses data tersebut
-    const { publishToRabbitMqQueueSingle } = require('../../config/rabbitmq');
-    const { EXCHANGES, QUEUE } = require('../../utils/constant');
+    if (is_update) {
+      // 3. buatkan queue untuk rabbit mq untuk memproses data tersebut
+      const { publishToRabbitMqQueueSingle } = require('../../config/rabbitmq');
+      const { EXCHANGES, QUEUE } = require('../../utils/constant');
 
-    await publishToRabbitMqQueueSingle(
-      EXCHANGES.SALES_ORDER_UPDATE,
-      QUEUE.SALES_ORDER_UPDATE,
-      {
-        event_id: eventId,
-        so_internal_id: localId,
-        data: body
-      },
-      {
-        durable: true,
-        arguments: {
-          'x-dead-letter-exchange': `${EXCHANGES.SALES_ORDER_UPDATE}-retry`
+      // Ganti body.id dengan netsuiteId sebelum dikirim ke queue update
+      const bodyWithNetsuiteId = { ...body, id: netsuiteId };
+
+      await publishToRabbitMqQueueSingle(
+        EXCHANGES.SALES_ORDER_UPDATE,
+        QUEUE.SALES_ORDER_UPDATE,
+        {
+          event_id: eventId,
+          so_internal_id: localId,
+          data: bodyWithNetsuiteId
+        },
+        {
+          durable: true,
+          arguments: {
+            'x-dead-letter-exchange': `${EXCHANGES.SALES_ORDER_UPDATE}-retry`
+          }
         }
-      }
-    );
+      );
+    } else {
+      // 3. buatkan queue untuk rabbit mq untuk memproses data tersebut
+      const { publishToRabbitMqQueueSingle } = require('../../config/rabbitmq');
+      const { EXCHANGES, QUEUE } = require('../../utils/constant');
+
+      // Hilangkan payload id sebelum dikirim ke queue create (seperti unset di PHP)
+      const { id: _removedId, ...bodyWithoutId } = body;
+
+      await publishToRabbitMqQueueSingle(
+        EXCHANGES.SALES_ORDER_CREATE,
+        QUEUE.SALES_ORDER_CREATE,
+        {
+          event_id: eventId,
+          so_internal_id: localId,
+          data: bodyWithoutId
+        },
+        {
+          durable: true,
+          arguments: {
+            'x-dead-letter-exchange': `${EXCHANGES.SALES_ORDER_CREATE}-retry`
+          }
+        }
+      );
+    }
 
     return {
       success: true,
