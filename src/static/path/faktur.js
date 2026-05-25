@@ -206,6 +206,32 @@ const fakturPaths = {
       }
     }
   },
+  '/faktur/sync-from-invoice/sync-subsidiary': {
+    post: {
+      tags: ['Faktur'],
+      summary: 'Sync subsidiary dan subsidiary_display di fakturs dari invoice_sales_orders',
+      description: 'Membaca semua data dari tabel `fakturs` yang kolom `subsidiary` dan `subsidiary_display`-nya kosong/null, mencari `subsidiary` dan `subsidiary_display` dari tabel `invoice_sales_orders` berdasarkan `netsuite_id` yang cocok dengan `sales_invoice_id` faktur, lalu mengupdate kolom tersebut di tabel `fakturs`.',
+      security: [{ bearerAuth: [] }],
+      responses: {
+        200: {
+          description: 'Success',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/FakturSyncSubsidiaryResponse' }
+            }
+          }
+        },
+        500: {
+          description: 'Internal Server Error',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+            }
+          }
+        }
+      }
+    }
+  },
   '/faktur/sync-from-invoice/{netsuite_id}': {
     post: {
       tags: ['Faktur'],
