@@ -64,7 +64,8 @@ const methodExecution = async (payload, channel, msg) => {
 
       console.error(`[Worker] Error processing SO Update Event ${event_id}:`, errorMessage);
 
-      const allowRetry = await salesService.canAutoRetry(event_id)
+      const allowRetry = false; //jika tidak mau pakek dead letter
+      // const allowRetry = await salesService.canAutoRetry(event_id)
 
       if (allowRetry) {
         const updated = await salesService.incrementRetryCount(event_id, errorMessage)
