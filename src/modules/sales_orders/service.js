@@ -382,7 +382,9 @@ const createSalesOrder = async (body, user) => {
       status_name: 'pending',
       customform: body.customform,
       subsidiary: body.subsidiary,
+      subsidiary_name: body.subsidiary_name,
       entity: body.entity,
+      customer_name: body.customer_name,
       tran_date: body.trandate ? dateStrConvertion(body.trandate, 'YYYY-MM-DD') : null,
       startdate: body.startdate ? dateStrConvertion(body.startdate, 'YYYY-MM-DD') : null,
       enddate: body.enddate ? dateStrConvertion(body.enddate, 'YYYY-MM-DD') : null,
@@ -390,12 +392,18 @@ const createSalesOrder = async (body, user) => {
       otherrefnum: body.otherrefnum,
       memo: body.memo,
       currency: body.currency,
+      currency_name: body.currency_name,
       terms: body.terms,
+      terms_name: body.terms_name,
       department: body.department,
+      department_name: body.department_name,
       class: body.class,
+      class_name: body.class_name,
       location: body.location,
+      location_name: body.location_name,
       custbody_msi_quotation_no_iec: body.custbody_msi_quotation_no_iec,
       custbody_msi_bank_payment_so: body.custbody_msi_bank_payment_so,
+      custbody_msi_bank_payment_so_name: body.custbody_msi_bank_payment_so_name,
       custbody_cseg_cn_cfi: body.custbody_cseg_cn_cfi,
       custbody_msi_createdby_api: body.custbody_msi_createdby_api || user?.email,
       items: JSON.stringify(body.items),
@@ -406,17 +414,24 @@ const createSalesOrder = async (body, user) => {
     const [soInternal] = await trx('sales_orders').insert(soData).returning('id');
     const soInternalId = typeof soInternal === 'object' ? soInternal.id : soInternal;
 
+    // Hilangkan field _name sebelum dikirim ke queue bridge
+    const {
+      subsidiary_name, customer_name, currency_name, terms_name, 
+      department_name, class_name, location_name, custbody_msi_bank_payment_so_name,
+      ...bodyWithoutNames
+    } = body;
+
     // 2. create satu data ke outbox_events dan satu log awal ke outbox_event_logs
     const eventData = {
       event_type: 'CREATE',
-      payload: JSON.stringify(body),
+      payload: JSON.stringify(bodyWithoutNames),
       aggregate_id: soInternalId,
       aggregate_type: 'sales_order_create',
       status: 'WAITING',
       retry_count: 0,
       max_retry: 3,
       last_error: null,
-      properties: JSON.stringify({ request: body }),
+      properties: JSON.stringify({ request: bodyWithoutNames }),
       destination: 'netsuite',
       created_by: user?.email || 'MSI',
       updated_by: user?.email || 'MSI'
@@ -447,7 +462,7 @@ const createSalesOrder = async (body, user) => {
       {
         event_id: eventId,
         so_internal_id: soInternalId,
-        data: body
+        data: bodyWithoutNames
       },
       {
         durable: true,
@@ -522,7 +537,9 @@ const updateSalesOrder = async (body, user) => {
     const updateData = {
       customform: body.customform,
       subsidiary: body.subsidiary,
+      subsidiary_name: body.subsidiary_name,
       entity: body.entity,
+      customer_name: body.customer_name,
       tran_date: body.trandate ? dateStrConvertion(body.trandate, 'YYYY-MM-DD') : undefined,
       startdate: body.startdate ? dateStrConvertion(body.startdate, 'YYYY-MM-DD') : undefined,
       enddate: body.enddate ? dateStrConvertion(body.enddate, 'YYYY-MM-DD') : undefined,
@@ -530,10 +547,15 @@ const updateSalesOrder = async (body, user) => {
       otherrefnum: body.otherrefnum,
       memo: body.memo,
       currency: body.currency,
+      currency_name: body.currency_name,
       terms: body.terms,
+      terms_name: body.terms_name,
       department: body.department,
+      department_name: body.department_name,
       class: body.class,
+      class_name: body.class_name,
       location: body.location,
+      location_name: body.location_name,
       custbody_msi_quotation_no_iec: body.custbody_msi_quotation_no_iec,
       custbody_msi_bank_payment_so: body.custbody_msi_bank_payment_so,
       custbody_msi_bank_payment_so_name: body.custbody_msi_bank_payment_so_name,
@@ -548,17 +570,24 @@ const updateSalesOrder = async (body, user) => {
 
     await trx('sales_orders').where('id', localId).update(updateData);
 
+    // Hilangkan field _name sebelum dikirim ke queue bridge
+    const {
+      subsidiary_name, customer_name, currency_name, terms_name, 
+      department_name, class_name, location_name, custbody_msi_bank_payment_so_name,
+      ...bodyWithoutNames
+    } = body;
+
     // 2. Insert data ke tabel outbox_events dan outbox_event_logs
     const eventData = {
       event_type: is_update ? 'UPDATE' : 'CREATE',
-      payload: JSON.stringify(body),
+      payload: JSON.stringify(bodyWithoutNames),
       aggregate_id: localId,
       aggregate_type: is_update ? 'sales_order_update' : 'sales_order_create',
       status: 'WAITING',
       retry_count: 0,
       max_retry: 3,
       last_error: null,
-      properties: JSON.stringify({ request: body }),
+      properties: JSON.stringify({ request: bodyWithoutNames }),
       destination: 'netsuite',
       created_by: user?.email || 'MSI',
       updated_by: user?.email || 'MSI'
@@ -585,7 +614,7 @@ const updateSalesOrder = async (body, user) => {
       const { EXCHANGES, QUEUE } = require('../../utils/constant');
 
       // Ganti body.id dengan netsuiteId sebelum dikirim ke queue update
-      const bodyWithNetsuiteId = { ...body, id: netsuiteId };
+      const bodyWithNetsuiteId = { ...bodyWithoutNames, id: netsuiteId };
 
       await publishToRabbitMqQueueSingle(
         EXCHANGES.SALES_ORDER_UPDATE,
@@ -608,7 +637,7 @@ const updateSalesOrder = async (body, user) => {
       const { EXCHANGES, QUEUE } = require('../../utils/constant');
 
       // Hilangkan payload id sebelum dikirim ke queue create (seperti unset di PHP)
-      const { id: _removedId, ...bodyWithoutId } = body;
+      const { id: _removedId, ...bodyWithoutId } = bodyWithoutNames;
 
       await publishToRabbitMqQueueSingle(
         EXCHANGES.SALES_ORDER_CREATE,
