@@ -125,6 +125,70 @@ const billPaymentPaths = {
         }
       }
     }
+  },
+  '/bill-payment/{id}': {
+    get: {
+      tags: ['Bill Payment'],
+      summary: 'Get bill payment detail by ID',
+      description: 'Fetch detail satu record bill payment berdasarkan UUID dari database lokal (bridge_sanbox.bills_payments).',
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        {
+          name: 'id',
+          in: 'path',
+          required: true,
+          description: 'UUID dari kolom `id` atau integer dari kolom `netsuite_id`',
+          schema: { type: 'string', example: 'f7b3d24b-9ddd-481c-87df-fd8fe7848ec3' }
+        }
+      ],
+      responses: {
+        200: {
+          description: 'Success',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  success: { type: 'boolean', example: true },
+                  data: { $ref: '#/components/schemas/BillPayment' },
+                  message: { type: 'string', example: 'Detail data bill payment berhasil diambil' }
+                }
+              }
+            }
+          }
+        },
+        401: {
+          description: 'Unauthorized',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+            }
+          }
+        },
+        404: {
+          description: 'Not Found',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  success: { type: 'boolean', example: false },
+                  message: { type: 'string', example: 'Data bill payment tidak ditemukan' }
+                }
+              }
+            }
+          }
+        },
+        500: {
+          description: 'Internal Server Error',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+            }
+          }
+        }
+      }
+    }
   }
 };
 

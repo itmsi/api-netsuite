@@ -49,10 +49,10 @@ const billPaymentSchema = {
     type: 'object',
     properties: {
       page: { type: 'integer', example: 1 },
-      page_size: { type: 'integer', example: 20 },
+      limit: { type: 'integer', example: 10 },
       sort_by: {
         type: 'string',
-        example: 'trandate',
+        example: 'last_modified_netsuite',
         enum: [
           'id', 'netsuite_id', 'transactionnumber', 'tranid',
           'entity', 'entity_display', 'account', 'account_display',
@@ -63,22 +63,17 @@ const billPaymentSchema = {
           'trandate', 'last_modified_netsuite', 'created_at', 'updated_at'
         ]
       },
-      sort_order: { type: 'string', enum: ['ASC', 'DESC'], example: 'DESC' },
-      filters: {
-        type: 'object',
-        properties: {
-          search: { type: 'string', description: 'Search by tranid, transactionnumber, entity_display, atau account_display', example: 'BP-00001' },
-          is_deleted: { type: 'boolean', example: false },
-          entity: { type: 'integer', example: 100 },
-          currency: { type: 'integer', example: 1 },
-          subsidiary: { type: 'integer', example: 1 },
-          approvalstatus: { type: 'integer', example: 2 },
-          department: { type: 'integer', example: 4 },
-          location: { type: 'integer', example: 2 },
-          trandate_from: { type: 'string', format: 'date', example: '2024-01-01' },
-          trandate_to: { type: 'string', format: 'date', example: '2024-12-31' }
-        }
-      }
+      sort_order: { type: 'string', enum: ['asc', 'desc'], example: 'desc' },
+      search: { type: 'string', description: 'Search by tranid, transactionnumber, entity_display, atau account_display', example: '' },
+      is_deleted: { type: 'boolean', example: false },
+      entity: { type: 'integer', example: 100 },
+      currency: { type: 'integer', example: 1 },
+      subsidiary: { type: 'integer', example: 1 },
+      approvalstatus: { type: 'integer', example: 2 },
+      department: { type: 'integer', example: 4 },
+      location: { type: 'integer', example: 2 },
+      trandate_from: { type: 'string', format: 'date', example: '2024-01-01' },
+      trandate_to: { type: 'string', format: 'date', example: '2024-12-31' }
     }
   }
 };

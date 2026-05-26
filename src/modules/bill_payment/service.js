@@ -15,6 +15,109 @@ const dbNetsuite = knex({
 });
 
 /**
+ * Get single bill payment by ID (UUID) atau netsuite_id (integer) dari DB Netsuite
+ */
+const getBillPaymentById = async (id) => {
+  try {
+    const selectCols = [
+      'id',
+      'netsuite_id',
+      'transactionnumber',
+      'tranid',
+      'entity_display',
+      'account_display',
+      'currency_display',
+      'postingperiod_display',
+      'custbody_me_wf_created_by_display',
+      'approvalstatus_display',
+      'subsidiary_display',
+      'class_display',
+      'department_display',
+      'location_display',
+      'custbody_cseg_cn_cfi_display',
+      'entity',
+      'account',
+      'currency',
+      'postingperiod',
+      'custbody_me_wf_created_by',
+      'approvalstatus',
+      'subsidiary',
+      'class',
+      'department',
+      'location',
+      'custbody_cseg_cn_cfi',
+      'total',
+      'exchangerate',
+      'trandate',
+      'last_modified_netsuite',
+      'applied_to',
+      'credit_applied',
+      'workflow_history',
+      'user_notes',
+      'created_at',
+      'updated_at',
+      'is_deleted'
+    ];
+
+    // Deteksi: jika angka murni → cari di netsuite_id, selainnya → cari di id (UUID)
+    const isNetsuiteId = /^\d+$/.test(String(id));
+
+    const row = await dbNetsuite('bills_payments')
+      .select(selectCols)
+      .where(isNetsuiteId ? 'netsuite_id' : 'id', isNetsuiteId ? parseInt(id) : id)
+      .first();
+
+    if (!row) {
+      throw { message: 'Data bill payment tidak ditemukan', statusCode: 404 };
+    }
+
+    return {
+      id: row.id || null,
+      netsuite_id: row.netsuite_id || null,
+      transactionnumber: row.transactionnumber || '',
+      tranid: row.tranid || '',
+      entity_display: row.entity_display || '',
+      account_display: row.account_display || '',
+      currency_display: row.currency_display || '',
+      postingperiod_display: row.postingperiod_display || '',
+      custbody_me_wf_created_by_display: row.custbody_me_wf_created_by_display || '',
+      approvalstatus_display: row.approvalstatus_display || '',
+      subsidiary_display: row.subsidiary_display || '',
+      class_display: row.class_display || '',
+      department_display: row.department_display || '',
+      location_display: row.location_display || '',
+      custbody_cseg_cn_cfi_display: row.custbody_cseg_cn_cfi_display || '',
+      entity: row.entity || null,
+      account: row.account || null,
+      currency: row.currency || null,
+      postingperiod: row.postingperiod || null,
+      custbody_me_wf_created_by: row.custbody_me_wf_created_by || null,
+      approvalstatus: row.approvalstatus || null,
+      subsidiary: row.subsidiary || null,
+      class: row.class || null,
+      department: row.department || null,
+      location: row.location || null,
+      custbody_cseg_cn_cfi: row.custbody_cseg_cn_cfi || null,
+      total: row.total !== null && row.total !== undefined ? parseFloat(row.total) : null,
+      exchangerate: row.exchangerate !== null && row.exchangerate !== undefined ? parseFloat(row.exchangerate) : null,
+      trandate: row.trandate || null,
+      last_modified_netsuite: row.last_modified_netsuite || null,
+      applied_to: row.applied_to || null,
+      credit_applied: row.credit_applied || null,
+      workflow_history: row.workflow_history || null,
+      user_notes: row.user_notes || null,
+      created_at: row.created_at || null,
+      updated_at: row.updated_at || null,
+      is_deleted: row.is_deleted || false
+    };
+
+  } catch (error) {
+    if (error.statusCode) throw error;
+    throw { message: error.message || 'Failed to fetch bill payment from database', statusCode: 500 };
+  }
+};
+
+/**
  * Get bill payments dari DB Netsuite (bridge_sanbox.bills_payments)
  */
 const getBillPaymentList = async (body) => {
@@ -39,42 +142,40 @@ const getBillPaymentList = async (body) => {
     let query = dbNetsuite('bills_payments');
 
     // Filter opsional
-    if (body.filters) {
-      if (body.filters.search) {
-        query = query.where(function () {
-          this.whereILike('tranid', `%${body.filters.search}%`)
-            .orWhereILike('transactionnumber', `%${body.filters.search}%`)
-            .orWhereILike('entity_display', `%${body.filters.search}%`)
-            .orWhereILike('account_display', `%${body.filters.search}%`);
-        });
-      }
-      if (body.filters.is_deleted !== undefined) {
-        query = query.where('is_deleted', body.filters.is_deleted);
-      }
-      if (body.filters.entity) {
-        query = query.where('entity', body.filters.entity);
-      }
-      if (body.filters.currency) {
-        query = query.where('currency', body.filters.currency);
-      }
-      if (body.filters.subsidiary) {
-        query = query.where('subsidiary', body.filters.subsidiary);
-      }
-      if (body.filters.approvalstatus) {
-        query = query.where('approvalstatus', body.filters.approvalstatus);
-      }
-      if (body.filters.department) {
-        query = query.where('department', body.filters.department);
-      }
-      if (body.filters.location) {
-        query = query.where('location', body.filters.location);
-      }
-      if (body.filters.trandate_from) {
-        query = query.where('trandate', '>=', body.filters.trandate_from);
-      }
-      if (body.filters.trandate_to) {
-        query = query.where('trandate', '<=', body.filters.trandate_to);
-      }
+    if (body.search) {
+      query = query.where(function () {
+        this.whereILike('tranid', `%${body.search}%`)
+          .orWhereILike('transactionnumber', `%${body.search}%`)
+          .orWhereILike('entity_display', `%${body.search}%`)
+          .orWhereILike('account_display', `%${body.search}%`);
+      });
+    }
+    if (body.is_deleted !== undefined) {
+      query = query.where('is_deleted', body.is_deleted);
+    }
+    if (body.entity) {
+      query = query.where('entity', body.entity);
+    }
+    if (body.currency) {
+      query = query.where('currency', body.currency);
+    }
+    if (body.subsidiary) {
+      query = query.where('subsidiary', body.subsidiary);
+    }
+    if (body.approvalstatus) {
+      query = query.where('approvalstatus', body.approvalstatus);
+    }
+    if (body.department) {
+      query = query.where('department', body.department);
+    }
+    if (body.location) {
+      query = query.where('location', body.location);
+    }
+    if (body.trandate_from) {
+      query = query.where('trandate', '>=', body.trandate_from);
+    }
+    if (body.trandate_to) {
+      query = query.where('trandate', '<=', body.trandate_to);
     }
 
     // Hitung total
@@ -232,6 +333,7 @@ const syncBillPaymentList = async (body) => {
 };
 
 module.exports = {
+  getBillPaymentById,
   getBillPaymentList,
   syncBillPaymentList
 };

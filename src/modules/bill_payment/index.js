@@ -15,6 +15,17 @@ router.post(
 );
 
 /**
+ * @route   GET /api/netsuite/bill-payment/:id
+ * @desc    Get bill payment detail by ID (UUID)
+ * @access  Private
+ */
+router.get(
+  '/:id',
+  verifyToken,
+  controller.getById
+);
+
+/**
  * @route   POST /api/netsuite/bill-payment/sync
  * @desc    Sync bill payments dari bridge API
  * @access  Private
