@@ -50,6 +50,10 @@ const getBillPaymentById = async (id) => {
       'exchangerate',
       'trandate',
       'last_modified_netsuite',
+      'next_approver',
+      'delegate_approver',
+      'in_delegation',
+      'next_approver_blank',
       'applied_to',
       'credit_applied',
       'workflow_history',
@@ -102,6 +106,10 @@ const getBillPaymentById = async (id) => {
       exchangerate: row.exchangerate !== null && row.exchangerate !== undefined ? parseFloat(row.exchangerate) : null,
       trandate: row.trandate || null,
       last_modified_netsuite: row.last_modified_netsuite || null,
+      next_approver: row.next_approver || null,
+      delegate_approver: row.delegate_approver || null,
+      in_delegation: row.in_delegation || false,
+      next_approver_blank: row.next_approver_blank || null,
       applied_to: row.applied_to || null,
       credit_applied: row.credit_applied || null,
       workflow_history: row.workflow_history || null,
@@ -217,6 +225,10 @@ const getBillPaymentList = async (body) => {
         'exchangerate',
         'trandate',
         'last_modified_netsuite',
+        'next_approver',
+        'delegate_approver',
+        'in_delegation',
+        'next_approver_blank',
         'created_at',
         'updated_at',
         'is_deleted'
@@ -256,13 +268,13 @@ const getBillPaymentList = async (body) => {
       exchangerate: r.exchangerate !== null && r.exchangerate !== undefined ? parseFloat(r.exchangerate) : null,
       trandate: r.trandate || null,
       last_modified_netsuite: r.last_modified_netsuite || null,
-      applied_to: r.applied_to || null,
-      credit_applied: r.credit_applied || null,
-      workflow_history: r.workflow_history || null,
-      user_notes: r.user_notes || null,
       created_at: r.created_at || null,
       updated_at: r.updated_at || null,
-      is_deleted: r.is_deleted || false
+      is_deleted: r.is_deleted || false,
+      next_approver: r.next_approver || null,
+      delegate_approver: r.delegate_approver || null,
+      in_delegation: r.in_delegation || false,
+      next_approver_blank: r.next_approver_blank || null
     }));
 
     const resPage = page === 1 && offset === 0 && body.page === 1 ? body.page : 0;
