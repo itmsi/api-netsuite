@@ -70,14 +70,29 @@ const methodExecution = async (payload, channel, msg) => {
         const updated = await salesService.incrementRetryCount(event_id, errorMessage)
         console.info(`[Worker] Retrying SO Update Event ${event_id} (retry_count: ${updated?.retry_count}/${updated?.max_retry})`)
         await salesService.logEvent(event_id, 'retry', `Retry attempt ${updated?.retry_count}: ${errorMessage}`, errorDetail)
-        channel.nack(msg, false, false) 
+        channel.nack(msg, false, false)
       } else {
         console.error(`[Worker] Max retries reached for SO Update Event ${event_id}, marking as FAILED`)
-        
+
         const failureProperties = { request: data, response: errorDetail };
         await salesService.updateEventStatus(event_id, 'FAILED', errorMessage, failureProperties)
 
         await salesService.logEvent(event_id, 'failed', `Max retries reached: ${errorMessage}`, errorDetail)
+
+        try {
+          const soRecord = await salesService.getSalesOrderById(so_internal_id);
+          const currentNetsuiteId = soRecord?.items?.[0]?.netsuite_id;
+
+          if (currentNetsuiteId) {
+            console.info(`[Worker] Triggering sync after failed update for SO netsuite id: ${currentNetsuiteId}, so internal id: ${so_internal_id}`);
+            await salesService.syncSalesOrderByIdInternalId(currentNetsuiteId, so_internal_id);
+            await salesService.logEvent(event_id, 'sales_order_synced', 'Sales order synced successfully after failed update', { so_id: currentNetsuiteId })
+          }
+        } catch (syncError) {
+          console.error(`[Worker] Sync failed after max retries for SO ID ${so_internal_id}:`, syncError.message)
+          await salesService.logEvent(event_id, 'sync_failed', syncError.message, syncError)
+        }
+
         channel.ack(msg)
       }
     } catch (retryErr) {

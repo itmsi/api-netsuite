@@ -536,6 +536,7 @@ const updateSalesOrder = async (body, user) => {
       location: body.location,
       custbody_msi_quotation_no_iec: body.custbody_msi_quotation_no_iec,
       custbody_msi_bank_payment_so: body.custbody_msi_bank_payment_so,
+      custbody_msi_bank_payment_so_name: body.custbody_msi_bank_payment_so_name,
       custbody_cseg_cn_cfi: body.custbody_cseg_cn_cfi,
       custbody_msi_createdby_api: body.custbody_msi_createdby_api || user?.email,
       items: body.items ? JSON.stringify(body.items) : undefined,

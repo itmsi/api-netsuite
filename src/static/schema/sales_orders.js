@@ -82,6 +82,7 @@ const salesOrdersSchema = {
       location: { type: 'integer', example: 19 },
       custbody_msi_quotation_no_iec: { type: 'string', example: 'QT-001' },
       custbody_msi_bank_payment_so: { type: 'integer', example: 3 },
+      custbody_msi_bank_payment_so_name: { type: 'string', example: '' },
       custbody_cseg_cn_cfi: { type: 'integer', example: 4 },
       custbody_msi_createdby_api: { type: 'string', example: 'T' },
       items: {
@@ -124,6 +125,7 @@ const salesOrdersSchema = {
       location: { type: 'integer', example: 19 },
       custbody_msi_quotation_no_iec: { type: 'string', example: 'QT-001' },
       custbody_msi_bank_payment_so: { type: 'integer', example: 3 },
+      custbody_msi_bank_payment_so_name: { type: 'string', example: '' },
       custbody_cseg_cn_cfi: { type: 'integer', example: 4 },
       custbody_msi_createdby_api: { type: 'string', example: 'T' },
       items: {
