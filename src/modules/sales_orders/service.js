@@ -137,7 +137,7 @@ const getSalesOrders = async (body) => {
     ];
     const sortBy = validSortColumns.includes(body.sort_by) ? body.sort_by : 'last_modified_netsuite';
 
-    let countQuery = dbNetsuite('sales_orders').where('is_deleted', false);
+    let countQuery = dbNetsuite('sales_orders as so').where('so.is_deleted', false);
     let dataQuery = dbNetsuite('sales_orders as so')
       .leftJoin('customers as c', 'c.netsuite_id', 'so.customer_id')
       .leftJoin('currencys as c2', 'c2.currency_id', 'so.currency')
@@ -166,6 +166,7 @@ const getSalesOrders = async (body) => {
     if (body.search) {
       const searchFn = function () {
         this.whereILike('so.tranid', `%${body.search}%`)
+          .orWhereILike('so.netsuite_id', `%${body.search}%`)
           .orWhereILike('so.customer_name', `%${body.search}%`)
           .orWhereILike('so.memo', `%${body.search}%`);
       };
@@ -173,16 +174,16 @@ const getSalesOrders = async (body) => {
       dataQuery = dataQuery.where(searchFn);
     }
     if (body.customer_id) {
-      countQuery = countQuery.where('customer_id', body.customer_id.toString());
+      countQuery = countQuery.where('so.customer_id', body.customer_id.toString());
       dataQuery = dataQuery.where('so.customer_id', body.customer_id.toString());
     }
     if (body.status_code) {
-      countQuery = countQuery.where('status_code', body.status_code);
+      countQuery = countQuery.where('so.status_code', body.status_code);
       dataQuery = dataQuery.where('so.status_code', body.status_code);
     }
     if (body.id || body.netsuite_id) {
       const ids = Array.isArray(body.id) ? body.id : (body.id ? [body.id] : (body.netsuite_id || []));
-      countQuery = countQuery.whereIn('netsuite_id', ids);
+      countQuery = countQuery.whereIn('so.netsuite_id', ids);
       dataQuery = dataQuery.whereIn('so.netsuite_id', ids);
     }
 
@@ -245,7 +246,7 @@ const getSalesOrderById = async (id) => {
         .map(s => parseInt(s.trim()))
         .filter(n => !isNaN(n));
     }
-    
+
     mappedRow.custbody_msi_bank_payment_so = bankIds.length > 0 ? bankIds : null;
 
     if (rawName && String(rawName).trim() !== '') {
