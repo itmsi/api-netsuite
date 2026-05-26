@@ -61,20 +61,21 @@ const billPaymentPaths = {
       }
     }
   },
-  '/bill-payment/sync': {
-    post: {
+  '/bill-payment/sync/{netsuite_id}': {
+    get: {
       tags: ['Bill Payment'],
-      summary: 'Sync bill payments dari bridge API',
-      description: 'Sync trigger yang mengambil data langsung dari endpoint NetSuite via API bridge, diperbarui ke DB lokal.',
+      summary: 'Force sync bill payment by netsuite_id',
+      description: 'Fetch fresh data satu bill payment dari NetSuite via bridge API berdasarkan netsuite_id, lalu overwrite data di DB lokal.',
       security: [{ bearerAuth: [] }],
-      requestBody: {
-        required: true,
-        content: {
-          'application/json': {
-            schema: { $ref: '#/components/schemas/BillPaymentListRequest' }
-          }
+      parameters: [
+        {
+          name: 'netsuite_id',
+          in: 'path',
+          required: true,
+          description: 'NetSuite ID (integer) dari bill payment yang akan di-sync',
+          schema: { type: 'integer', example: 24358 }
         }
-      },
+      ],
       responses: {
         200: {
           description: 'Success',
@@ -84,16 +85,7 @@ const billPaymentPaths = {
                 type: 'object',
                 properties: {
                   success: { type: 'boolean', example: true },
-                  data: {
-                    type: 'object',
-                    properties: {
-                      items: {
-                        type: 'array',
-                        items: { $ref: '#/components/schemas/BillPayment' }
-                      },
-                      pagination: { $ref: '#/components/schemas/Pagination' }
-                    }
-                  },
+                  data: { $ref: '#/components/schemas/BillPayment' },
                   sync_info: {
                     type: 'object',
                     properties: {
@@ -101,7 +93,7 @@ const billPaymentPaths = {
                       status: { type: 'string', example: 'success' }
                     }
                   },
-                  message: { type: 'string', example: 'Data bill payments berhasil di-sync dari bridge API' }
+                  message: { type: 'string', example: 'Bill payment netsuite_id 24358 berhasil di-sync dari bridge API' }
                 }
               }
             }
@@ -112,6 +104,20 @@ const billPaymentPaths = {
           content: {
             'application/json': {
               schema: { $ref: '#/components/schemas/ErrorResponse' }
+            }
+          }
+        },
+        404: {
+          description: 'Not Found',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  success: { type: 'boolean', example: false },
+                  message: { type: 'string', example: 'Bill payment tidak ditemukan di NetSuite' }
+                }
+              }
             }
           }
         },

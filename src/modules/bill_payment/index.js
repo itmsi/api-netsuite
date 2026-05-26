@@ -26,14 +26,14 @@ router.get(
 );
 
 /**
- * @route   POST /api/netsuite/bill-payment/sync
- * @desc    Sync bill payments dari bridge API
+ * @route   GET /api/netsuite/bill-payment/sync/:netsuite_id
+ * @desc    Force sync satu bill payment by netsuite_id dari bridge API
  * @access  Private
  */
-router.post(
-  '/sync',
+router.get(
+  '/sync/:netsuite_id',
   verifyToken,
-  controller.sync
+  controller.syncById
 );
 
 module.exports = router;

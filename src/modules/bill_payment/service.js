@@ -283,47 +283,29 @@ const getBillPaymentList = async (body) => {
 };
 
 /**
- * Sync bill payments — hit bridge API.
+ * Force sync satu bill payment by netsuite_id — hit bridge API GET /bills-payments/sync/:netsuite_id
  */
-const syncBillPaymentList = async (body) => {
+const syncBillPaymentById = async (netsuite_id) => {
   try {
     const tokenResponse = await authService.getToken();
     const token = tokenResponse.data.access_token;
 
-    const baseUrl = process.env.BRIDGE_BASE_URL || 'https://api-bridge-sb.motorsights.com';
-    const url = `${baseUrl}/api/v1/bridge/bill-payment/get`;
+    const baseUrl = process.env.BRIDGE_BASE_URL || 'http://localhost:9570';
+    const url = `${baseUrl}/api/v1/bridge/bills-payments/sync/${netsuite_id}`;
 
-    const requestData = {
-      page: body.page || 1,
-      page_size: body.page_size || 20,
-      sort_by: body.sort_by || 'tran_date',
-      sort_order: body.sort_order ? body.sort_order.toUpperCase() : 'DESC',
-      filters: body.filters || {}
-    };
-
-    const response = await axios.post(url, requestData, {
+    const response = await axios.get(url, {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       }
     });
 
-    const resData = response.data;
-
-    return {
-      items: resData.data?.items || resData.items || [],
-      pagination: resData.data?.pagination || resData.pagination || {
-        page: requestData.page,
-        limit: requestData.page_size,
-        total: 0,
-        totalPages: 0
-      }
-    };
+    return response.data?.data || response.data;
 
   } catch (error) {
     if (error.response) {
       throw {
-        message: error.response.data.message || 'Failed to sync bill payments from bridge API',
+        message: error.response.data?.message || `Failed to sync bill payment netsuite_id ${netsuite_id} from bridge API`,
         statusCode: error.response.status,
         errors: error.response.data
       };
@@ -335,5 +317,5 @@ const syncBillPaymentList = async (body) => {
 module.exports = {
   getBillPaymentById,
   getBillPaymentList,
-  syncBillPaymentList
+  syncBillPaymentById
 };

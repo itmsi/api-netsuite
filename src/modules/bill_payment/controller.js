@@ -50,11 +50,12 @@ const getList = async (req, res) => {
 };
 
 /**
- * Sync bill payments dari bridge API
+ * Force sync satu bill payment by netsuite_id dari bridge API
  */
-const sync = async (req, res) => {
+const syncById = async (req, res) => {
   try {
-    const result = await service.syncBillPaymentList(req.body);
+    const { netsuite_id } = req.params;
+    const result = await service.syncBillPaymentById(netsuite_id);
 
     await syncService.createSync(
       { sync_module: 'bill_payment', sync_status: 'success' },
@@ -68,7 +69,7 @@ const sync = async (req, res) => {
         success: true,
         data: result,
         sync_info: syncInfo,
-        message: 'Data bill payments berhasil di-sync dari bridge API'
+        message: `Bill payment netsuite_id ${netsuite_id} berhasil di-sync dari bridge API`
       }
     });
   } catch (error) {
@@ -89,5 +90,5 @@ const sync = async (req, res) => {
 module.exports = {
   getList,
   getById,
-  sync
+  syncById
 };
