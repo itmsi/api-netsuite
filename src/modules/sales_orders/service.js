@@ -77,6 +77,7 @@ const getBaseQuery = () => {
       dbNetsuite.raw("COALESCE(NULLIF(so.location_name, ''), l.name) AS location_name"),
       'so.custbody_msi_quotation_no_iec',
       'so.custbody_msi_bank_payment_so',
+      'so.custbody_msi_bank_payment_so_name',
       'so.custbody_cseg_cn_cfi',
       'so.intercotransaction',
       'so.intercotransaction_name',
@@ -232,6 +233,45 @@ const getSalesOrderById = async (id) => {
     }
 
     const mappedRow = mapSalesOrder(row);
+
+    // Resolusi custbody_msi_bank_payment_so dan custbody_msi_bank_payment_so_name menjadi array
+    const rawName = mappedRow.custbody_msi_bank_payment_so_name;
+    const rawIds = mappedRow.custbody_msi_bank_payment_so;
+
+    let bankIds = [];
+    if (rawIds && String(rawIds).trim() !== '') {
+      bankIds = String(rawIds)
+        .split(',')
+        .map(s => parseInt(s.trim()))
+        .filter(n => !isNaN(n));
+    }
+    
+    mappedRow.custbody_msi_bank_payment_so = bankIds.length > 0 ? bankIds : null;
+
+    if (rawName && String(rawName).trim() !== '') {
+      mappedRow.custbody_msi_bank_payment_so_name = String(rawName)
+        .split(',')
+        .map(s => s.trim())
+        .filter(s => s !== '');
+    } else {
+      mappedRow.custbody_msi_bank_payment_so_name = null;
+    }
+
+    // Resolusi bank_payment_list selalu di-hit ke tabel banks jika ada ID-nya
+    if (bankIds.length > 0) {
+      const banks = await dbNetsuite('banks')
+        .select(['netsuite_id', 'name'])
+        .whereIn('netsuite_id', bankIds);
+
+      mappedRow.bank_payment_names = banks.map(b => b.name).join(', ');
+      mappedRow.bank_payment_list = banks.map(b => ({
+        netsuite_id: b.netsuite_id,
+        name: b.name
+      }));
+    } else {
+      mappedRow.bank_payment_names = null;
+      mappedRow.bank_payment_list = [];
+    }
 
     // Tambahkan message_error jika status failed
     // if (mappedRow.status_name === 'failed') {
