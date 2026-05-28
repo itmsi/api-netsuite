@@ -429,6 +429,8 @@ const createSalesOrder = async (body, user) => {
     const [soInternal] = await trx('sales_orders').insert(soData).returning('id');
     const soInternalId = typeof soInternal === 'object' ? soInternal.id : soInternal;
 
+    // update payload ygakan dikirimkan ke netsuite untk custbody_msi_bank_payment_so diubah lg ke array
+
     // Hilangkan field _name sebelum dikirim ke queue bridge
     const {
       subsidiary_name, customer_name, currency_name, terms_name,
