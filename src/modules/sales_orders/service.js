@@ -1,5 +1,6 @@
 const axios = require('axios');
 const knex = require('knex');
+const { pgCore } = require('../../config/database');
 const authService = require('../auth/service');
 const { dateStrConvertion } = require('../../utils/date');
 
@@ -866,6 +867,119 @@ const syncSalesOrderById = async (id) => {
   }
 };
 
+const saveFileRecord = async (fileData) => {
+  const [record] = await pgCore('sales_orders_files').insert(fileData).returning('*');
+  return record;
+};
+
+const updateFileRecord = async (oldPath, newPath, newUrl) => {
+  const [record] = await pgCore('sales_orders_files')
+    .where('storage_path', oldPath)
+    .update({
+      storage_path: newPath,
+      share_url: newUrl
+    })
+    .returning('*');
+  return record;
+};
+
+const finalizeUploadedFilesForSO = async (tempSoId, realSoId) => {
+  try {
+    const nextcloud = require('../../utils/nextcloud');
+    const path = require('path');
+
+    const files = await pgCore('sales_orders_files')
+      .where('so_id', tempSoId);
+
+    if (!files || files.length === 0) {
+      console.info(`[finalizeUploadedFilesForSO] No files found for temporary SO ID: ${tempSoId}`);
+      return;
+    }
+
+    let folderName = realSoId;
+    try {
+      const soRecord = await dbNetsuite('sales_orders')
+        .where('netsuite_id', realSoId.toString())
+        .first();
+      if (soRecord && soRecord.tranid) {
+        folderName = soRecord.tranid;
+        console.info(`[finalizeUploadedFilesForSO] Found tranid: ${folderName} for so_id: ${realSoId}`);
+      } else {
+        console.warn(`[finalizeUploadedFilesForSO] No sales order record or tranid found for so_id: ${realSoId}, falling back to so_id for folder name`);
+      }
+    } catch (dbErr) {
+      console.error(`[finalizeUploadedFilesForSO] Error retrieving tranid from DB Netsuite:`, dbErr.message);
+    }
+
+    const year = new Date().getFullYear();
+    const finalDir = `/NetSuite/SalesOrders/${year}/${folderName}`;
+
+    await nextcloud.ensureDirectoryExists(finalDir);
+
+    for (const file of files) {
+      const oldStoragePath = file.storage_path;
+      const fileName = path.basename(oldStoragePath);
+      const newStoragePath = `${finalDir}/${fileName}`;
+
+      console.info(`[finalizeUploadedFilesForSO] Moving file from ${oldStoragePath} to ${newStoragePath}`);
+
+      try {
+        await nextcloud.client.moveFile(oldStoragePath, newStoragePath);
+
+        let newShareUrl = file.share_url;
+        try {
+          newShareUrl = await nextcloud.generateShareLink(newStoragePath);
+        } catch (shareErr) {
+          console.warn(`[finalizeUploadedFilesForSO] Failed to generate new share link for ${newStoragePath}:`, shareErr.message);
+        }
+
+        await pgCore('sales_orders_files')
+          .where('id', file.id)
+          .update({
+            so_id: realSoId.toString(),
+            storage_path: newStoragePath,
+            share_url: newShareUrl
+          });
+
+        console.info(`[finalizeUploadedFilesForSO] File record updated successfully for file ID: ${file.id}`);
+      } catch (moveErr) {
+        console.error(`[finalizeUploadedFilesForSO] Failed to move file ${oldStoragePath}:`, moveErr.message);
+      }
+    }
+  } catch (error) {
+    console.error(`[finalizeUploadedFilesForSO] Error finalizing files for SO ${realSoId}:`, error.message);
+  }
+};
+
+const getFileRecordById = async (id) => {
+  const record = await pgCore('sales_orders_files')
+    .where('id', id)
+    .first();
+  return record;
+};
+
+const deleteFileRecord = async (id) => {
+  const count = await pgCore('sales_orders_files')
+    .where('id', id)
+    .delete();
+  return count;
+};
+
+const updateFileRecordFields = async (id, updateData) => {
+  const [record] = await pgCore('sales_orders_files')
+    .where('id', id)
+    .update(updateData)
+    .returning('*');
+  return record;
+};
+
+const getFileRecordByShareUrl = async (shareUrl) => {
+  const record = await pgCore('sales_orders_files')
+    .where('share_url', shareUrl)
+    .first();
+  return record;
+};
+
 module.exports = {
   getSalesOrders,
   getSalesOrderById,
@@ -881,5 +995,12 @@ module.exports = {
   incrementRetryCount,
   updateLocalSalesOrderStatus,
   syncSalesOrderByIdInternalId,
-  syncSalesOrderById
+  syncSalesOrderById,
+  saveFileRecord,
+  updateFileRecord,
+  finalizeUploadedFilesForSO,
+  getFileRecordById,
+  deleteFileRecord,
+  updateFileRecordFields,
+  getFileRecordByShareUrl
 };
