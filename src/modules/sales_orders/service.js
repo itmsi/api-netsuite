@@ -33,7 +33,7 @@ const mapSalesOrder = (row) => {
  */
 const getBaseQuery = () => {
   return dbNetsuite('sales_orders as so')
-    .leftJoin('customers as c', 'c.netsuite_id', 'so.customer_id')
+    .leftJoin('customers as c', dbNetsuite.raw('c.netsuite_id::integer = so.entity::integer'))
     .leftJoin('subsidiarys as s', 's.subsidiary_id', 'so.subsidiary')
     .leftJoin('currencys as c2', 'c2.currency_id', 'so.currency')
     .leftJoin('departments as d', dbNetsuite.raw('d.netsuite_id::integer = so.department::integer'))
@@ -51,6 +51,7 @@ const getBaseQuery = () => {
     .leftJoin('class as ic', dbNetsuite.raw("(item_row->>'class') = ic.netsuite_id::text"))
     .leftJoin('locations as il', dbNetsuite.raw("(item_row->>'location') = il.netsuite_id::text"))
     .leftJoin('departments as id_item', dbNetsuite.raw("(item_row->>'department') = id_item.netsuite_id::text"))
+    .leftJoin('taxcodes as tx', dbNetsuite.raw("(item_row->>'taxcode') = tx.taxcode_id::text"))
     .select([
       'so.id',
       'so.netsuite_id',
@@ -58,7 +59,7 @@ const getBaseQuery = () => {
       'so.tran_date',
       'so.status_code',
       'so.status_name',
-      'so.customer_id',
+      'so.entity as customer_id',
       dbNetsuite.raw("COALESCE(NULLIF(so.customer_name, ''), c.entity_id) AS customer_name"),
       'so.memo',
       'so.last_modified_netsuite',
@@ -105,7 +106,7 @@ const getBaseQuery = () => {
             'description', item_row->>'description',
             'shipped', item_row->>'shipped',
             'taxcode', item_row->>'taxcode',
-            'taxcode_name', item_row->>'taxcode_name',
+            'taxcode_name', COALESCE(NULLIF(item_row->>'taxcode_name', ''), tx.taxcode_name),
             'department', item_row->>'department',
             'department_name', COALESCE(NULLIF(item_row->>'department_name', ''), id_item.name),
             'class', item_row->>'class',
@@ -139,7 +140,7 @@ const getSalesOrders = async (body) => {
 
     let countQuery = dbNetsuite('sales_orders as so').where('so.is_deleted', false);
     let dataQuery = dbNetsuite('sales_orders as so')
-      .leftJoin('customers as c', 'c.netsuite_id', 'so.customer_id')
+      .leftJoin('customers as c', dbNetsuite.raw('c.netsuite_id::integer = so.entity::integer'))
       .leftJoin('currencys as c2', 'c2.currency_id', 'so.currency')
       .select([
         'so.id',
@@ -150,7 +151,7 @@ const getSalesOrders = async (body) => {
         'so.status_name',
         'so.custbody_me_approval_status',
         'so.custbody_me_approval_status_name',
-        'so.customer_id',
+        'so.entity as customer_id',
         dbNetsuite.raw("COALESCE(NULLIF(so.customer_name, ''), c.entity_id) AS customer_name"),
         'so.memo',
         'so.last_modified_netsuite',
@@ -174,8 +175,8 @@ const getSalesOrders = async (body) => {
       dataQuery = dataQuery.where(searchFn);
     }
     if (body.customer_id) {
-      countQuery = countQuery.where('so.customer_id', body.customer_id.toString());
-      dataQuery = dataQuery.where('so.customer_id', body.customer_id.toString());
+      countQuery = countQuery.where('so.entity', body.customer_id.toString());
+      dataQuery = dataQuery.where('so.entity', body.customer_id.toString());
     }
     if (body.status_code) {
       countQuery = countQuery.where('so.status_code', body.status_code);
@@ -263,6 +264,10 @@ const getSalesOrderById = async (id) => {
       const banks = await dbNetsuite('banks')
         .select(['netsuite_id', 'name'])
         .whereIn('netsuite_id', bankIds);
+
+      if (mappedRow.custbody_msi_bank_payment_so_name == null) {
+        mappedRow.custbody_msi_bank_payment_so_name = banks.map(b => b.name);
+      }
 
       mappedRow.bank_payment_names = banks.map(b => b.name).join(', ');
       mappedRow.bank_payment_list = banks.map(b => ({
@@ -416,7 +421,7 @@ const createSalesOrder = async (body, user) => {
 
     // Hilangkan field _name sebelum dikirim ke queue bridge
     const {
-      subsidiary_name, customer_name, currency_name, terms_name, 
+      subsidiary_name, customer_name, currency_name, terms_name,
       department_name, class_name, location_name, custbody_msi_bank_payment_so_name,
       ...bodyWithoutNames
     } = body;
@@ -572,7 +577,7 @@ const updateSalesOrder = async (body, user) => {
 
     // Hilangkan field _name sebelum dikirim ke queue bridge
     const {
-      subsidiary_name, customer_name, currency_name, terms_name, 
+      subsidiary_name, customer_name, currency_name, terms_name,
       department_name, class_name, location_name, custbody_msi_bank_payment_so_name,
       ...bodyWithoutNames
     } = body;
