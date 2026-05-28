@@ -39,6 +39,7 @@ const getBaseQuery = () => {
     .leftJoin('departments as d', dbNetsuite.raw('d.netsuite_id::integer = so.department::integer'))
     .leftJoin('class as c3', dbNetsuite.raw('c3.netsuite_id::integer = so.class::integer'))
     .leftJoin('locations as l', dbNetsuite.raw('l.netsuite_id::integer = so.location::integer'))
+    .leftJoin('terms as t', dbNetsuite.raw('t.netsuite_id::integer = so.terms::integer'))
     // JOIN ITEMS LATERAL — hanya expand jika items adalah array (bukan null, {}, atau object)
     .leftJoin(dbNetsuite.raw(`LATERAL jsonb_array_elements(
         CASE
@@ -48,6 +49,7 @@ const getBaseQuery = () => {
         END
       ) AS item_row ON TRUE`))
     .leftJoin('items as i', dbNetsuite.raw("(item_row->>'item_id') = i.netsuite_id::text"))
+    .leftJoin('items as i2', dbNetsuite.raw("(item_row->>'itemId') = i2.netsuite_id::text"))
     .leftJoin('class as ic', dbNetsuite.raw("(item_row->>'class') = ic.netsuite_id::text"))
     .leftJoin('locations as il', dbNetsuite.raw("(item_row->>'location') = il.netsuite_id::text"))
     .leftJoin('departments as id_item', dbNetsuite.raw("(item_row->>'department') = id_item.netsuite_id::text"))
@@ -89,7 +91,7 @@ const getBaseQuery = () => {
       'so.startdate',
       'so.enddate',
       'so.terms',
-      'so.terms_name',
+      dbNetsuite.raw("COALESCE(NULLIF(so.terms_name, ''), t.name) AS terms_name"),
       'so.custbody_me_approval_status',
       'so.custbody_me_approval_status_name',
       'so.type_proccess',
@@ -98,9 +100,9 @@ const getBaseQuery = () => {
       dbNetsuite.raw(`
         jsonb_agg(
           jsonb_build_object(
-            'item_id', item_row->>'item_id',
-            'item_name', COALESCE(NULLIF(item_row->>'item_name', ''), i.display_name),
-            'quantity', item_row->>'quantity',
+            'item_id', COALESCE(NULLIF(item_row->>'item_id', ''), item_row->>'itemId'),
+            'item_name', COALESCE(NULLIF(item_row->>'item_name', ''), (COALESCE(NULLIF(i.display_name, ''), i2.display_name))),
+            'quantity', COALESCE(NULLIF(item_row->>'quantity', ''), item_row->>'qty'),
             'rate', item_row->>'rate',
             'amount', item_row->>'amount',
             'description', item_row->>'description',
@@ -118,7 +120,7 @@ const getBaseQuery = () => {
       `)
     ])
     .groupBy([
-      'so.id', 'c.entity_id', 's.subsidiary_name', 'c2.currency_name', 'd.name', 'c3.name', 'l.name'
+      'so.id', 'c.entity_id', 's.subsidiary_name', 'c2.currency_name', 'd.name', 'c3.name', 'l.name', 't.term_id'
     ]);
 };
 
