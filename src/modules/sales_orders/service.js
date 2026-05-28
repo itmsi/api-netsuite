@@ -33,7 +33,7 @@ const mapSalesOrder = (row) => {
  */
 const getBaseQuery = () => {
   return dbNetsuite('sales_orders as so')
-    .leftJoin('customers as c', dbNetsuite.raw('c.netsuite_id::integer = so.entity::integer'))
+    .leftJoin('customers as c', dbNetsuite.raw('c.netsuite_id::integer = so.customer_id::integer'))
     .leftJoin('subsidiarys as s', 's.subsidiary_id', 'so.subsidiary')
     .leftJoin('currencys as c2', 'c2.currency_id', 'so.currency')
     .leftJoin('departments as d', dbNetsuite.raw('d.netsuite_id::integer = so.department::integer'))
@@ -61,7 +61,7 @@ const getBaseQuery = () => {
       dbNetsuite.raw("TO_CHAR(so.tran_date AT TIME ZONE 'Asia/Jakarta', 'DD/MM/YYYY') AS tran_date"),
       'so.status_code',
       'so.status_name',
-      'so.entity as customer_id',
+      'so.customer_id',
       dbNetsuite.raw("COALESCE(NULLIF(so.customer_name, ''), c.entity_id) AS customer_name"),
       'so.memo',
       'so.last_modified_netsuite',
@@ -142,7 +142,7 @@ const getSalesOrders = async (body) => {
 
     let countQuery = dbNetsuite('sales_orders as so').where('so.is_deleted', false);
     let dataQuery = dbNetsuite('sales_orders as so')
-      .leftJoin('customers as c', dbNetsuite.raw('c.netsuite_id::integer = so.entity::integer'))
+      .leftJoin('customers as c', dbNetsuite.raw('c.netsuite_id::integer = so.customer_id::integer'))
       .leftJoin('currencys as c2', 'c2.currency_id', 'so.currency')
       .select([
         'so.id',
@@ -153,7 +153,7 @@ const getSalesOrders = async (body) => {
         'so.status_name',
         'so.custbody_me_approval_status',
         'so.custbody_me_approval_status_name',
-        'so.entity as customer_id',
+        'so.customer_id',
         dbNetsuite.raw("COALESCE(NULLIF(so.customer_name, ''), c.entity_id) AS customer_name"),
         'so.memo',
         'so.last_modified_netsuite',
@@ -177,8 +177,8 @@ const getSalesOrders = async (body) => {
       dataQuery = dataQuery.where(searchFn);
     }
     if (body.customer_id) {
-      countQuery = countQuery.where('so.entity', body.customer_id.toString());
-      dataQuery = dataQuery.where('so.entity', body.customer_id.toString());
+      countQuery = countQuery.where('so.customer_id', body.customer_id.toString());
+      dataQuery = dataQuery.where('so.customer_id', body.customer_id.toString());
     }
     if (body.status_code) {
       countQuery = countQuery.where('so.status_code', body.status_code);
@@ -397,7 +397,8 @@ const createSalesOrder = async (body, user) => {
       customform: body.customform,
       subsidiary: body.subsidiary,
       subsidiary_name: body.subsidiary_name,
-      entity: body.entity,
+      entity: body.customer_id ? body.customer_id : body.entity,
+      customer_id: body.customer_id ? body.customer_id : body.entity,
       customer_name: body.customer_name,
       tran_date: body.trandate ? dateStrConvertion(body.trandate, 'YYYY-MM-DD') : null,
       startdate: body.startdate ? dateStrConvertion(body.startdate, 'YYYY-MM-DD') : null,
@@ -558,7 +559,8 @@ const updateSalesOrder = async (body, user) => {
       customform: body.customform,
       subsidiary: body.subsidiary,
       subsidiary_name: body.subsidiary_name,
-      entity: body.entity,
+      entity: body.customer_id ? body.customer_id : body.entity,
+      customer_id: body.customer_id ? body.customer_id : body.entity,
       customer_name: body.customer_name,
       tran_date: body.trandate ? dateStrConvertion(body.trandate, 'YYYY-MM-DD') : undefined,
       startdate: body.startdate ? dateStrConvertion(body.startdate, 'YYYY-MM-DD') : undefined,
