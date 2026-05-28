@@ -384,6 +384,13 @@ const createSalesOrderToBridge = async (body) => {
 const createSalesOrder = async (body, user) => {
   const trx = await dbNetsuite.transaction();
   try {
+    if (Array.isArray(body.custbody_msi_bank_payment_so)) {
+      body.custbody_msi_bank_payment_so = body.custbody_msi_bank_payment_so.join(',');
+    }
+    if (Array.isArray(body.custbody_msi_bank_payment_so_name)) {
+      body.custbody_msi_bank_payment_so_name = body.custbody_msi_bank_payment_so_name.join(',');
+    }
+
     // 1. create data ke DB netsuite tabel sales_orders
     const soData = {
       status_name: 'pending',
@@ -520,6 +527,12 @@ const updateSalesOrderToBridge = async (body) => {
 const updateSalesOrder = async (body, user) => {
   const trx = await dbNetsuite.transaction();
   try {
+    if (Array.isArray(body.custbody_msi_bank_payment_so)) {
+      body.custbody_msi_bank_payment_so = body.custbody_msi_bank_payment_so.join(',');
+    }
+    if (Array.isArray(body.custbody_msi_bank_payment_so_name)) {
+      body.custbody_msi_bank_payment_so_name = body.custbody_msi_bank_payment_so_name.join(',');
+    }
 
     const { id } = body;
     if (!id) throw { message: 'ID is required for update', statusCode: 400 };
