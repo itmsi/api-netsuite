@@ -114,7 +114,31 @@ const getBaseQuery = () => {
             'class', item_row->>'class',
             'class_name', COALESCE(NULLIF(item_row->>'class_name', ''), ic.name),
             'location', item_row->>'location',
-            'location_name', COALESCE(NULLIF(item_row->>'location_name', ''), il.name)
+            'location_name', COALESCE(NULLIF(item_row->>'location_name', ''), il.name),
+            'item_displayname', item_row->>'item_displayname',
+            'committed', item_row->>'committed',
+            'picked', item_row->>'picked',
+            'packed', item_row->>'packed',
+            'fulfilled', item_row->>'fulfilled',
+            'invoiced', item_row->>'invoiced',
+            'available', item_row->>'available',
+            'on_hand', item_row->>'on_hand',
+            'tier_price', item_row->>'tier_price',
+            'units', item_row->>'units',
+            'price_level', item_row->>'price_level',
+            'price_level_name', item_row->>'price_level_name',
+            'gross_amt_raw', item_row->>'gross_amt_raw',
+            'gross_amt', item_row->>'gross_amt',
+            'tax_amt', item_row->>'tax_amt',
+            'tax_rate', item_row->>'tax_rate',
+            'commitment_confirmed', item_row->>'commitment_confirmed',
+            'order_priority', item_row->>'order_priority',
+            'options', item_row->>'options',
+            'msi_booking_fee_unit', item_row->>'msi_booking_fee_unit',
+            'msi_down_payment_percent', item_row->>'msi_down_payment_percent',
+            'msi_down_payment_amount', item_row->>'msi_down_payment_amount',
+            'exclude_item_from_rate_req', item_row->>'exclude_item_from_rate_req',
+            'apply_wh_tax', item_row->>'apply_wh_tax'
           )
         ) FILTER (WHERE item_row IS NOT NULL) AS items
       `)
