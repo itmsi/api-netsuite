@@ -142,7 +142,9 @@ const getBaseQuery = () => {
             'apply_wh_tax', item_row->>'apply_wh_tax'
           )
         ) FILTER (WHERE item_row IS NOT NULL) AS items
-      `)
+      `),
+      'so.user_notes',
+      'so.files'
     ])
     .groupBy([
       'so.id', 'c.entity_id', 's.subsidiary_name', 'c2.currency_name', 'd.name', 'c3.name', 'l.name', 't.term_id'
