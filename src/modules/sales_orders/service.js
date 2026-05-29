@@ -169,6 +169,7 @@ const getSalesOrders = async (body) => {
     let dataQuery = dbNetsuite('sales_orders as so')
       .leftJoin('customers as c', dbNetsuite.raw('c.netsuite_id::integer = so.customer_id::integer'))
       .leftJoin('currencys as c2', 'c2.currency_id', 'so.currency')
+      .leftJoin('locations as l', dbNetsuite.raw('l.netsuite_id::integer = so.location::integer'))
       .select([
         'so.id',
         'so.netsuite_id',
@@ -187,7 +188,11 @@ const getSalesOrders = async (body) => {
         'so.currency',
         'so.total_amount',
         dbNetsuite.raw("COALESCE(NULLIF(so.currency_name, ''), c2.currency_name) AS currency_name"),
-        'so.datecreated as created_at_netsuite'
+        'so.datecreated as created_at_netsuite',
+        'so.custbody_msi_quotation_no_iec',
+        'so.location',
+        dbNetsuite.raw("COALESCE(NULLIF(so.location_name, ''), l.name) AS location_name"),
+        'so.otherrefnum'
       ])
       .where('so.is_deleted', false);
 
