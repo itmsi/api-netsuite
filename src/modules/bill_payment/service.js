@@ -148,7 +148,7 @@ const getBillPaymentList = async (body) => {
     const orderCol = validSortColumns.includes(sortByRaw) ? `bills_payments.${sortByRaw}` : 'bills_payments.trandate';
 
     let query = dbNetsuite('bills_payments')
-      .leftJoin('bill_payment_workflow_history', function() {
+      .leftJoin('bill_payment_workflow_history', function () {
         this.on(dbNetsuite.raw('CAST(bills_payments.netsuite_id AS VARCHAR)'), '=', 'bill_payment_workflow_history.payment_id');
       });
 
@@ -192,9 +192,9 @@ const getBillPaymentList = async (body) => {
     // Filter current_approver_id
     const currentApproverId = body.current_approver_id;
     const hasCurrentApprover = currentApproverId !== undefined &&
-                               currentApproverId !== null &&
-                               currentApproverId !== '' &&
-                               String(currentApproverId).toLowerCase() !== 'nan';
+      currentApproverId !== null &&
+      //  currentApproverId !== '' &&
+      String(currentApproverId).toLowerCase() !== 'nan';
     if (hasCurrentApprover) {
       query = query.where('bill_payment_workflow_history.current_approver_id', currentApproverId);
     }
