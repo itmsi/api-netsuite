@@ -98,6 +98,7 @@ const getBaseQuery = () => {
       'so.type_proccess',
       'so.status_proccess',
       'so.status_proccess_message',
+      'so.nextapprover',
       dbNetsuite.raw(`
         jsonb_agg(
           jsonb_build_object(
@@ -194,7 +195,8 @@ const getSalesOrders = async (body) => {
         'so.custbody_msi_quotation_no_iec',
         'so.location',
         dbNetsuite.raw("COALESCE(NULLIF(so.location_name, ''), l.name) AS location_name"),
-        'so.otherrefnum'
+        'so.otherrefnum',
+        'so.nextapprover'
       ])
       .where('so.is_deleted', false);
 
