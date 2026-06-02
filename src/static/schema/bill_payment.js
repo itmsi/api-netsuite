@@ -73,7 +73,8 @@ const billPaymentSchema = {
       department: { type: 'integer', example: 4 },
       location: { type: 'integer', example: 2 },
       trandate_from: { type: 'string', format: 'date', example: '2024-01-01' },
-      trandate_to: { type: 'string', format: 'date', example: '2024-12-31' }
+      trandate_to: { type: 'string', format: 'date', example: '2024-12-31' },
+      current_approver_id: { type: 'string', nullable: true, example: '123' }
     }
   }
 };

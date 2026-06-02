@@ -145,49 +145,62 @@ const getBillPaymentList = async (body) => {
       'trandate', 'last_modified_netsuite', 'created_at', 'updated_at'
     ];
     const sortByRaw = body.sort_by || 'trandate';
-    const orderCol = validSortColumns.includes(sortByRaw) ? sortByRaw : 'trandate';
+    const orderCol = validSortColumns.includes(sortByRaw) ? `bills_payments.${sortByRaw}` : 'bills_payments.trandate';
 
-    let query = dbNetsuite('bills_payments');
+    let query = dbNetsuite('bills_payments')
+      .leftJoin('bill_payment_workflow_history', function() {
+        this.on(dbNetsuite.raw('CAST(bills_payments.netsuite_id AS VARCHAR)'), '=', 'bill_payment_workflow_history.payment_id');
+      });
 
     // Filter opsional
     if (body.search) {
       query = query.where(function () {
-        this.whereILike('tranid', `%${body.search}%`)
-          .orWhereILike('transactionnumber', `%${body.search}%`)
-          .orWhereILike('entity_display', `%${body.search}%`)
-          .orWhereILike('account_display', `%${body.search}%`);
+        this.whereILike('bills_payments.tranid', `%${body.search}%`)
+          .orWhereILike('bills_payments.transactionnumber', `%${body.search}%`)
+          .orWhereILike('bills_payments.entity_display', `%${body.search}%`)
+          .orWhereILike('bills_payments.account_display', `%${body.search}%`);
       });
     }
     if (body.is_deleted !== undefined) {
-      query = query.where('is_deleted', body.is_deleted);
+      query = query.where('bills_payments.is_deleted', body.is_deleted);
     }
     if (body.entity) {
-      query = query.where('entity', body.entity);
+      query = query.where('bills_payments.entity', body.entity);
     }
     if (body.currency) {
-      query = query.where('currency', body.currency);
+      query = query.where('bills_payments.currency', body.currency);
     }
     if (body.subsidiary) {
-      query = query.where('subsidiary', body.subsidiary);
+      query = query.where('bills_payments.subsidiary', body.subsidiary);
     }
     if (body.approvalstatus) {
-      query = query.where('approvalstatus', body.approvalstatus);
+      query = query.where('bills_payments.approvalstatus', body.approvalstatus);
     }
     if (body.department) {
-      query = query.where('department', body.department);
+      query = query.where('bills_payments.department', body.department);
     }
     if (body.location) {
-      query = query.where('location', body.location);
+      query = query.where('bills_payments.location', body.location);
     }
     if (body.trandate_from) {
-      query = query.where('trandate', '>=', body.trandate_from);
+      query = query.where('bills_payments.trandate', '>=', body.trandate_from);
     }
     if (body.trandate_to) {
-      query = query.where('trandate', '<=', body.trandate_to);
+      query = query.where('bills_payments.trandate', '<=', body.trandate_to);
+    }
+
+    // Filter current_approver_id
+    const currentApproverId = body.current_approver_id;
+    const hasCurrentApprover = currentApproverId !== undefined &&
+                               currentApproverId !== null &&
+                               currentApproverId !== '' &&
+                               String(currentApproverId).toLowerCase() !== 'nan';
+    if (hasCurrentApprover) {
+      query = query.where('bill_payment_workflow_history.current_approver_id', currentApproverId);
     }
 
     // Hitung total
-    const countResult = await query.clone().count('* as total').first();
+    const countResult = await query.clone().countDistinct('bills_payments.id as total').first();
     const total = parseInt(countResult.total) || 0;
     const totalPages = Math.ceil(total / limit);
 
@@ -195,44 +208,45 @@ const getBillPaymentList = async (body) => {
     const rows = await query
       .clone()
       .select([
-        'id',
-        'netsuite_id',
-        'transactionnumber',
-        'tranid',
-        'entity_display',
-        'account_display',
-        'currency_display',
-        'postingperiod_display',
-        'custbody_me_wf_created_by_display',
-        'approvalstatus_display',
-        'subsidiary_display',
-        'class_display',
-        'department_display',
-        'location_display',
-        'custbody_cseg_cn_cfi_display',
-        'entity',
-        'account',
-        'currency',
-        'postingperiod',
-        'custbody_me_wf_created_by',
-        'approvalstatus',
-        'subsidiary',
-        'class',
-        'department',
-        'location',
-        'custbody_cseg_cn_cfi',
-        'total',
-        'exchangerate',
-        'trandate',
-        'last_modified_netsuite',
-        'next_approver',
-        'delegate_approver',
-        'in_delegation',
-        'next_approver_blank',
-        'created_at',
-        'updated_at',
-        'is_deleted'
+        'bills_payments.id',
+        'bills_payments.netsuite_id',
+        'bills_payments.transactionnumber',
+        'bills_payments.tranid',
+        'bills_payments.entity_display',
+        'bills_payments.account_display',
+        'bills_payments.currency_display',
+        'bills_payments.postingperiod_display',
+        'bills_payments.custbody_me_wf_created_by_display',
+        'bills_payments.approvalstatus_display',
+        'bills_payments.subsidiary_display',
+        'bills_payments.class_display',
+        'bills_payments.department_display',
+        'bills_payments.location_display',
+        'bills_payments.custbody_cseg_cn_cfi_display',
+        'bills_payments.entity',
+        'bills_payments.account',
+        'bills_payments.currency',
+        'bills_payments.postingperiod',
+        'bills_payments.custbody_me_wf_created_by',
+        'bills_payments.approvalstatus',
+        'bills_payments.subsidiary',
+        'bills_payments.class',
+        'bills_payments.department',
+        'bills_payments.location',
+        'bills_payments.custbody_cseg_cn_cfi',
+        'bills_payments.total',
+        'bills_payments.exchangerate',
+        'bills_payments.trandate',
+        'bills_payments.last_modified_netsuite',
+        'bills_payments.next_approver',
+        'bills_payments.delegate_approver',
+        'bills_payments.in_delegation',
+        'bills_payments.next_approver_blank',
+        'bills_payments.created_at',
+        'bills_payments.updated_at',
+        'bills_payments.is_deleted'
       ])
+      .groupBy('bills_payments.netsuite_id', 'bills_payments.id')
       .orderBy(orderCol, sortOrder)
       .limit(limit)
       .offset(offset);
