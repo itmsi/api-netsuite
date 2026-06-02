@@ -99,6 +99,7 @@ const getBaseQuery = () => {
       'so.status_proccess',
       'so.status_proccess_message',
       'so.nextapprover',
+      'so.custbody_msi_createdby_api',
       dbNetsuite.raw(`
         jsonb_agg(
           jsonb_build_object(
