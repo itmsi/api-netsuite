@@ -604,6 +604,7 @@ const approvePurchaseOrder = async (body) => {
       netsuite_id: null,
       transaction: transactionType,
       note: note,
+      note_title: body.noteTitle || null,
       purchase_order_id: id,
       status: 'pending',
       created_at: new Date(),
