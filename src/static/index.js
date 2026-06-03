@@ -47,6 +47,7 @@ const termsSchema = require('./schema/terms');
 const syncSchema = require('./schema/sync');
 const salesOrdersSchema = require('./schema/sales_orders');
 const bankSchema = require('./schema/bank');
+const billPaymentSchema = require('./schema/bill_payment');
 const poStatusSchema = require('./schema/po_status');
 const approvalStatusSchema = require('./schema/approval_status');
 const emailSchema = require('./schema/email');
@@ -71,6 +72,7 @@ const termsPaths = require('./path/terms');
 const syncPaths = require('./path/sync');
 const salesOrdersPaths = require('./path/sales_orders');
 const bankPaths = require('./path/bank');
+const billPaymentPaths = require('./path/bill_payment');
 const poStatusPaths = require('./path/po_status');
 const approvalStatusPaths = require('./path/approval_status');
 const emailPaths = require('./path/email');
@@ -96,6 +98,7 @@ const schemas = {
   ...syncSchema,
   ...salesOrdersSchema,
   ...bankSchema,
+  ...billPaymentSchema,
   ...poStatusSchema,
   ...approvalStatusSchema,
   ...emailSchema,
@@ -122,6 +125,7 @@ const paths = {
   ...syncPaths,
   ...salesOrdersPaths,
   ...bankPaths,
+  ...billPaymentPaths,
   ...poStatusPaths,
   ...approvalStatusPaths,
   ...emailPaths,

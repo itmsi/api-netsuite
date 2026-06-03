@@ -35,6 +35,21 @@ const methodExecution = async (payload, channel, msg) => {
     if (result && (result.success || result.soId || result.so_id || result.data?.id)) {
       const soId = result.soId || result.so_id || result.data?.id || result.data?.soId
 
+      // Check if there are temporary files in the payload to finalize
+      const files = data.files || [];
+      if (files.length > 0) {
+        const tempFile = files.find(f => f.soId || f.so_id);
+        const tempSoId = tempFile ? (tempFile.soId || tempFile.so_id) : null;
+        if (tempSoId && soId) {
+          console.info(`[Worker] Found temporary SO ID: ${tempSoId}, finalizing files to real SO ID: ${soId}`);
+          try {
+            await salesService.finalizeUploadedFilesForSO(tempSoId, soId);
+          } catch (finalizeErr) {
+            console.error(`[Worker] Error finalizing uploaded files for SO:`, finalizeErr.message);
+          }
+        }
+      }
+
       // Update outbox event status
       await salesService.updateEventStatus(event_id, 'SUCCESS', result)
 

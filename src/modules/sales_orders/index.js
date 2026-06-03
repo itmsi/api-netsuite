@@ -2,6 +2,12 @@ const express = require('express');
 const router = express.Router();
 const controller = require('./controller');
 const { verifyToken } = require('../../middlewares');
+const multer = require('multer');
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: parseInt(process.env.UPLOAD_MAX_SIZE || '52428800') }
+});
 
 /**
  * @route   POST /api/netsuite/sales-orders/get
@@ -67,6 +73,52 @@ router.get(
   '/sync/:id',
   verifyToken,
   controller.syncById
+);
+
+/**
+ * @route   POST /api/netsuite/sales-orders/upload
+ * @desc    Upload file to Nextcloud Temp Directory
+ * @access  Private
+ */
+router.post(
+  '/upload',
+  verifyToken,
+  upload.single('file'),
+  controller.uploadTempFile
+);
+
+/**
+ * @route   POST /api/netsuite/sales-orders/upload/finalize
+ * @desc    Finalize file upload by moving from temp to so folder
+ * @access  Private
+ */
+router.post(
+  '/upload/finalize',
+  verifyToken,
+  controller.finalizeUpload
+);
+
+/**
+ * @route   POST /api/netsuite/sales-orders/upload-delete
+ * @desc    Delete uploaded file by share_url from database and Nextcloud
+ * @access  Private
+ */
+router.post(
+  '/upload-delete',
+  verifyToken,
+  controller.deleteUpload
+);
+
+/**
+ * @route   POST /api/netsuite/sales-orders/upload-update
+ * @desc    Update uploaded file by share_url (either replacement file, new file_name, or both)
+ * @access  Private
+ */
+router.post(
+  '/upload-update',
+  verifyToken,
+  upload.single('file'),
+  controller.updateUpload
 );
 
 module.exports = router;

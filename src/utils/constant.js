@@ -534,6 +534,12 @@ module.exports = {
       data: { page: 1, page_size: 50, is_sync: true },
       table: 'customers',
       deleteCol: 'is_deleted'
+    },
+    bill_payments: {
+      url: `${process.env.BRIDGE_BASE_URL || 'http://localhost:9570'}/api/v1/bridge/bills-payments/get`,
+      data: { page: 1, page_size: 10, is_sync: true },
+      table: 'bills_payments',
+      deleteCol: 'is_deleted'
     }
   }
 }

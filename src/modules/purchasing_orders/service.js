@@ -46,6 +46,7 @@ const getPurchaseOrders = async (body) => {
       query = query.where(function () {
         this.whereILike('po.po_id', `%${body.search}%`)
           .orWhereILike('po.po_number', `%${body.search}%`)
+          .orWhereILike('po.custbody_me_pr_number', `%${body.search}%`)
           .orWhereILike('po.vendor_name', `%${body.search}%`)
           .orWhereILike('po.memo', `%${body.search}%`);
       });
@@ -604,6 +605,7 @@ const approvePurchaseOrder = async (body) => {
       netsuite_id: null,
       transaction: transactionType,
       note: note,
+      note_title: body.noteTitle || null,
       purchase_order_id: id,
       status: 'pending',
       created_at: new Date(),
@@ -1102,15 +1104,21 @@ const updatePurchaseOrder = async (body, user) => {
   try {
     const { id } = body;
 
-    const record = await trx('purchase_orders').where('po_id', id).first();
+    // const record = await trx('purchase_orders').where('po_id', id).first();
+    const record = await trx('purchase_orders')
+      .where(function () {
+        this.where('po_id', id)
+          .orWhereRaw('id::text = ?', [id]);
+      })
+      .first();
 
     if (!record) {
       throw { message: `Purchase order dengan ID ${id} tidak ditemukan secara lokal`, statusCode: 404 };
     }
 
     const localId = record.id;
-
-
+    const netsuiteId = record.po_id;
+    const is_update = record.po_id ? true : false;
 
     // 1. Update data di DB lokal dulu
     const updateData = {
@@ -1139,10 +1147,10 @@ const updatePurchaseOrder = async (body, user) => {
 
     // 2. Insert data ke tabel outbox_events dan outbox_event_logs
     const eventData = {
-      event_type: 'UPDATE',
+      event_type: is_update ? 'UPDATE' : 'CREATE',
       payload: JSON.stringify(body),
       aggregate_id: localId,
-      aggregate_type: 'purchase_order_update',
+      aggregate_type: is_update ? 'purchase_order_update' : 'purchase_order_create',
       status: 'WAITING',
       retry_count: 0,
       max_retry: 3,
@@ -1159,7 +1167,7 @@ const updatePurchaseOrder = async (body, user) => {
       outbox_event_id: eventId,
       properties: JSON.stringify({
         response: {
-          message: 'Update queued for processing',
+          message: is_update ? 'Update queued for processing' : 'Create queued for processing',
           status: 'WAITING'
         }
       }),
@@ -1169,25 +1177,53 @@ const updatePurchaseOrder = async (body, user) => {
 
     await trx.commit();
 
-    // 3. Menambahkan queue untuk rabbitmq
-    const { publishToRabbitMqQueueSingle } = require('../../config/rabbitmq');
-    const { EXCHANGES, QUEUE } = require('../../utils/constant');
+    if (is_update) {
+      // 3. Menambahkan queue untuk rabbitmq proses update
+      const { publishToRabbitMqQueueSingle } = require('../../config/rabbitmq');
+      const { EXCHANGES, QUEUE } = require('../../utils/constant');
 
-    await publishToRabbitMqQueueSingle(
-      EXCHANGES.PURCHASE_ORDER_UPDATE,
-      QUEUE.PURCHASE_ORDER_UPDATE,
-      {
-        event_id: eventId,
-        po_internal_id: localId,
-        data: body
-      },
-      {
-        durable: true,
-        arguments: {
-          'x-dead-letter-exchange': `${EXCHANGES.PURCHASE_ORDER_UPDATE}-retry`
+      // Ganti body.id dengan netsuiteId sebelum dikirim ke queue update
+      const bodyWithNetsuiteId = { ...body, id: netsuiteId };
+
+      await publishToRabbitMqQueueSingle(
+        EXCHANGES.PURCHASE_ORDER_UPDATE,
+        QUEUE.PURCHASE_ORDER_UPDATE,
+        {
+          event_id: eventId,
+          po_internal_id: localId,
+          data: bodyWithNetsuiteId
+        },
+        {
+          durable: true,
+          arguments: {
+            'x-dead-letter-exchange': `${EXCHANGES.PURCHASE_ORDER_UPDATE}-retry`
+          }
         }
-      }
-    );
+      );
+    } else {
+      // 3. Menambahkan queue untuk rabbitmq proses create
+      const { publishToRabbitMqQueueSingle } = require('../../config/rabbitmq');
+      const { EXCHANGES, QUEUE } = require('../../utils/constant');
+
+      // Hilangkan payload id sebelum dikirim ke queue create (seperti unset di PHP)
+      const { id: _removedId, ...bodyWithoutId } = body;
+
+      await publishToRabbitMqQueueSingle(
+        EXCHANGES.PURCHASE_ORDER_CREATE,
+        QUEUE.PURCHASE_ORDER_CREATE,
+        {
+          event_id: eventId,
+          po_internal_id: localId,
+          data: bodyWithoutId
+        },
+        {
+          durable: true,
+          arguments: {
+            'x-dead-letter-exchange': `${EXCHANGES.PURCHASE_ORDER_CREATE}-retry`
+          }
+        }
+      );
+    }
 
     return {
       success: true,

@@ -171,7 +171,8 @@ const purchasingOrdersSchemas = {
       custbody_msi_submit_app_api: { type: 'boolean', example: false },
       custbody_msi_reopen_api: { type: 'boolean', example: true },
       custbody_msi_resubmit_api: { type: 'boolean', example: false },
-      note: { type: 'string', example: 'ini process resubmit' }
+      note: { type: 'string', example: 'ini process resubmit' },
+      noteTitle: { type: 'string', example: 'dharmaridwan@motorsights.net' }
     }
   },
   PurchaseOrderApprovalResponse: {

@@ -56,8 +56,9 @@ const methodExecution = async (payload, channel, msg) => {
 
       console.error(`[Worker] Error processing PO Update Event ${event_id}:`, errorMessage);
 
+      const allowRetry = false; //jika tidak mau ada deadleatter
       // Cek apakah masih bisa auto-retry berdasarkan retry_count dan max_retry di DB
-      const allowRetry = await purchasingService.canAutoRetry(event_id);
+      // const allowRetry = await purchasingService.canAutoRetry(event_id);
 
       if (allowRetry) {
         // Increment retry_count di DB dan nack ke DLQ
