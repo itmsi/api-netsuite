@@ -1022,12 +1022,12 @@ const getReceiveById = async (id) => {
     // }
 
     const baseQuery = () => dbNetsuite('receives as r')
-      .leftJoin('vendors as v', dbNetsuite.raw('r.vendor_id::integer = v.netsuite_id::integer'))
-      .leftJoin('customforms as c', dbNetsuite.raw('c.customform_id::integer = r.createdfrom::integer'))
-      .leftJoin('subsidiarys as s', dbNetsuite.raw('s.subsidiary_id::integer = r.subsidiary::integer'))
-      .leftJoin('locations as l', dbNetsuite.raw('l.netsuite_id::integer = r.location::integer'))
-      .leftJoin('departments as d', dbNetsuite.raw('d.netsuite_id::integer = r.department::integer'))
-      .leftJoin('class as c2', dbNetsuite.raw('c2.netsuite_id::integer = r.class::integer'))
+      .leftJoin('vendors as v', dbNetsuite.raw("NULLIF(r.vendor_id, '')::integer = v.netsuite_id::integer"))
+      .leftJoin('customforms as c', dbNetsuite.raw("c.customform_id::integer = NULLIF(r.createdfrom, '')::integer"))
+      .leftJoin('subsidiarys as s', dbNetsuite.raw("s.subsidiary_id::integer = NULLIF(r.subsidiary, '')::integer"))
+      .leftJoin('locations as l', dbNetsuite.raw("l.netsuite_id::integer = NULLIF(r.location, '')::integer"))
+      .leftJoin('departments as d', dbNetsuite.raw("d.netsuite_id::integer = NULLIF(r.department, '')::integer"))
+      .leftJoin('class as c2', dbNetsuite.raw("c2.netsuite_id::integer = NULLIF(r.class, '')::integer"))
       // Joins for lines lines enrichment
       .leftJoin(dbNetsuite.raw("LATERAL jsonb_array_elements(COALESCE(r.lines, '[]'::jsonb)) AS line ON TRUE"))
       .leftJoin('items as i', dbNetsuite.raw("(line->>'item') = i.netsuite_id::text"))
@@ -1540,12 +1540,12 @@ const getReceiveList = async (body) => {
 
     const items = await query
       .clone()
-      .leftJoin('vendors as v', dbNetsuite.raw('r.vendor_id::integer = v.netsuite_id::integer'))
-      .leftJoin('customforms as c', dbNetsuite.raw('c.customform_id::integer = r.createdfrom::integer'))
-      .leftJoin('subsidiarys as s', dbNetsuite.raw('s.subsidiary_id::integer = r.subsidiary::integer'))
-      .leftJoin('locations as l', dbNetsuite.raw('l.netsuite_id::integer = r.location::integer'))
-      .leftJoin('departments as d', dbNetsuite.raw('d.netsuite_id::integer = r.department::integer'))
-      .leftJoin('class as c2', dbNetsuite.raw('c2.netsuite_id::integer = r.class::integer'))
+      .leftJoin('vendors as v', dbNetsuite.raw("NULLIF(r.vendor_id, '')::integer = v.netsuite_id::integer"))
+      .leftJoin('customforms as c', dbNetsuite.raw("c.customform_id::integer = NULLIF(r.createdfrom, '')::integer"))
+      .leftJoin('subsidiarys as s', dbNetsuite.raw("s.subsidiary_id::integer = NULLIF(r.subsidiary, '')::integer"))
+      .leftJoin('locations as l', dbNetsuite.raw("l.netsuite_id::integer = NULLIF(r.location, '')::integer"))
+      .leftJoin('departments as d', dbNetsuite.raw("d.netsuite_id::integer = NULLIF(r.department, '')::integer"))
+      .leftJoin('class as c2', dbNetsuite.raw("c2.netsuite_id::integer = NULLIF(r.class, '')::integer"))
 
       .select([
         'r.id',
