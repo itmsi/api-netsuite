@@ -1001,25 +1001,25 @@ const getPurchaseOrderById = async (id) => {
 const getReceiveById = async (id) => {
   try {
     // 1. Sync data dari bridge API terlebih dahulu
-    try {
-      const tokenResponse = await authService.getToken();
-      const token = tokenResponse.data.access_token;
+    // try {
+    //   const tokenResponse = await authService.getToken();
+    //   const token = tokenResponse.data.access_token;
 
-      const baseUrl = process.env.BRIDGE_BASE_URL || 'https://api-bridge-sb.motorsights.com';
-      const url = `${baseUrl}/api/v1/bridge/receives/sync/${id}`;
+    //   const baseUrl = process.env.BRIDGE_BASE_URL || 'https://api-bridge-sb.motorsights.com';
+    //   const url = `${baseUrl}/api/v1/bridge/receives/sync/${id}`;
 
-      await axios.get(url, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        timeout: 150000
-      });
-      console.info(`[Service] Successfully synced receive ${id} from bridge API`);
-    } catch (syncError) {
-      console.error(`[Service] Failed to sync receive ${id} from bridge API:`, syncError.message);
-      // Lanjutkan eksekusi agar tidak memblokir pengambilan data dari DB jika gagal
-    }
+    //   await axios.get(url, {
+    //     headers: {
+    //       'Content-Type': 'application/json',
+    //       'Authorization': `Bearer ${token}`
+    //     },
+    //     timeout: 150000
+    //   });
+    //   console.info(`[Service] Successfully synced receive ${id} from bridge API`);
+    // } catch (syncError) {
+    //   console.error(`[Service] Failed to sync receive ${id} from bridge API:`, syncError.message);
+    //   // Lanjutkan eksekusi agar tidak memblokir pengambilan data dari DB jika gagal
+    // }
 
     const baseQuery = () => dbNetsuite('receives as r')
       .leftJoin('vendors as v', dbNetsuite.raw('r.vendor_id::integer = v.netsuite_id::integer'))
