@@ -35,7 +35,7 @@ const methodExecution = async (payload, channel, msg) => {
 
     if (result && (result.success || result.poId || result.po_id)) {
       const poId = result.poId || result.po_id || result.data?.id
-      
+
       // Check if there are temporary files in the payload to finalize
       const files = data.files || [];
       if (files.length > 0) {
@@ -84,8 +84,9 @@ const methodExecution = async (payload, channel, msg) => {
 
       console.error(`[Worker] Error processing PO Event ${event_id}:`, errorMessage);
 
+      const allowRetry = false; //jika tidak mau ada deadleatter
       // Cek apakah masih bisa auto-retry berdasarkan retry_count dan max_retry di DB
-      const allowRetry = await purchasingService.canAutoRetry(event_id)
+      // const allowRetry = await purchasingService.canAutoRetry(event_id)
 
       if (allowRetry) {
         // Increment retry_count di DB dan nack ke DLQ
