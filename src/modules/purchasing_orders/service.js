@@ -1000,6 +1000,27 @@ const getPurchaseOrderById = async (id) => {
  */
 const getReceiveById = async (id) => {
   try {
+    // 1. Sync data dari bridge API terlebih dahulu
+    // try {
+    //   const tokenResponse = await authService.getToken();
+    //   const token = tokenResponse.data.access_token;
+
+    //   const baseUrl = process.env.BRIDGE_BASE_URL || 'https://api-bridge-sb.motorsights.com';
+    //   const url = `${baseUrl}/api/v1/bridge/receives/sync/${id}`;
+
+    //   await axios.get(url, {
+    //     headers: {
+    //       'Content-Type': 'application/json',
+    //       'Authorization': `Bearer ${token}`
+    //     },
+    //     timeout: 150000
+    //   });
+    //   console.info(`[Service] Successfully synced receive ${id} from bridge API`);
+    // } catch (syncError) {
+    //   console.error(`[Service] Failed to sync receive ${id} from bridge API:`, syncError.message);
+    //   // Lanjutkan eksekusi agar tidak memblokir pengambilan data dari DB jika gagal
+    // }
+
     const baseQuery = () => dbNetsuite('receives as r')
       .leftJoin('vendors as v', dbNetsuite.raw('r.vendor_id::integer = v.netsuite_id::integer'))
       .leftJoin('customforms as c', dbNetsuite.raw('c.customform_id::integer = r.createdfrom::integer'))
@@ -1052,6 +1073,7 @@ const getReceiveById = async (id) => {
                 'location', line->>'location',
                 'quantity', line->>'quantity',
                 'department', line->>'department',
+                'description', line->>'description',
                 'item_display', COALESCE(NULLIF(line->>'item_display', ''), i.display_name),
                 'class_display', COALESCE(NULLIF(line->>'class_display', ''), c_line.name),
                 'inventorydetail', line->>'inventorydetail',

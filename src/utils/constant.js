@@ -540,6 +540,12 @@ module.exports = {
       data: { page: 1, page_size: 10, is_sync: true },
       table: 'bills_payments',
       deleteCol: 'is_deleted'
+    },
+    receives: {
+      url: `${process.env.BRIDGE_BASE_URL || 'http://localhost:9570'}/api/v1/bridge/receives/get-list`,
+      data: { page: 1, page_size: 10, is_sync: true, sort_by: 'lastmodifieddate', sort_order: 'DESC', filters: {} },
+      table: 'receives',
+      deleteCol: null
     }
   }
 }
