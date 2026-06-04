@@ -3,6 +3,58 @@
  */
 
 const purchasingOrdersPaths = {
+  '/purchasing-orders/dashboard': {
+    post: {
+      tags: ['Purchasing Orders'],
+      summary: 'Get purchase orders dashboard',
+      description: 'Fetch purchase orders without pagination for dashboard display.',
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: { $ref: '#/components/schemas/PurchaseOrderListRequest' }
+          }
+        }
+      },
+      responses: {
+        200: {
+          description: 'Success',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  success: { type: 'boolean', example: true },
+                  data: {
+                    type: 'object',
+                    properties: {
+                      items: {
+                        type: 'array',
+                        items: { $ref: '#/components/schemas/PurchaseOrderDashboardItem' }
+                      },
+                      pending_approval: { type: 'integer', example: 5 },
+                      pending_receipt: { type: 'integer', example: 3 },
+                      pending_bill: { type: 'integer', example: 12 }
+                    }
+                  },
+                  message: { type: 'string', example: 'Data purchase orders dashboard berhasil diambil' }
+                }
+              }
+            }
+          }
+        },
+        500: {
+          description: 'Internal Server Error',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+            }
+          }
+        }
+      }
+    }
+  },
   '/purchasing-orders/get-list': {
     post: {
       tags: ['Purchasing Orders'],

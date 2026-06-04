@@ -208,6 +208,114 @@ const syncPurchaseOrders = async (body) => {
   }
 };
 
+/**
+ * Get purchase orders dashboard (no pagination, limited select)
+ */
+const getDashboard = async (body) => {
+  try {
+    const sortOrder = body.sort_order ? body.sort_order.toUpperCase() : 'DESC';
+
+    // Kolom yang boleh dijadikan sort_by
+    const validSortColumns = [
+      'po_id', 'po_number', 'po_date', 'po_status', 'vendor_id', 'vendor_name',
+      'subsidiary', 'location', 'class', 'department', 'last_modified',
+      'foreigntotal', 'total', 'approvalstatus', 'created_at', 'updated_at'
+    ];
+    let orderCol = validSortColumns.includes(body.sort_by) ? body.sort_by : 'last_modified';
+    if (orderCol === 'created_at') {
+      orderCol = dbNetsuite.raw("COALESCE(NULLIF(po.datecreated, '')::timestamp, po.created_at)");
+    } else {
+      orderCol = `po.${orderCol}`;
+    }
+
+    let query = dbNetsuite('purchase_orders as po');
+
+    // Filter opsional
+    if (body.search) {
+      query = query.where(function () {
+        this.whereILike('po.po_id', `%${body.search}%`)
+          .orWhereILike('po.po_number', `%${body.search}%`)
+          .orWhereILike('po.custbody_me_pr_number', `%${body.search}%`)
+          .orWhereILike('po.vendor_name', `%${body.search}%`)
+          .orWhereILike('po.memo', `%${body.search}%`);
+      });
+    }
+    if (body.subsidiary) {
+      query = query.where('po.subsidiary', body.subsidiary);
+    }
+    if (body.location) {
+      query = query.where('po.location', body.location);
+    }
+
+    // Handle classes filter (parent and children)
+    let classIds = [];
+    if (body.classes) {
+      const parentIdStr = body.classes.toString();
+      classIds.push(parentIdStr);
+
+      const children = await dbNetsuite('class')
+        .select('netsuite_id')
+        .where('parent_id', parentIdStr)
+        .andWhere('is_delete', false)
+        .whereNull('deleted_at');
+
+      if (children && children.length > 0) {
+        children.forEach(child => {
+          if (child.netsuite_id) classIds.push(child.netsuite_id.toString());
+        });
+      }
+    }
+
+    if (classIds.length > 0) {
+      query = query.whereIn('po.class', classIds);
+    }
+
+    // Hitung counts sebelum filter status
+    const countQuery = query.clone();
+    const countResult = await countQuery
+      .select(
+        dbNetsuite.raw(`COUNT(CASE WHEN po.approvalstatus_display = 'Pending Approval' THEN 1 END) as pending_approval`),
+        dbNetsuite.raw(`COUNT(CASE WHEN po.po_status_label = 'Pending Receipt' THEN 1 END) as pending_receipt`),
+        dbNetsuite.raw(`COUNT(CASE WHEN po.po_status_label = 'Pending Bill' THEN 1 END) as pending_bill`)
+      )
+      .first();
+
+    if (body.po_status) { //filter kolom dispay saja
+      query = query.where('po.po_status_label', body.po_status);
+    }
+
+    if (body.approvalstatus) { //filter kolom dispay saja
+      query = query.where('po.approvalstatus_display', body.approvalstatus);
+    }
+
+    const items = await query
+      .leftJoin('subsidiarys as s', 'po.subsidiary', 's.subsidiary_id')
+      .select([
+        'po.id',
+        'po.po_id',
+        dbNetsuite.raw("COALESCE(NULLIF(po.subsidiary_display, ''), s.subsidiary_name) AS subsidiary_display"),
+        'po.po_number',
+        'po.po_date',
+        'po.approvalstatus',
+        'po.approvalstatus_display',
+        'po.nextapprover',
+        'po.po_status',
+        'po.po_status_label'
+      ])
+      .orderBy(orderCol, sortOrder);
+
+    return {
+      items,
+      pending_approval: parseInt(countResult?.pending_approval || 0),
+      pending_receipt: parseInt(countResult?.pending_receipt || 0),
+      pending_bill: parseInt(countResult?.pending_bill || 0)
+    };
+
+  } catch (error) {
+    throw { message: error.message || 'Failed to fetch purchase orders dashboard from database', statusCode: 500 };
+  }
+};
+
 const createPurchaseOrder = async (body, user) => {
   const trx = await dbNetsuite.transaction();
   try {
@@ -1981,6 +2089,7 @@ const getPurchaseOrderByPoId = async (poId) => {
 
 module.exports = {
   getPurchaseOrders,
+  getDashboard,
   printPurchaseOrder,
   syncPurchaseOrders,
   createPurchaseOrder,

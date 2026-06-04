@@ -69,6 +69,21 @@ const purchasingOrdersSchemas = {
       }
     }
   },
+  PurchaseOrderDashboardItem: {
+    type: 'object',
+    properties: {
+      id: { type: 'string', example: 'df49c5c7-f6e9-407b-8813-155d271b4820' },
+      po_id: { type: 'string', example: '19964' },
+      subsidiary_display: { type: 'string', example: 'PT Indonesia Equipment Centre' },
+      po_number: { type: 'string', example: 'PO-IEC-2026-000120' },
+      po_date: { type: 'string', example: '3/6/2026' },
+      approvalstatus: { type: 'integer', example: 1 },
+      approvalstatus_display: { type: 'string', example: 'Pending Approval' },
+      nextapprover: { type: 'string', example: 'MSIJKT2311139 - Oscar Feriady Hadi Saputra' },
+      po_status: { type: 'string', example: 'pendingSupApproval' },
+      po_status_label: { type: 'string', example: 'Pending Supervisor Approval' }
+    }
+  },
   PurchaseOrderListRequest: {
     type: 'object',
     properties: {

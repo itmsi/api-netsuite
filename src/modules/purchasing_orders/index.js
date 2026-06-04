@@ -9,6 +9,17 @@ const upload = multer({
   limits: { fileSize: parseInt(process.env.UPLOAD_MAX_SIZE || '52428800') }
 });
 
+/**
+ * @route   POST /api/purchasing-orders/dashboard
+ * @desc    Get purchase orders dashboard from bridge API
+ * @access  Private
+ */
+router.post(
+  '/dashboard',
+  verifyToken,
+  controller.dashboard
+);
+
 
 /**
  * @route   POST /api/purchasing-orders/get-list
