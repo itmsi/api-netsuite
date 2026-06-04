@@ -982,30 +982,6 @@ const getPurchaseOrderById = async (id) => {
       // delete record.lines;
     }
 
-    if (record && record.user_notes) {
-      try {
-        let notes = typeof record.user_notes === 'string' ? JSON.parse(record.user_notes) : record.user_notes;
-        if (Array.isArray(notes)) {
-          notes.sort((a, b) => {
-            const parseDate = (dateStr) => {
-              if (!dateStr) return 0;
-              const parts = dateStr.match(/(\d+)\/(\d+)\/(\d+)\s+(\d+):(\d+)\s+([ap]m)/i);
-              if (!parts) return new Date(dateStr).getTime() || 0;
-              let [_, d, m, y, h, min, ampm] = parts;
-              h = parseInt(h, 10);
-              if (ampm.toLowerCase() === 'pm' && h < 12) h += 12;
-              if (ampm.toLowerCase() === 'am' && h === 12) h = 0;
-              return new Date(y, parseInt(m, 10) - 1, d, h, min).getTime();
-            };
-            return parseDate(b.date) - parseDate(a.date);
-          });
-          record.user_notes = notes;
-        }
-      } catch (e) {
-        console.error('Failed to sort user_notes:', e.message);
-      }
-    }
-
     return {
       success: true,
       data: record,
