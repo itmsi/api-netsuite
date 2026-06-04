@@ -247,6 +247,14 @@ const getDashboard = async (body) => {
       query = query.where('po.location', body.location);
     }
 
+    if (body.po_status) { //filter kolom dispay saja
+      query = query.where('po.po_status_label', body.po_status);
+    }
+
+    if (body.approvalstatus) { //filter kolom dispay saja
+      query = query.where('po.approvalstatus_display', body.approvalstatus);
+    }
+
     // Handle classes filter (parent and children)
     let classIds = [];
     if (body.classes) {
@@ -290,6 +298,7 @@ const getDashboard = async (body) => {
 
     const items = await query
       .leftJoin('subsidiarys as s', 'po.subsidiary', 's.subsidiary_id')
+      .leftJoin('vendors as v', dbNetsuite.raw('po.vendor_id = v.netsuite_id::integer'))
       .select([
         'po.id',
         'po.po_id',
@@ -300,7 +309,13 @@ const getDashboard = async (body) => {
         'po.approvalstatus_display',
         'po.nextapprover',
         'po.po_status',
-        'po.po_status_label'
+        'po.po_status_label',
+        'po.memo',
+        dbNetsuite.raw("COALESCE(NULLIF(po.vendor_name, ''), v.name) AS vendor_name"),
+        'po.currency_symbol',
+        'po.total',
+        'po.custbody_msi_createdby_api',
+        'po.last_modified'
       ])
       .orderBy(orderCol, sortOrder);
 
