@@ -353,21 +353,21 @@ const methodExecution = async (payload, channel, msg) => {
       if (moduleName === 'invoice_sales_orders') {
         await processModuleSyncInvoiceSalesOrders();
       }
-      if (moduleName === 'classes') {
-        await processModuleSyncClasses();
-      }
-      if (moduleName === 'vendors') {
-        await processModuleSyncVendors();
-      }
-      if (moduleName === 'terms') {
-        await processModuleSyncTerms();
-      }
-      if (moduleName === 'locations') {
-        await processModuleSyncLocations();
-      }
-      if (moduleName === 'items') {
-        await processModuleSyncItems();
-      }
+      // if (moduleName === 'classes') {
+      //   await processModuleSyncClasses();
+      // }
+      // if (moduleName === 'vendors') {
+      //   await processModuleSyncVendors();
+      // }
+      // if (moduleName === 'terms') {
+      //   await processModuleSyncTerms();
+      // }
+      // if (moduleName === 'locations') {
+      //   await processModuleSyncLocations();
+      // }
+      // if (moduleName === 'items') {
+      //   await processModuleSyncItems();
+      // }
 
     }
 
