@@ -30,6 +30,33 @@ const getList = async (req, res) => {
 };
 
 /**
+ * Get purchasing orders dashboard (no pagination)
+ */
+const dashboard = async (req, res) => {
+  try {
+    const result = await service.getDashboard(req.body);
+
+    const syncInfo = await syncService.getLatestSyncInfo('purchasing_orders').catch(() => null);
+
+    return baseResponse(res, {
+      data: {
+        success: true,
+        data: result,
+        sync_info: syncInfo,
+        message: 'Data purchase orders dashboard berhasil diambil'
+      }
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || 'Internal Server Error',
+      errors: error.errors || error
+    });
+  }
+};
+
+/**
  * Create new purchase order
  */
 const create = async (req, res) => {
@@ -873,6 +900,7 @@ const updateUpload = async (req, res) => {
 module.exports = {
 
   getList,
+  dashboard,
   print,
   sync,
   create,

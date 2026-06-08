@@ -489,7 +489,7 @@ module.exports = {
     },
     invoice_sales_orders: {
       url: `${process.env.BRIDGE_BASE_URL || 'http://localhost:9570'}/api/v1/bridge/invoice-sales-orders/get`,
-      data: { page: 1, page_size: 200, sort_by: 'id', sort_order: 'desc', is_sync: true, filters: {} },
+      data: { page: 1, page_size: 200, sort_by: 'lastmodifieddate', sort_order: 'DESC', is_sync: true, filters: {} },
       table: 'invoice_sales_orders',
       deleteCol: 'is_deleted'
     },
@@ -501,25 +501,25 @@ module.exports = {
     },
     locations: {
       url: `${process.env.BRIDGE_BASE_URL || 'http://localhost:9570'}/api/v1/bridge/locations/get`,
-      data: { page: 1, page_size: 30, sort_by: 'last_modified_netsuite', sort_order: 'DESC', is_sync: true, filters: {} },
+      data: { page: 1, page_size: 30, sort_by: 'lastmodifieddate', sort_order: 'DESC', is_sync: true, filters: {} },
       table: 'locations',
       deleteCol: 'is_deleted'
     },
     purchasing_orders: {
       url: `${process.env.BRIDGE_BASE_URL || 'http://localhost:9570'}/api/v1/bridge/purchase-orders/get-list`,
-      data: { page: 1, page_size: 1, sort_by: 'trandate', sort_order: 'DESC', is_sync: true, filters: {} },
+      data: { page: 1, page_size: 1, sort_by: 'lastmodifieddate', sort_order: 'DESC', is_sync: true, filters: {} },
       table: 'purchase_orders',
       deleteCol: null
     },
     sales_orders: {
       url: `${process.env.BRIDGE_BASE_URL || 'http://localhost:9570'}/api/v1/bridge/sales-orders/get`,
-      data: { page: 1, page_size: 1, sort_by: 'last_modified_netsuite', sort_order: 'DESC', is_sync: true, filters: {} },
+      data: { page: 1, page_size: 1, sort_by: 'lastmodifieddate', sort_order: 'DESC', is_sync: true, filters: {} },
       table: 'sales_orders',
       deleteCol: 'is_deleted'
     },
     terms: {
       url: `${process.env.BRIDGE_BASE_URL || 'http://localhost:9570'}/api/v1/bridge/term/sync`,
-      data: { page: 1, limit: 10, sort_by: 'name', sort_order: 'desc', is_sync: true, search: '' },
+      data: { page: 1, limit: 10, sort_by: 'lastmodifieddate', sort_order: 'DESC', is_sync: true, search: '' },
       table: 'terms',
       deleteCol: 'is_delete'
     },

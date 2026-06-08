@@ -179,6 +179,8 @@ const getSalesOrders = async (body) => {
         'so.netsuite_id',
         'so.tranid',
         'so.tran_date',
+        'so.startdate',
+        'so.enddate',
         'so.status_code',
         'so.status_name',
         'so.custbody_me_approval_status',
@@ -223,6 +225,16 @@ const getSalesOrders = async (body) => {
       const ids = Array.isArray(body.id) ? body.id : (body.id ? [body.id] : (body.netsuite_id || []));
       countQuery = countQuery.whereIn('so.netsuite_id', ids);
       dataQuery = dataQuery.whereIn('so.netsuite_id', ids);
+    }
+
+    if (body.trans_date_start && String(body.trans_date_start).trim() !== '' && String(body.trans_date_start).trim() !== 'null' && String(body.trans_date_start).trim() !== 'NaN') {
+      countQuery = countQuery.where('so.startdate', '>=', body.trans_date_start);
+      dataQuery = dataQuery.where('so.startdate', '>=', body.trans_date_start);
+    }
+
+    if (body.trans_date_end && String(body.trans_date_end).trim() !== '' && String(body.trans_date_end).trim() !== 'null' && String(body.trans_date_end).trim() !== 'NaN') {
+      countQuery = countQuery.where('so.enddate', '<=', body.trans_date_end);
+      dataQuery = dataQuery.where('so.enddate', '<=', body.trans_date_end);
     }
 
     const countResult = await countQuery.count('* as total').first();
@@ -363,6 +375,12 @@ const syncSalesOrders = async (body) => {
     if (body.search) filters.search = body.search;
     if (body.customer_id) filters.customer_id = body.customer_id;
     if (body.status_code) filters.status_code = body.status_code;
+    if (body.startdate && String(body.startdate).trim() !== '' && String(body.startdate).trim() !== 'null' && String(body.startdate).trim() !== 'NaN') {
+      filters.startdate = body.startdate;
+    }
+    if (body.enddate && String(body.enddate).trim() !== '' && String(body.enddate).trim() !== 'null' && String(body.enddate).trim() !== 'NaN') {
+      filters.enddate = body.enddate;
+    }
 
     const requestData = {
       page: body.page - 1 || 0,

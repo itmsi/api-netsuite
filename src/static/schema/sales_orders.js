@@ -46,7 +46,9 @@ const salesOrdersSchema = {
       sort_by: { type: 'string', example: 'last_modified_netsuite' },
       sort_order: { type: 'string', enum: ['asc', 'desc', 'ASC', 'DESC'], example: 'desc' },
       customer_id: { type: 'integer', example: null },
-      status_code: { type: 'string', example: null }
+      status_code: { type: 'string', example: null },
+      trans_date_start: { type: 'string', nullable: true, example: '' },
+      trans_date_end: { type: 'string', nullable: true, example: '' }
     }
   },
   SalesOrderSyncRequest: {
