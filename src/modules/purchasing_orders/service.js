@@ -120,7 +120,7 @@ const getPurchaseOrders = async (body) => {
         'po.po_status',
         'po.po_status_label',
         'po.memo',
-        'po.total',
+        'po.foreigntotal as total',
         'po.custbody_msi_createdby_api',
         'po.last_modified',
         dbNetsuite.raw("COALESCE(NULLIF(po.datecreated, '')::timestamp, po.created_at) AS created_at"),
@@ -313,7 +313,7 @@ const getDashboard = async (body) => {
         'po.memo',
         dbNetsuite.raw("COALESCE(NULLIF(po.vendor_name, ''), v.name) AS vendor_name"),
         'po.currency_symbol',
-        'po.total',
+        'po.foreigntotal as total',
         'po.custbody_msi_createdby_api',
         'po.last_modified'
       ])
