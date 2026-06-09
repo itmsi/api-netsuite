@@ -434,7 +434,7 @@ const createSalesOrderToBridge = async (body) => {
 /**
  * Initiate Sales Order creation process (Async via Outbox Pattern)
  */
-const createSalesOrder = async (body, user) => {
+const createSalesOrder = async (body, user, userId) => {
   const trx = await dbNetsuite.transaction();
   try {
     if (Array.isArray(body.custbody_msi_bank_payment_so)) {
@@ -476,7 +476,7 @@ const createSalesOrder = async (body, user) => {
       custbody_msi_createdby_api: body.custbody_msi_createdby_api || user?.email,
       items: JSON.stringify(body.items),
       created_at: new Date(),
-      updated_at: new Date()
+      created_by: userId
     };
 
     const [soInternal] = await trx('sales_orders').insert(soData).returning('id');
@@ -580,7 +580,7 @@ const updateSalesOrderToBridge = async (body) => {
 /**
  * Initiate Sales Order update process (Async via Outbox Pattern)
  */
-const updateSalesOrder = async (body, user) => {
+const updateSalesOrder = async (body, user, userId) => {
   const trx = await dbNetsuite.transaction();
   try {
     if (Array.isArray(body.custbody_msi_bank_payment_so)) {
@@ -639,7 +639,8 @@ const updateSalesOrder = async (body, user) => {
       custbody_cseg_cn_cfi: body.custbody_cseg_cn_cfi,
       custbody_msi_createdby_api: body.custbody_msi_createdby_api || user?.email,
       items: body.items ? JSON.stringify(body.items) : undefined,
-      updated_at: new Date()
+      updated_at: new Date(),
+      updated_by: userId
     };
 
     // Remove undefined fields

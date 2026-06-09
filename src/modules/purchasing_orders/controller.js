@@ -1,6 +1,6 @@
 const service = require('./service');
 const syncService = require('../sync/service');
-const { baseResponse } = require('../../utils');
+const { baseResponse, decodeToken } = require('../../utils');
 
 /**
  * Get purchasing orders list
@@ -78,7 +78,10 @@ const create = async (req, res) => {
       }));
     }
 
-    const result = await service.createPurchaseOrder(req.body, req.user);
+    const createdPayload = decodeToken('created', req);
+    const userId = createdPayload.created_by || 'system';
+
+    const result = await service.createPurchaseOrder(req.body, req.user, userId);
     return res.status(201).json({
       success: true,
       data: {
@@ -120,7 +123,10 @@ const update = async (req, res) => {
       }));
     }
 
-    const result = await service.updatePurchaseOrder(req.body, req.user);
+    const updatedPayload = decodeToken('updated', req);
+    const userId = updatedPayload.updated_by || updatedPayload.update_by || 'system';
+
+    const result = await service.updatePurchaseOrder(req.body, req.user, userId);
     return res.status(200).json({
       success: true,
       data: {

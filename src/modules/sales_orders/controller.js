@@ -1,6 +1,6 @@
 const service = require('./service');
 const syncService = require('../sync/service');
-const { baseResponse } = require('../../utils');
+const { baseResponse, decodeToken } = require('../../utils');
 
 /**
  * GET list sales orders dari DB lokal (bridge_sanbox)
@@ -109,7 +109,10 @@ const create = async (req, res) => {
       req.body.custbody_msi_createdby_api = req.user.email;
     }
 
-    const result = await service.createSalesOrder(req.body, req.user);
+    const createdPayload = decodeToken('created', req);
+    const userId = createdPayload.created_by || 'system';
+
+    const result = await service.createSalesOrder(req.body, req.user, userId);
     const { success, ...responseData } = result || {};
     return baseResponse(res, {
       code: 201,
@@ -139,7 +142,10 @@ const update = async (req, res) => {
       req.body.custbody_msi_createdby_api = req.user.email;
     }
 
-    const result = await service.updateSalesOrder(req.body, req.user);
+    const updatedPayload = decodeToken('updated', req);
+    const userId = updatedPayload.updated_by || updatedPayload.update_by || 'system';
+
+    const result = await service.updateSalesOrder(req.body, req.user, userId);
     const { success, ...responseData } = result || {};
     return baseResponse(res, {
       data: {
@@ -382,7 +388,7 @@ const updateUpload = async (req, res) => {
       let finalShareUrl = '';
       try {
         finalShareUrl = await nextcloud.generateShareLink(finalStoragePath);
-      } catch (shareErr) {}
+      } catch (shareErr) { }
 
       const newRecord = await service.saveFileRecord({
         so_id: so_id,
@@ -420,7 +426,7 @@ const updateUpload = async (req, res) => {
         if (oldExists) {
           await nextcloud.client.deleteFile(oldStoragePath);
         }
-      } catch (ncErr) {}
+      } catch (ncErr) { }
 
       const extension = path.extname(file.originalname);
       let baseName = file_name || file.originalname;
@@ -436,7 +442,7 @@ const updateUpload = async (req, res) => {
 
       try {
         finalShareUrl = await nextcloud.generateShareLink(finalStoragePath);
-      } catch (shareErr) {}
+      } catch (shareErr) { }
     } else if (file_name) {
       const extension = path.extname(fileRecord.file_name);
       let baseName = file_name;
@@ -459,7 +465,7 @@ const updateUpload = async (req, res) => {
 
       try {
         finalShareUrl = await nextcloud.generateShareLink(finalStoragePath);
-      } catch (shareErr) {}
+      } catch (shareErr) { }
     }
 
     const updatedRecord = await service.updateFileRecordFields(fileRecord.id, {
