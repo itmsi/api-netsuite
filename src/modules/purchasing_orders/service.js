@@ -988,7 +988,7 @@ const getPurchaseOrderById = async (id) => {
         'po.foreigntotal', 'po.total',
         'po.last_modified', 'po.approvalstatus', 'po.approvalstatus_display',
         'po.custbody_me_wf_created_by', 'po.custbody_me_wf_in_delegation',
-        'po.custbody_me_delegate_approver', 'po.custbody_msi_createdby_api',
+        'po.custbody_me_delegate_approver',
         'po.custbody_me_pr_date', 'po.custbody_me_project_location', 'po.custbody_me_pr_type',
         'po.custbody_me_saving_type', 'po.custbody_me_pr_number', 'po.custbody_me_description',
         'po.intercotransaction', 'po.terms',
@@ -1005,6 +1005,7 @@ const getPurchaseOrderById = async (id) => {
         dbNetsuite.raw("COALESCE(NULLIF(po.department_display, ''), d.name) AS department_display"),
         dbNetsuite.raw("COALESCE(NULLIF(po.datecreated, '')::timestamp, po.created_at) AS created_at"),
         'po.custbody_me_wf_next_approver_blank', 'po.custbody_me_wf_next_approver_blank_display', 'po.user_notes', 'po.files', 'po.type_proccess', 'po.status_proccess', 'po.status_proccess_message',
+        dbNetsuite.raw("COALESCE(NULLIF(po.custbody_msi_createdby_api, ''), po.created_by_netsuite) AS custbody_msi_createdby_api"),
         dbNetsuite.raw(`
           jsonb_agg(
             jsonb_build_object(
