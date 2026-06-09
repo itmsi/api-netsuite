@@ -40,6 +40,9 @@ routing.use(`${API_TAG}/bank`, bankModule);
 const billPaymentModule = require('../../modules/bill_payment');
 routing.use(`${API_TAG}/bill-payment`, billPaymentModule);
 
+const quotationModule = require('../../modules/quotation');
+routing.use(`${API_TAG}/quotation`, quotationModule);
+
 const locationsModule = require('../../modules/locations');
 routing.use(`${API_TAG}/locations`, locationsModule);
 

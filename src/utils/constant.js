@@ -546,6 +546,12 @@ module.exports = {
       data: { page: 1, page_size: 10, is_sync: true, sort_by: 'lastmodifieddate', sort_order: 'DESC', filters: {} },
       table: 'receives',
       deleteCol: null
+    },
+    quotations: {
+      url: `${process.env.BRIDGE_BASE_URL || 'http://localhost:9570'}/api/v1/bridge/quotations/get`,
+      data: { page: 1, page_size: 10, is_sync: true, sort_by: 'lastmodifieddate', sort_order: 'DESC', filters: {} },
+      table: 'quotations',
+      deleteCol: null
     }
   }
 }
