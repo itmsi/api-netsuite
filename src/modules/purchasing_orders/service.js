@@ -104,6 +104,7 @@ const getPurchaseOrders = async (body) => {
       .leftJoin('subsidiarys as s', 'po.subsidiary', 's.subsidiary_id')
       .leftJoin('locations as l', dbNetsuite.raw('po.location = l.netsuite_id::integer'))
       .leftJoin('class as c2', dbNetsuite.raw('po.class::text = c2.netsuite_id::text'))
+      .leftJoin('gate_sso_employees as updated_emp', dbNetsuite.raw("po.updated_by = updated_emp.employee_id"))
       .select([
         'po.id',
         'po.po_id',
@@ -125,7 +126,8 @@ const getPurchaseOrders = async (body) => {
         'po.last_modified',
         dbNetsuite.raw("COALESCE(NULLIF(po.datecreated, '')::timestamp, po.created_at) AS created_at"),
         'po.currency_symbol',
-        'po.files'
+        'po.files',
+        'updated_emp.employee_name as updated_by_name'
       ])
       .orderBy(orderCol, sortOrder)
       .limit(limit)
@@ -299,6 +301,7 @@ const getDashboard = async (body) => {
     const items = await query
       .leftJoin('subsidiarys as s', 'po.subsidiary', 's.subsidiary_id')
       .leftJoin('vendors as v', dbNetsuite.raw('po.vendor_id = v.netsuite_id::integer'))
+      .leftJoin('gate_sso_employees as updated_emp', dbNetsuite.raw("po.updated_by = updated_emp.employee_id"))
       .select([
         'po.id',
         'po.po_id',
@@ -315,7 +318,8 @@ const getDashboard = async (body) => {
         'po.currency_symbol',
         'po.foreigntotal as total',
         'po.custbody_msi_createdby_api',
-        'po.last_modified'
+        'po.last_modified',
+        'updated_emp.employee_name as updated_by_name'
       ])
       .orderBy(orderCol, sortOrder);
 
@@ -969,6 +973,8 @@ const getPurchaseOrderById = async (id) => {
       .leftJoin('class as c2', dbNetsuite.raw('po.class::text = c2.netsuite_id::text'))
       .leftJoin('departments as d', dbNetsuite.raw('po.department::text = d.netsuite_id::text'))
       .leftJoin('currencys as c3', dbNetsuite.raw('po.currency_id::integer = c3.currency_id'))
+      .leftJoin('gate_sso_employees as created_emp', dbNetsuite.raw("po.created_by = created_emp.employee_id"))
+      .leftJoin('gate_sso_employees as email_emp', dbNetsuite.raw("po.custbody_msi_createdby_api::text = email_emp.employee_email::text"))
 
       // EXPLODE JSON & JOIN MASTER DARI JSON
       .leftJoin(dbNetsuite.raw("LATERAL jsonb_array_elements(COALESCE(po.lines, '[]'::jsonb)) AS line ON TRUE"))
@@ -1005,7 +1011,8 @@ const getPurchaseOrderById = async (id) => {
         dbNetsuite.raw("COALESCE(NULLIF(po.department_display, ''), d.name) AS department_display"),
         dbNetsuite.raw("COALESCE(NULLIF(po.datecreated, '')::timestamp, po.created_at) AS created_at"),
         'po.custbody_me_wf_next_approver_blank', 'po.custbody_me_wf_next_approver_blank_display', 'po.user_notes', 'po.files', 'po.type_proccess', 'po.status_proccess', 'po.status_proccess_message',
-        dbNetsuite.raw("COALESCE(NULLIF(po.custbody_msi_createdby_api, ''), po.created_by_netsuite) AS custbody_msi_createdby_api"),
+        'po.custbody_msi_createdby_api',
+        dbNetsuite.raw("CASE WHEN NULLIF(po.custbody_msi_createdby_api, '') IS NULL THEN po.created_by_netsuite ELSE COALESCE(NULLIF(created_emp.employee_name, ''), NULLIF(email_emp.employee_name, ''), '') END AS created_by_name"),
         dbNetsuite.raw(`
           jsonb_agg(
             jsonb_build_object(
@@ -1067,6 +1074,9 @@ const getPurchaseOrderById = async (id) => {
         'c2.name',
         'd.name',
         'c3.currency_name',
+        'po.created_by',
+        'created_emp.employee_name',
+        'email_emp.employee_name'
       ]);
 
     // Cari dulu berdasarkan po_id (integer/netsuite ID), jika tidak ketemu cari berdasarkan id (UUID)
