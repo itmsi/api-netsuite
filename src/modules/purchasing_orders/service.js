@@ -331,7 +331,7 @@ const getDashboard = async (body) => {
   }
 };
 
-const createPurchaseOrder = async (body, user) => {
+const createPurchaseOrder = async (body, user, userId) => {
   const trx = await dbNetsuite.transaction();
   try {
     // Ensure tables exist (optional but good for robustness if they are new)
@@ -361,8 +361,8 @@ const createPurchaseOrder = async (body, user) => {
       custbody_me_validity_date: body.custbody_me_validity_date,
       lines: JSON.stringify(body.items),
       files: body.files ? JSON.stringify(body.files) : null,
-      created_at: new Date(),
-      updated_at: new Date()
+      created_by: userId,
+      created_at: new Date()
     };
 
     const [poInternal] = await trx('purchase_orders').insert(poData).returning('id');
@@ -1245,7 +1245,7 @@ const getReceiveById = async (id) => {
   }
 };
 
-const updatePurchaseOrder = async (body, user) => {
+const updatePurchaseOrder = async (body, user, userId) => {
   const trx = await dbNetsuite.transaction();
   try {
     const { id } = body;
@@ -1286,7 +1286,8 @@ const updatePurchaseOrder = async (body, user) => {
       custbody_me_validity_date: body.custbody_me_validity_date,
       lines: JSON.stringify(body.items),
       files: body.files ? JSON.stringify(body.files) : null,
-      updated_at: new Date()
+      updated_at: new Date(),
+      updated_by: userId,
     };
 
     await trx('purchase_orders').where('id', localId).update(updateData);
