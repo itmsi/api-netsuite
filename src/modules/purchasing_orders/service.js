@@ -280,6 +280,10 @@ const getDashboard = async (body) => {
       query = query.whereIn('po.class', classIds);
     }
 
+    const page = parseInt(body.page) || 1;
+    const limit = parseInt(body.limit) || 10;
+    const offset = (page - 1) * limit;
+
     // Hitung counts sebelum filter status
     const countQuery = query.clone();
     const countResult = await countQuery
@@ -290,6 +294,58 @@ const getDashboard = async (body) => {
       )
       .first();
 
+    const chartResult = await query.clone()
+      .select(
+        'po.subsidiary',
+        dbNetsuite.raw(`COUNT(CASE WHEN po.approvalstatus_display = 'Pending Approval' THEN 1 END) as pending_approval`),
+        dbNetsuite.raw(`COUNT(CASE WHEN po.po_status_label = 'Pending Receipt' THEN 1 END) as pending_receipt`),
+        dbNetsuite.raw(`COUNT(CASE WHEN po.po_status_label = 'Pending Bill' THEN 1 END) as pending_bill`),
+        dbNetsuite.raw(`COUNT(*) as total_po`)
+      )
+      .groupBy('po.subsidiary');
+
+    let chart_data = {
+      pending_approval_per_subsidiary: {},
+      status_po_per_subsidiary: {},
+      total_po_per_subsidiary: {}
+    };
+
+    const subMap = { '1': 'msi', '5': 'iec', '6': 'iel' };
+
+    ['iel', 'iec', 'msi'].forEach(key => {
+      chart_data.pending_approval_per_subsidiary[key] = 0;
+      chart_data.total_po_per_subsidiary[key] = 0;
+      chart_data.status_po_per_subsidiary[key] = {
+        pending_approval: 0,
+        pending_receipt: 0,
+        pending_bill: 0
+      };
+    });
+
+    chartResult.forEach(row => {
+      let key = subMap[row.subsidiary];
+      if (!key) {
+        key = String(row.subsidiary || 'unknown').toLowerCase();
+        if (!chart_data.status_po_per_subsidiary[key]) {
+          chart_data.pending_approval_per_subsidiary[key] = 0;
+          chart_data.total_po_per_subsidiary[key] = 0;
+          chart_data.status_po_per_subsidiary[key] = { pending_approval: 0, pending_receipt: 0, pending_bill: 0 };
+        }
+      }
+      
+      const pApp = parseInt(row.pending_approval) || 0;
+      const pRec = parseInt(row.pending_receipt) || 0;
+      const pBil = parseInt(row.pending_bill) || 0;
+      const tPo = parseInt(row.total_po) || 0;
+
+      chart_data.pending_approval_per_subsidiary[key] += pApp;
+      chart_data.total_po_per_subsidiary[key] += tPo;
+      
+      chart_data.status_po_per_subsidiary[key].pending_approval += pApp;
+      chart_data.status_po_per_subsidiary[key].pending_receipt += pRec;
+      chart_data.status_po_per_subsidiary[key].pending_bill += pBil;
+    });
+
     if (body.po_status) { //filter kolom dispay saja
       query = query.where('po.po_status_label', body.po_status);
     }
@@ -298,10 +354,12 @@ const getDashboard = async (body) => {
       query = query.where('po.approvalstatus_display', body.approvalstatus);
     }
 
-    const items = await query
+    const baseSelectQuery = query
+      .clone()
       .leftJoin('subsidiarys as s', 'po.subsidiary', 's.subsidiary_id')
       .leftJoin('vendors as v', dbNetsuite.raw('po.vendor_id = v.netsuite_id::integer'))
       .leftJoin('gate_sso_employees as updated_emp', dbNetsuite.raw("po.updated_by = updated_emp.employee_id"))
+      .leftJoin('gate_sso_employees as created_emp', dbNetsuite.raw("po.created_by = created_emp.employee_id"))
       .select([
         'po.id',
         'po.po_id',
@@ -319,15 +377,35 @@ const getDashboard = async (body) => {
         'po.foreigntotal as total',
         'po.custbody_msi_createdby_api',
         'po.last_modified',
-        'updated_emp.employee_name as updated_by_name'
+        'updated_emp.employee_name as updated_by_name',
+        dbNetsuite.raw("CASE WHEN NULLIF(po.custbody_msi_createdby_api, '') IS NULL THEN po.created_by_netsuite ELSE COALESCE(NULLIF(created_emp.employee_name, ''), '') END AS created_by_name"),
       ])
       .orderBy(orderCol, sortOrder);
 
+    const pending_approval = await baseSelectQuery.clone()
+      .where('po.approvalstatus_display', 'Pending Approval')
+      .limit(limit).offset(offset);
+
+    const pending_receipt = await baseSelectQuery.clone()
+      .where('po.po_status_label', 'Pending Receipt')
+      .limit(limit).offset(offset);
+
+    const pending_bill = await baseSelectQuery.clone()
+      .where('po.po_status_label', 'Pending Bill')
+      .limit(limit).offset(offset);
+
     return {
-      items,
-      pending_approval: parseInt(countResult?.pending_approval || 0),
-      pending_receipt: parseInt(countResult?.pending_receipt || 0),
-      pending_bill: parseInt(countResult?.pending_bill || 0)
+      list_tabel: {
+        pending_approval,
+        pending_receipt,
+        pending_bill
+      },
+      total_data: {
+        pending_approval: parseInt(countResult?.pending_approval || 0),
+        pending_receipt: parseInt(countResult?.pending_receipt || 0),
+        pending_bill: parseInt(countResult?.pending_bill || 0)
+      },
+      chart_data
     };
 
   } catch (error) {
