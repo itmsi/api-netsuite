@@ -109,6 +109,9 @@ const getQuotationList = async (body) => {
     if (body.approvalstatus) {
       query = query.where('quotations.approvalstatus', body.approvalstatus);
     }
+    if (body.classes && body.classes !== 'nan' && body.classes !== 'null' && String(body.classes).trim() !== '') {
+      query = query.where('quotations.class_id', String(body.classes).trim());
+    }
     if (body.tran_date_from) {
       query = query.where('quotations.tran_date', '>=', body.tran_date_from);
     }
