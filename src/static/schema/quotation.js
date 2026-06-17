@@ -78,6 +78,7 @@ const quotationSchema = {
       customer_id: { type: 'string', example: '100' },
       subsidiary: { type: 'string', example: '1' },
       approvalstatus: { type: 'string', example: '2' },
+      classes: { type: 'string', example: '', nullable: true },
       tran_date_from: { type: 'string', format: 'date', example: '2024-01-01' },
       tran_date_to: { type: 'string', format: 'date', example: '2024-12-31' }
     }
