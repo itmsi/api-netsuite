@@ -332,7 +332,7 @@ const getDashboard = async (body) => {
           chart_data.status_po_per_subsidiary[key] = { pending_approval: 0, pending_receipt: 0, pending_bill: 0 };
         }
       }
-      
+
       const pApp = parseInt(row.pending_approval) || 0;
       const pRec = parseInt(row.pending_receipt) || 0;
       const pBil = parseInt(row.pending_bill) || 0;
@@ -340,7 +340,7 @@ const getDashboard = async (body) => {
 
       chart_data.pending_approval_per_subsidiary[key] += pApp;
       chart_data.total_po_per_subsidiary[key] += tPo;
-      
+
       chart_data.status_po_per_subsidiary[key].pending_approval += pApp;
       chart_data.status_po_per_subsidiary[key].pending_receipt += pRec;
       chart_data.status_po_per_subsidiary[key].pending_bill += pBil;
@@ -1055,7 +1055,7 @@ const getPurchaseOrderById = async (id) => {
       .leftJoin('gate_sso_employees as email_emp', dbNetsuite.raw("po.custbody_msi_createdby_api::text = email_emp.employee_email::text"))
 
       // EXPLODE JSON & JOIN MASTER DARI JSON
-      .leftJoin(dbNetsuite.raw("LATERAL jsonb_array_elements(COALESCE(po.lines, '[]'::jsonb)) AS line ON TRUE"))
+      .leftJoin(dbNetsuite.raw("LATERAL jsonb_array_elements(COALESCE(po.lines, '[]'::jsonb)) WITH ORDINALITY AS arr(line, idx) ON TRUE"))
       .leftJoin('items as i', dbNetsuite.raw("(line->>'item') = i.netsuite_id::text"))
       .leftJoin('items as i2', dbNetsuite.raw("(line->>'itemId') = i2.netsuite_id::text"))
       .leftJoin('class as c_line', dbNetsuite.raw("(line->>'class') = c_line.netsuite_id::text"))
@@ -1134,7 +1134,7 @@ const getPurchaseOrderById = async (id) => {
                 'description', line->>'description',
                 'amount', line->>'netamount',
                 'tax_amount', line->>'tax1amt'
-            )
+            ) ORDER BY (line->>'linesequencenumber')::numeric ASC
           ) FILTER (WHERE line IS NOT NULL) AS lines
         `),
         dbNetsuite.raw("COUNT(line) AS count_item"),
