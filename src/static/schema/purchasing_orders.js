@@ -96,7 +96,8 @@ const purchasingOrdersSchemas = {
       subsidiary: { type: 'string', default: '', example: '' },
       location: { type: 'string', default: '', example: '' },
       po_status: { type: 'string', default: '', example: '' },
-      approvalstatus: { type: 'string', default: '', example: '' }
+      approvalstatus: { type: 'string', default: '', example: '' },
+      created_by: { type: 'string', default: '', example: '', nullable: true }
     }
   },
   PurchaseOrderLineItem: {

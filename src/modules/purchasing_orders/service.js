@@ -66,6 +66,26 @@ const getPurchaseOrders = async (body) => {
       query = query.where('po.approvalstatus_display', body.approvalstatus);
     }
 
+    if (body.created_by && body.created_by !== 'nan' && body.created_by !== 'null' && String(body.created_by).trim() !== '') {
+      const createdByValue = String(body.created_by).trim();
+      
+      const employee = await dbNetsuite('gate_sso_employees')
+        .select('employee_id', 'employee_id_netsuite')
+        .where('employee_id', createdByValue)
+        .first();
+
+      if (employee) {
+        query = query.where(function () {
+          this.where('po.created_by', employee.employee_id);
+          if (employee.employee_id_netsuite) {
+            this.orWhere('po.created_by_netsuite_id', employee.employee_id_netsuite);
+          }
+        });
+      } else {
+        query = query.where('po.created_by', createdByValue);
+      }
+    }
+
     // Handle classes filter (parent and children)
     let classIds = [];
     if (body.classes) {
@@ -255,6 +275,26 @@ const getDashboard = async (body) => {
 
     if (body.approvalstatus) { //filter kolom dispay saja
       query = query.where('po.approvalstatus_display', body.approvalstatus);
+    }
+
+    if (body.created_by && body.created_by !== 'nan' && body.created_by !== 'null' && String(body.created_by).trim() !== '') {
+      const createdByValue = String(body.created_by).trim();
+      
+      const employee = await dbNetsuite('gate_sso_employees')
+        .select('employee_id', 'employee_id_netsuite')
+        .where('employee_id', createdByValue)
+        .first();
+
+      if (employee) {
+        query = query.where(function () {
+          this.where('po.created_by', employee.employee_id);
+          if (employee.employee_id_netsuite) {
+            this.orWhere('po.created_by_netsuite_id', employee.employee_id_netsuite);
+          }
+        });
+      } else {
+        query = query.where('po.created_by', createdByValue);
+      }
     }
 
     // Handle classes filter (parent and children)
