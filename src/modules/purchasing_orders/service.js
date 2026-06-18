@@ -68,7 +68,7 @@ const getPurchaseOrders = async (body) => {
 
     if (body.created_by && body.created_by !== 'nan' && body.created_by !== 'null' && String(body.created_by).trim() !== '') {
       const createdByValue = String(body.created_by).trim();
-      
+
       const employee = await dbNetsuite('gate_sso_employees')
         .select('employee_id', 'employee_id_netsuite')
         .where('employee_id', createdByValue)
@@ -279,7 +279,7 @@ const getDashboard = async (body) => {
 
     if (body.created_by && body.created_by !== 'nan' && body.created_by !== 'null' && String(body.created_by).trim() !== '') {
       const createdByValue = String(body.created_by).trim();
-      
+
       const employee = await dbNetsuite('gate_sso_employees')
         .select('employee_id', 'employee_id_netsuite')
         .where('employee_id', createdByValue)
@@ -1106,9 +1106,9 @@ const getPurchaseOrderById = async (id) => {
       .select([
         'po.id', 'po.po_id', 'po.po_number', 'po.po_date', 'po.po_status', 'po.po_status_label',
         'po.memo', 'po.vendor_id',
-        dbNetsuite.raw("COALESCE(NULLIF(po.vendor_name, ''), v.name) AS vendor_name"),
+        dbNetsuite.raw("CASE WHEN po.status_proccess = 'PROCESSING' THEN COALESCE(NULLIF(v.name, ''), po.vendor_name) ELSE COALESCE(NULLIF(po.vendor_name, ''), v.name) END AS vendor_name"),
         'po.currency_id',
-        dbNetsuite.raw("COALESCE(NULLIF(po.currency_symbol, ''), c3.currency_name) AS currency_symbol"),
+        dbNetsuite.raw("CASE WHEN po.status_proccess = 'PROCESSING' THEN COALESCE(NULLIF(c3.currency_name, ''), po.currency_symbol) ELSE COALESCE(NULLIF(po.currency_symbol, ''), c3.currency_name) END AS currency_symbol"),
         'po.foreigntotal', 'po.total',
         'po.last_modified', 'po.approvalstatus', 'po.approvalstatus_display',
         'po.custbody_me_wf_created_by', 'po.custbody_me_wf_in_delegation',
@@ -1116,17 +1116,18 @@ const getPurchaseOrderById = async (id) => {
         'po.custbody_me_pr_date', 'po.custbody_me_project_location', 'po.custbody_me_pr_type',
         'po.custbody_me_saving_type', 'po.custbody_me_pr_number', 'po.custbody_me_description',
         'po.intercotransaction', 'po.terms',
-        dbNetsuite.raw("COALESCE(NULLIF(po.terms_display, ''), t.name) AS terms_display"),
+        dbNetsuite.raw("CASE WHEN po.status_proccess = 'PROCESSING' THEN COALESCE(NULLIF(t.name, ''), po.terms_display) ELSE COALESCE(NULLIF(po.terms_display, ''), t.name) END AS terms_display"),
         'po.duedate', 'po.otherrefnum', 'po.subsidiary',
-        dbNetsuite.raw("COALESCE(NULLIF(po.subsidiary_display, ''), s.subsidiary_name) AS subsidiary_display"),
+        dbNetsuite.raw("CASE WHEN po.status_proccess = 'PROCESSING' THEN COALESCE(NULLIF(s.subsidiary_name, ''), po.subsidiary_display) ELSE COALESCE(NULLIF(po.subsidiary_display, ''), s.subsidiary_name) END AS subsidiary_display"),
         'po.location',
-        dbNetsuite.raw("COALESCE(NULLIF(po.location_display, ''), l.name) AS location_display"),
+        dbNetsuite.raw("CASE WHEN po.status_proccess = 'PROCESSING' THEN COALESCE(NULLIF(l.name, ''), po.location_display) ELSE COALESCE(NULLIF(po.location_display, ''), l.name) END AS location_display"),
         'po.customform',
-        dbNetsuite.raw("COALESCE(NULLIF(po.customform_display, ''), c.customform_name) AS customform_display"),
+        dbNetsuite.raw("CASE WHEN po.status_proccess = 'PROCESSING' THEN COALESCE(NULLIF(c.customform_name, ''), po.customform_display) ELSE COALESCE(NULLIF(po.customform_display, ''), c.customform_name) END AS customform_display"),
         'po.class',
-        dbNetsuite.raw("COALESCE(NULLIF(po.class_display, ''), c2.name) AS class_display"),
+        dbNetsuite.raw("CASE WHEN po.status_proccess = 'PROCESSING' THEN COALESCE(NULLIF(c2.name, ''), po.class_display) ELSE COALESCE(NULLIF(po.class_display, ''), c2.name) END AS class_display"),
         'po.nextapprover', 'po.custbody_me_validity_date', 'po.department',
-        dbNetsuite.raw("COALESCE(NULLIF(po.department_display, ''), d.name) AS department_display"),
+        // dbNetsuite.raw("COALESCE(NULLIF(po.department_display, ''), d.name) AS department_display"),
+        dbNetsuite.raw("CASE WHEN po.status_proccess = 'PROCESSING' THEN COALESCE(NULLIF(d.name, ''), po.department_display) ELSE COALESCE(NULLIF(po.department_display, ''), d.name) END AS department_display"),
         dbNetsuite.raw("COALESCE(NULLIF(po.datecreated, '')::timestamp, po.created_at) AS created_at"),
         'po.custbody_me_wf_next_approver_blank', 'po.custbody_me_wf_next_approver_blank_display', 'po.user_notes', 'po.files', 'po.type_proccess', 'po.status_proccess', 'po.status_proccess_message',
         'po.custbody_msi_createdby_api',
