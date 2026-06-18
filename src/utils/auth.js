@@ -72,23 +72,23 @@ const decodeToken = (type, req) => {
     const decode = jwt.verify(token, process.env.JWT_SECRET)
     switch (type) {
       case 'created':
-        payload.created_by = decode?.employee_id ?? 0
+        payload.created_by = decode?.employee_id || decode?.user_id || decode?.id || decode?.sub || 0
         break;
       case 'updated':
-        payload.updated_by = decode?.employee_id ?? 0
+        payload.updated_by = decode?.employee_id || decode?.user_id || decode?.id || decode?.sub || 0
         payload.updated_at = new Date().toISOString()
         break;
       case 'deleted':
-        payload.deleted_by = decode?.employee_id ?? 0
+        payload.deleted_by = decode?.employee_id || decode?.user_id || decode?.id || decode?.sub || 0
         payload.deleted_at = new Date().toISOString()
         break;
       case 'default':
-        payload.users_id = decode?.employee_id ?? 0
+        payload.users_id = decode?.employee_id || decode?.user_id || decode?.id || decode?.sub || 0
         break;
       case 'getRoles':
         return decode?.roles ?? []
       case 'refreshToken':
-        payload.users_id = decode?.employee_id
+        payload.users_id = decode?.employee_id || decode?.user_id || decode?.id || decode?.sub || 0
         payload.is_admin = decode?.roles?.toString() === 'front' ? 0 : 1
         payload.roles = decode?.roles ?? []
         break;
