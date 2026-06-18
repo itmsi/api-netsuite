@@ -79,7 +79,7 @@ const create = async (req, res) => {
     }
 
     const createdPayload = decodeToken('created', req);
-    const userId = createdPayload.created_by || null;
+    const userId = createdPayload.created_by || req.user?.employee_id || req.user?.user_id || req.user?.id || req.user?.sub || null;
 
     const result = await service.createPurchaseOrder(req.body, req.user, userId);
     return res.status(201).json({
@@ -124,7 +124,7 @@ const update = async (req, res) => {
     }
 
     const updatedPayload = decodeToken('updated', req);
-    const userId = updatedPayload.updated_by || updatedPayload.update_by || decodeToken('created', req).created_by || null;
+    const userId = updatedPayload.updated_by || updatedPayload.update_by || decodeToken('created', req).created_by || req.user?.employee_id || req.user?.user_id || req.user?.id || req.user?.sub || null;
 
     const result = await service.updatePurchaseOrder(req.body, req.user, userId);
     return res.status(200).json({
