@@ -33,6 +33,21 @@ const methodExecution = async (payload, channel, msg) => {
       await purchasingService.updateEventStatus(event_id, 'SUCCESS', result);
       await purchasingService.logEvent(event_id, 'success', 'Purchase order updated successfully in NetSuite', result);
 
+      // Check if there are temporary files in the payload to finalize
+      const files = data.files || [];
+      if (files.length > 0) {
+        if (poId) {
+          console.info(`[Worker] Found PO ID: ${poId}, finalizing files to correct folder if they are in /Temp/`);
+          try {
+            // tempPoId and realPoId are both the real PO ID in this context.
+            // The finalize process will query all files with this PO ID and move them from /Temp/ to proper folder.
+            await purchasingService.finalizeUploadedFilesForPO(poId, poId);
+          } catch (finalizeErr) {
+            console.error(`[Worker] Error finalizing uploaded files for PO Update:`, finalizeErr.message);
+          }
+        }
+      }
+
       if (poId) {
         console.info(`[Worker] Triggering sync for PO ID after update: ${poId}`);
         try {

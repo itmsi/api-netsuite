@@ -2161,6 +2161,18 @@ const finalizeUploadedFilesForPO = async (tempPoId, realPoId) => {
 
     for (const file of files) {
       const oldStoragePath = file.storage_path;
+
+      // Jika file tidak ada di /Temp/, asumsikan sudah di folder yang benar.
+      if (!oldStoragePath.includes('/Temp/')) {
+        // Tetap pastikan po_id terupdate jika tempPoId berbeda
+        if (tempPoId !== realPoId.toString()) {
+           await pgCore('purchasing_orders_files')
+             .where('id', file.id)
+             .update({ po_id: realPoId.toString() });
+        }
+        continue;
+      }
+
       const fileName = path.basename(oldStoragePath);
       const newStoragePath = `${finalDir}/${fileName}`;
 
@@ -2170,24 +2182,16 @@ const finalizeUploadedFilesForPO = async (tempPoId, realPoId) => {
         // Move file in Nextcloud
         await nextcloud.client.moveFile(oldStoragePath, newStoragePath);
 
-        // Generate new share link for the new path so the link doesn't break
-        let newShareUrl = file.share_url;
-        try {
-          newShareUrl = await nextcloud.generateShareLink(newStoragePath);
-        } catch (shareErr) {
-          console.warn(`[finalizeUploadedFilesForPO] Failed to generate new share link for ${newStoragePath}:`, shareErr.message);
-        }
-
-        // Update database: storage_path, share_url, and po_id (to the real NetSuite po_id)
+        // Update database: storage_path and po_id (to the real NetSuite po_id)
+        // Keterangan: share_url DIBIARKAN TETAP untuk tidak memutus link yang ada.
         await pgCore('purchasing_orders_files')
           .where('id', file.id)
           .update({
             po_id: realPoId.toString(),
-            storage_path: newStoragePath,
-            share_url: newShareUrl
+            storage_path: newStoragePath
           });
 
-        console.info(`[finalizeUploadedFilesForPO] File record updated successfully for file ID: ${file.id}`);
+        console.info(`[finalizeUploadedFilesForPO] File record updated successfully for file ID: ${file.id} with preserved share_url`);
       } catch (moveErr) {
         console.error(`[finalizeUploadedFilesForPO] Failed to move file ${oldStoragePath}:`, moveErr.message);
       }
