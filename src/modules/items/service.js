@@ -180,8 +180,83 @@ const processItemsSync = async (records) => {
   }
 };
 
+/**
+ * Get item locations with qtyAvailable > 0
+ */
+const getItemLocation = async (body) => {
+  try {
+    const page = parseInt(body.page) || 1;
+    const limit = parseInt(body.limit) || 10;
+    const offset = (page - 1) * limit;
+    const sortOrder = body.sort_order ? body.sort_order.toUpperCase() : 'DESC';
+    
+    // Map sort_by parameter to actual columns
+    let sortByRaw = body.sort_by || 'created_at';
+    let orderCol = 'il.created_at';
+    
+    if (sortByRaw === 'created_at' || sortByRaw === 'last_modified_netsuite') {
+      orderCol = 'il.created_at';
+    } else if (sortByRaw === 'item_id' || sortByRaw === 'item_code') {
+      orderCol = 'i.item_id';
+    } else if (sortByRaw === 'display_name' || sortByRaw === 'item_name') {
+      orderCol = 'i.display_name';
+    } else if (sortByRaw === 'location_name') {
+      orderCol = 'l.name';
+    } else if (sortByRaw === 'qtyAvailable') {
+      orderCol = 'il."qtyAvailable"';
+    }
+
+    let query = dbNetsuite('item_locations as il')
+      .leftJoin('locations as l', dbNetsuite.raw('l.netsuite_id::integer'), dbNetsuite.raw('il."inventorylocationId"::integer'))
+      .leftJoin('items as i', dbNetsuite.raw('i.netsuite_id::integer'), dbNetsuite.raw('il.item_id::integer'))
+      .where(dbNetsuite.raw('il."qtyAvailable"::numeric'), '>', 0);
+
+    // Filter opsional
+    if (body.search) {
+      query = query.where(function () {
+        this.whereILike('i.item_id', `%${body.search}%`)
+          .orWhereILike('i.display_name', `%${body.search}%`)
+          .orWhereILike('l.name', `%${body.search}%`);
+      });
+    }
+
+    // Hitung total
+    const countResult = await query.clone().count('* as total').first();
+    const total = parseInt(countResult.total) || 0;
+    const totalPages = Math.ceil(total / limit);
+
+    // Select the specified columns
+    const rows = await query
+      .clone()
+      .select([
+        'il.inventorylocationId',
+        'il.item_id',
+        'l.name as location_name',
+        'i.item_id as item_code',
+        'i.display_name as item_name',
+        'il.qtyAvailable',
+        'il.qtyBackOrder',
+        'il.qtyCommitted',
+        'il.qtyOnHand',
+        'il.qtyOnOrder'
+      ])
+      .orderByRaw(`${orderCol} ${sortOrder} NULLS LAST`)
+      .limit(limit)
+      .offset(offset);
+
+    return {
+      items: rows,
+      pagination: { page, limit, total, totalPages }
+    };
+
+  } catch (error) {
+    throw { message: error.message || 'Failed to fetch item locations from database', statusCode: 500 };
+  }
+};
+
 module.exports = {
   getItemsList,
   syncItemsList,
-  processItemsSync
+  processItemsSync,
+  getItemLocation
 };

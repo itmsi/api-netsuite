@@ -25,4 +25,15 @@ router.post(
   controller.sync
 );
 
+/**
+ * @route   POST /api/netsuite/items/get-item-location
+ * @desc    Get item locations from local database
+ * @access  Private
+ */
+router.post(
+  '/get-item-location',
+  verifyToken,
+  controller.getItemLocation
+);
+
 module.exports = router;
