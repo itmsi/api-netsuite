@@ -122,7 +122,35 @@ const update = async (req, res) => {
         rate: (item.custcol_msi_fob || 0) + (item.custcol_me_landed_cost || 0)
       }));
     }
+    // if (req.body.files && Array.isArray(req.body.files)) {
+    //   const filesToKeep = [];
+    //   const nextcloud = require('../../utils/nextcloud');
 
+    //   for (const file of req.body.files) {
+    //     if (file.is_delete === true || file.is_delete === 'true') {
+    //       try {
+    //         const fileRecord = await service.getFileRecordByShareUrl(file.fileUrl);
+    //         if (fileRecord) {
+    //           try {
+    //             const exists = await nextcloud.client.exists(fileRecord.storage_path);
+    //             if (exists) {
+    //               await nextcloud.client.deleteFile(fileRecord.storage_path);
+    //               console.info(`[Controller] Deleted file from Nextcloud (update PO): ${fileRecord.storage_path}`);
+    //             }
+    //           } catch (ncError) {
+    //             console.error(`[Controller] Failed to delete file from Nextcloud (update PO):`, ncError.message);
+    //           }
+    //           await service.deleteFileRecord(fileRecord.id);
+    //         }
+    //       } catch (delErr) {
+    //         console.error(`[Controller] Failed to process file deletion (update PO):`, delErr.message);
+    //       }
+    //     } else {
+    //       filesToKeep.push(file);
+    //     }
+    //   }
+    //   req.body.files = filesToKeep;
+    // }
     const updatedPayload = decodeToken('updated', req);
     const userId = updatedPayload.updated_by || updatedPayload.update_by || decodeToken('created', req).created_by || req.user?.employee_id || req.user?.user_id || req.user?.id || req.user?.sub || null;
 
