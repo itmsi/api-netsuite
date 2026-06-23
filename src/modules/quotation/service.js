@@ -2,6 +2,17 @@ const axios = require('axios');
 const knex = require('knex');
 const authService = require('../auth/service');
 
+const parsePayloadDate = (dateStr) => {
+  if (!dateStr) return null;
+  const { strToDate } = require('../../utils');
+  if (typeof dateStr === 'string' && dateStr.trim() === '') return null;
+  if (typeof dateStr === 'string' && dateStr.includes('/')) {
+    return strToDate(dateStr.trim());
+  }
+  const dateObj = new Date(dateStr);
+  return isNaN(dateObj.getTime()) ? null : dateObj;
+};
+
 // Knex instance untuk DB Netsuite
 const dbNetsuite = knex({
   client: 'pg',
@@ -196,8 +207,361 @@ const syncQuotationById = async (netsuite_id) => {
   }
 };
 
+const createQuotation = async (body, user, userId) => {
+  const trx = await dbNetsuite.transaction();
+  try {
+    const quotationData = {
+      tranid: null,
+      tran_date: parsePayloadDate(body.tran_date || body.trandate),
+      duedate: parsePayloadDate(body.duedate),
+      probability: body.probability,
+      expectedclosedate: parsePayloadDate(body.expectedclosedate),
+      custbody_me_approval_status: body.custbody_me_approval_status,
+      salesrep: body.salesrep,
+      opportunity: body.opportunity,
+      forecasttype: body.forecasttype,
+      partner: body.partner,
+      otherrefnum: body.otherrefnum,
+      custbody_msi_bank_payment_so: body.custbody_msi_bank_payment_so ? JSON.stringify(body.custbody_msi_bank_payment_so) : null,
+      custbody_cseg_cn_cfi: body.custbody_cseg_cn_cfi,
+      items: body.items ? JSON.stringify(body.items) : null,
+      status_name: 'pending',
+      memo: body.memo,
+      customer_id: body.customer_id || body.entity,
+      subsidiary: body.subsidiary,
+      location: body.location,
+      department: body.department,
+      currency: body.currency,
+      class_id: body.class_id || body.class,
+      created_by: userId,
+      created_at: new Date()
+    };
+
+    const [qInternal] = await trx('quotations').insert(quotationData).returning('id');
+    const qInternalId = typeof qInternal === 'object' ? qInternal.id : qInternal;
+
+    const eventData = {
+      event_type: 'CREATE',
+      payload: JSON.stringify(body),
+      aggregate_id: qInternalId,
+      aggregate_type: 'quotation_create',
+      status: 'WAITING',
+      retry_count: 0,
+      max_retry: 3,
+      last_error: null,
+      properties: JSON.stringify({ request: body }),
+      created_at: quotationData.created_at,
+      updated_at: quotationData.created_at
+    };
+
+    const [eventIdObj] = await trx('outbox_events').insert(eventData).returning('id');
+    const eventId = typeof eventIdObj === 'object' ? eventIdObj.id : eventIdObj;
+
+    await trx('outbox_event_logs').insert({
+      outbox_event_id: eventId,
+      properties: JSON.stringify({ response: { message: 'Quotation queued for processing', status: 'WAITING' } }),
+      created_at: quotationData.created_at,
+      updated_at: quotationData.created_at
+    });
+
+    await trx.commit();
+
+    const { publishToRabbitMqQueueSingle } = require('../../config/rabbitmq');
+    const { EXCHANGES, QUEUE } = require('../../utils/constant');
+
+    await publishToRabbitMqQueueSingle(
+      EXCHANGES.QUOTATION_CREATE,
+      QUEUE.QUOTATION_CREATE,
+      { event_id: eventId, quotation_internal_id: qInternalId, data: body },
+      { durable: true, arguments: { 'x-dead-letter-exchange': `${EXCHANGES.QUOTATION_CREATE}-retry` } }
+    );
+
+    return { success: true, message: 'Quotation is being processed', data: { quotationId: qInternalId, event_id: eventId } };
+  } catch (error) {
+    if (trx) await trx.rollback();
+    throw { message: error.message || 'Failed to initiate quotation creation', statusCode: 500 };
+  }
+};
+
+const updateQuotation = async (body, user, userId) => {
+  const trx = await dbNetsuite.transaction();
+  try {
+    const { id } = body;
+
+    const isNetsuiteId = /^\d+$/.test(String(id));
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+
+    let record;
+    if (isNetsuiteId) {
+      record = await trx('quotations').where('netsuite_id', parseInt(id)).first();
+    } else if (isUuid) {
+      record = await trx('quotations').where('id', id).first();
+    }
+
+    if (!record) {
+      throw { message: `Quotation dengan ID ${id} tidak ditemukan secara lokal`, statusCode: 404 };
+    }
+
+    const localId = record.id;
+    const netsuiteId = record.netsuite_id;
+    const is_update = record.netsuite_id ? true : false;
+
+    // 1. Update data di DB lokal dulu
+    const updateData = {
+      tran_date: parsePayloadDate(body.tran_date || body.trandate),
+      duedate: parsePayloadDate(body.duedate),
+      probability: body.probability,
+      expectedclosedate: parsePayloadDate(body.expectedclosedate),
+      custbody_me_approval_status: body.custbody_me_approval_status,
+      salesrep: body.salesrep,
+      opportunity: body.opportunity,
+      forecasttype: body.forecasttype,
+      partner: body.partner,
+      otherrefnum: body.otherrefnum,
+      custbody_msi_bank_payment_so: body.custbody_msi_bank_payment_so ? JSON.stringify(body.custbody_msi_bank_payment_so) : undefined,
+      custbody_cseg_cn_cfi: body.custbody_cseg_cn_cfi,
+      memo: body.memo,
+      customer_id: body.customer_id || body.entity,
+      subsidiary: body.subsidiary,
+      location: body.location,
+      department: body.department,
+      currency: body.currency,
+      class_id: body.class_id || body.class,
+      items: body.items ? JSON.stringify(body.items) : undefined,
+      updated_at: new Date(),
+      updated_by: userId
+    };
+
+    Object.keys(updateData).forEach(key => updateData[key] === undefined && delete updateData[key]);
+    await trx('quotations').where('id', localId).update(updateData);
+
+    // 2. Insert data ke tabel outbox_events dan outbox_event_logs
+    const eventData = {
+      event_type: is_update ? 'UPDATE' : 'CREATE',
+      payload: JSON.stringify(body),
+      aggregate_id: localId,
+      aggregate_type: is_update ? 'quotation_update' : 'quotation_create',
+      status: 'WAITING',
+      retry_count: 0,
+      max_retry: 3,
+      last_error: null,
+      properties: JSON.stringify({ request: body }),
+      created_at: new Date(),
+      updated_at: new Date()
+    };
+
+    const [eventIdObj] = await trx('outbox_events').insert(eventData).returning('id');
+    const eventId = typeof eventIdObj === 'object' ? eventIdObj.id : eventIdObj;
+
+    await trx('outbox_event_logs').insert({
+      outbox_event_id: eventId,
+      properties: JSON.stringify({
+        response: {
+          message: is_update ? 'Update queued for processing' : 'Create queued for processing',
+          status: 'WAITING'
+        }
+      }),
+      created_at: new Date(),
+      updated_at: new Date()
+    });
+
+    await trx.commit();
+
+    const { publishToRabbitMqQueueSingle } = require('../../config/rabbitmq');
+    const { EXCHANGES, QUEUE } = require('../../utils/constant');
+
+    if (is_update) {
+      // Ganti body.id dengan netsuiteId sebelum dikirim ke queue update
+      const bodyWithNetsuiteId = { ...body, id: netsuiteId };
+
+      await publishToRabbitMqQueueSingle(
+        EXCHANGES.QUOTATION_UPDATE,
+        QUEUE.QUOTATION_UPDATE,
+        {
+          event_id: eventId,
+          quotation_internal_id: localId,
+          data: bodyWithNetsuiteId
+        },
+        {
+          durable: true,
+          arguments: {
+            'x-dead-letter-exchange': `${EXCHANGES.QUOTATION_UPDATE}-retry`
+          }
+        }
+      );
+    } else {
+      // Hilangkan payload id sebelum dikirim ke queue create
+      const { id: _removedId, ...bodyWithoutId } = body;
+
+      await publishToRabbitMqQueueSingle(
+        EXCHANGES.QUOTATION_CREATE,
+        QUEUE.QUOTATION_CREATE,
+        {
+          event_id: eventId,
+          quotation_internal_id: localId,
+          data: bodyWithoutId
+        },
+        {
+          durable: true,
+          arguments: {
+            'x-dead-letter-exchange': `${EXCHANGES.QUOTATION_CREATE}-retry`
+          }
+        }
+      );
+    }
+
+    return {
+      success: true,
+      message: is_update ? 'Quotation update is being processed' : 'Quotation create is being processed',
+      data: {
+        quotationId: localId,
+        event_id: eventId
+      }
+    };
+  } catch (error) {
+    if (trx) await trx.rollback();
+    throw {
+      message: error.message || 'Failed to initiate quotation update',
+      statusCode: error.statusCode || 500,
+      errors: error.errors || error
+    };
+  }
+};
+
+const createQuotationToBridge = async (body) => {
+  const tokenResponse = await authService.getToken();
+  const token = tokenResponse.data.access_token;
+  const baseUrl = process.env.BRIDGE_BASE_URL || 'http://localhost:9570';
+  const url = `${baseUrl}/api/v1/bridge/quotations/create`;
+
+  const response = await axios.post(url, body, {
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    timeout: 1500000
+  });
+
+  const result = response.data;
+  if (result && (result.status === 'error' || result.data?.status === 'error')) {
+    result.success = false;
+  }
+  return result;
+};
+
+const updateQuotationToBridge = async (body) => {
+  const tokenResponse = await authService.getToken();
+  const token = tokenResponse.data.access_token;
+  const baseUrl = process.env.BRIDGE_BASE_URL || 'http://localhost:9570';
+  const url = `${baseUrl}/api/v1/bridge/quotations/update`;
+
+  const response = await axios.post(url, body, {
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    timeout: 1500000
+  });
+
+  const result = response.data;
+  if (result && (result.status === 'error' || result.data?.status === 'error')) {
+    result.success = false;
+  }
+  return result;
+};
+
+const updateLocalQuotationId = async (id, netsuiteId) => {
+  await dbNetsuite('quotations').where('netsuite_id', netsuiteId).whereNot('id', id).del();
+  await dbNetsuite('quotations').where('id', id).update({
+    netsuite_id: netsuiteId,
+    updated_at: new Date()
+  });
+};
+
+const updateLocalQuotationStatus = async (id, status) => {
+  await dbNetsuite('quotations').where('id', id).update({
+    status_name: status,
+    updated_at: new Date()
+  });
+};
+
+const updateEventStatus = async (id, status, result, properties) => {
+  const updateData = { status, updated_at: new Date() };
+  const finalProperties = properties || result;
+  if (finalProperties) {
+    updateData.properties = typeof finalProperties === 'string' ? JSON.stringify({ message: finalProperties }) : JSON.stringify(finalProperties);
+  }
+  await dbNetsuite('outbox_events').where('id', id).update(updateData);
+  if (result) {
+    await dbNetsuite('outbox_event_logs').insert({
+      outbox_event_id: id,
+      properties: JSON.stringify({ response: result }),
+      created_at: new Date(), updated_at: new Date()
+    });
+  }
+};
+
+const incrementRetryCount = async (id, errorMessage) => {
+  const [updated] = await dbNetsuite('outbox_events')
+    .where('id', id)
+    .update({
+      retry_count: dbNetsuite.raw('retry_count + 1'),
+      last_error: errorMessage || null,
+      status: 'PROCESSING',
+      updated_at: new Date()
+    })
+    .returning(['retry_count', 'max_retry']);
+  return updated;
+};
+
+const canAutoRetry = async (id) => {
+  const event = await dbNetsuite('outbox_events')
+    .where('id', id)
+    .select('retry_count', 'max_retry')
+    .first();
+  if (!event) return false;
+  return event.retry_count < event.max_retry;
+};
+
+const getEventStatus = async (id) => {
+  const event = await dbNetsuite('outbox_events')
+    .where('id', id)
+    .select('status')
+    .first();
+  return event ? event.status : null;
+};
+
+const logEvent = async (eventId, type, message, data) => {
+  const isError = type === 'failed' || type === 'sync_failed' || type === 'retry';
+
+  const responseData = {};
+  if (isError) {
+    responseData.error = {
+      message: message || (data && data.message) || String(data),
+      code: data && data.code ? data.code : undefined
+    };
+  } else {
+    responseData.message = message;
+    if (data) responseData.data = data;
+  }
+
+  await dbNetsuite('outbox_event_logs').insert({
+    outbox_event_id: eventId,
+    http_status: data && data.statusCode ? String(data.statusCode) : null,
+    error: isError ? (message || (data && data.message) || String(data)) : null,
+    properties: JSON.stringify({ response: responseData }),
+    created_at: new Date(),
+    updated_at: new Date()
+  });
+};
+
 module.exports = {
   getQuotationById,
   getQuotationList,
-  syncQuotationById
+  syncQuotationById,
+  createQuotation,
+  updateQuotation,
+  createQuotationToBridge,
+  updateQuotationToBridge,
+  updateLocalQuotationId,
+  updateLocalQuotationStatus,
+  updateEventStatus,
+  incrementRetryCount,
+  canAutoRetry,
+  getEventStatus,
+  logEvent
 };

@@ -194,6 +194,128 @@ const quotationPaths = {
         }
       }
     }
+  },
+  '/quotation/create': {
+    post: {
+      tags: ['Quotation'],
+      summary: 'Create a new quotation',
+      description: 'Membuat quotation baru menggunakan Outbox Pattern (diantrikan untuk diproses ke NetSuite)',
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              $ref: '#/components/schemas/QuotationCreateRequest'
+            }
+          }
+        }
+      },
+      responses: {
+        200: {
+          description: 'Quotation berhasil diantrikan',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  success: { type: 'boolean', example: true },
+                  message: { type: 'string', example: 'Quotation is being processed' },
+                  data: {
+                    type: 'object',
+                    properties: {
+                      quotationId: { type: 'string', format: 'uuid', example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' },
+                      event_id: { type: 'integer', example: 456 }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        401: {
+          description: 'Unauthorized - Token tidak valid atau tidak ada',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+            }
+          }
+        },
+        500: {
+          description: 'Internal Server Error',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+            }
+          }
+        }
+      }
+    }
+  },
+  '/quotation/update': {
+    put: {
+      tags: ['Quotation'],
+      summary: 'Update an existing quotation',
+      description: 'Mengupdate quotation yang sudah ada menggunakan Outbox Pattern',
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              $ref: '#/components/schemas/QuotationUpdateRequest'
+            }
+          }
+        }
+      },
+      responses: {
+        200: {
+          description: 'Quotation update berhasil diantrikan',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  success: { type: 'boolean', example: true },
+                  message: { type: 'string', example: 'Quotation update is being processed' },
+                  data: {
+                    type: 'object',
+                    properties: {
+                      quotationId: { type: 'string', format: 'uuid', example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' },
+                      event_id: { type: 'integer', example: 457 }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        401: {
+          description: 'Unauthorized - Token tidak valid atau tidak ada',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+            }
+          }
+        },
+        404: {
+          description: 'Quotation tidak ditemukan secara lokal',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+            }
+          }
+        },
+        500: {
+          description: 'Internal Server Error',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+            }
+          }
+        }
+      }
+    }
   }
 };
 
