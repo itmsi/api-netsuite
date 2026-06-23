@@ -335,6 +335,8 @@ module.exports = {
     CUSTOMER_CREATE: 'customer-create-v5',
     SALES_ORDER_CREATE: 'sales-order-create-v5',
     SALES_ORDER_UPDATE: 'sales-order-update-v5',
+    QUOTATION_CREATE: 'quotation-create-v5',
+    QUOTATION_UPDATE: 'quotation-update-v5',
     SYNC_ORCHESTRATOR: 'sync-orchestrator'
   },
   ACTION_TRX: {
@@ -361,6 +363,8 @@ module.exports = {
     CUSTOMER_CREATE: 'customer-creation-v5',
     SALES_ORDER_CREATE: 'sales-order-creation-v5',
     SALES_ORDER_UPDATE: 'sales-order-update-v5',
+    QUOTATION_CREATE: 'quotation-creation-v5',
+    QUOTATION_UPDATE: 'quotation-update-v5',
     SYNC_ORCHESTRATOR: 'sync-orchestrator'
   },
   ENUM: {

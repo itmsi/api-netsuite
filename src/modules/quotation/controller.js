@@ -90,5 +90,58 @@ const syncById = async (req, res) => {
 module.exports = {
   getList,
   getById,
-  syncById
+  syncById,
+  create: async (req, res) => {
+    try {
+      const user = req.user;
+      const userId = user?.id || user?.user_id;
+      
+      const result = await service.createQuotation(req.body, user, userId);
+
+      return baseResponse(res, { 
+        data: {
+          success: true,
+          data: result.data,
+          message: result.message
+        }
+      });
+    } catch (error) {
+      const statusCode = error.statusCode || 500;
+      return res.status(statusCode).json({
+        success: false,
+        message: error.message || 'Internal Server Error',
+        errors: error.errors || error
+      });
+    }
+  },
+  update: async (req, res) => {
+    try {
+      const user = req.user;
+      const userId = user?.id || user?.user_id;
+
+      if (!req.body.id) {
+        return res.status(400).json({
+          success: false,
+          message: 'id is required'
+        });
+      }
+      
+      const result = await service.updateQuotation(req.body, user, userId);
+
+      return baseResponse(res, { 
+        data: {
+          success: true,
+          data: result.data,
+          message: result.message
+        }
+      });
+    } catch (error) {
+      const statusCode = error.statusCode || 500;
+      return res.status(statusCode).json({
+        success: false,
+        message: error.message || 'Internal Server Error',
+        errors: error.errors || error
+      });
+    }
+  }
 };

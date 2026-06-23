@@ -82,6 +82,94 @@ const quotationSchema = {
       tran_date_from: { type: 'string', format: 'date', example: '2024-01-01' },
       tran_date_to: { type: 'string', format: 'date', example: '2024-12-31' }
     }
+  },
+  QuotationLineItem: {
+    type: 'object',
+    required: ['itemId', 'qty', 'rate'],
+    properties: {
+      itemId: { type: 'integer', example: 19593 },
+      qty: { type: 'number', example: 5 },
+      rate: { type: 'number', example: 1500000 },
+      amount: { type: 'number', example: 7500000 },
+      description: { type: 'string', example: 'Deskripsi item' },
+      department: { type: 'integer', example: 101 },
+      class: { type: 'integer', example: 3 },
+      location: { type: 'integer', example: 19 },
+      taxcode: { type: 'integer', example: 18098 },
+      pricelevel: { type: 'integer', example: 1 },
+      unit: { type: 'string', example: 'pcs' }
+    }
+  },
+  QuotationCreateRequest: {
+    type: 'object',
+    required: ['customform', 'entity', 'subsidiary', 'trandate', 'location', 'currency', 'items'],
+    properties: {
+      customform: { type: 'integer', example: 114 },
+      title: { type: 'string', example: 'Judul Quotation edit dev' },
+      entity: { type: 'integer', example: 1052, description: 'Customer ID' },
+      subsidiary: { type: 'integer', example: 5 },
+      trandate: { type: 'string', example: '20/3/2026' },
+      memo: { type: 'string', example: 'Catatan Quotation' },
+      otherrefnum: { type: 'string', example: 'PO-000001' },
+      department: { type: 'integer', example: 101 },
+      class: { type: 'integer', example: 3 },
+      location: { type: 'integer', example: 19 },
+      currency: { type: 'integer', example: 1 },
+      duedate: { type: 'string', example: '30/3/2026' },
+      probability: { type: 'integer', example: 80 },
+      expectedclosedate: { type: 'string', example: '30/3/2026' },
+      salesrep: { type: 'string', example: '' },
+      opportunity: { type: 'string', example: '' },
+      forecasttype: { type: 'integer', example: 1 },
+      partner: { type: 'string', example: '' },
+      custbody_msi_bank_payment_so: {
+        type: 'array',
+        items: { type: 'integer' },
+        example: [3, 5]
+      },
+      custbody_cseg_cn_cfi: { type: 'integer', example: 4 },
+      custbody_me_approval_status: { type: 'integer', example: 2 },
+      items: {
+        type: 'array',
+        items: { $ref: '#/components/schemas/QuotationLineItem' }
+      }
+    }
+  },
+  QuotationUpdateRequest: {
+    type: 'object',
+    required: ['id', 'customform', 'entity', 'subsidiary', 'trandate', 'location', 'currency', 'items'],
+    properties: {
+      id: { type: 'integer', example: 30658, description: 'Netsuite Internal ID or UUID string' },
+      customform: { type: 'integer', example: 114 },
+      title: { type: 'string', example: 'Judul Quotation edit dev' },
+      entity: { type: 'integer', example: 1052, description: 'Customer ID' },
+      subsidiary: { type: 'integer', example: 5 },
+      trandate: { type: 'string', example: '20/3/2026' },
+      memo: { type: 'string', example: 'Catatan Quotation' },
+      otherrefnum: { type: 'string', example: 'PO-000001' },
+      department: { type: 'integer', example: 101 },
+      class: { type: 'integer', example: 3 },
+      location: { type: 'integer', example: 19 },
+      currency: { type: 'integer', example: 1 },
+      duedate: { type: 'string', example: '30/3/2026' },
+      probability: { type: 'integer', example: 80 },
+      expectedclosedate: { type: 'string', example: '30/3/2026' },
+      salesrep: { type: 'string', example: '' },
+      opportunity: { type: 'string', example: '' },
+      forecasttype: { type: 'integer', example: 1 },
+      partner: { type: 'string', example: '' },
+      custbody_msi_bank_payment_so: {
+        type: 'array',
+        items: { type: 'integer' },
+        example: [3, 5]
+      },
+      custbody_cseg_cn_cfi: { type: 'integer', example: 4 },
+      custbody_me_approval_status: { type: 'integer', example: 2 },
+      items: {
+        type: 'array',
+        items: { $ref: '#/components/schemas/QuotationLineItem' }
+      }
+    }
   }
 };
 

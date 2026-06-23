@@ -36,4 +36,26 @@ router.get(
   controller.syncById
 );
 
+/**
+ * @route   POST /api/netsuite/quotation/create
+ * @desc    Create quotation (Outbox Pattern)
+ * @access  Private
+ */
+router.post(
+  '/create',
+  verifyToken,
+  controller.create
+);
+
+/**
+ * @route   PUT /api/netsuite/quotation/update
+ * @desc    Update quotation (Outbox Pattern)
+ * @access  Private
+ */
+router.put(
+  '/update',
+  verifyToken,
+  controller.update
+);
+
 module.exports = router;
