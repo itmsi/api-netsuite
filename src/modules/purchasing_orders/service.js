@@ -39,7 +39,8 @@ const getPurchaseOrders = async (body) => {
       orderCol = `po.${orderCol}`;
     }
 
-    let query = dbNetsuite('purchase_orders as po');
+    let query = dbNetsuite('purchase_orders as po')
+      .where('po.is_delete', false);
 
     // Filter opsional
     if (body.search) {
@@ -250,7 +251,8 @@ const getDashboard = async (body) => {
       orderCol = `po.${orderCol}`;
     }
 
-    let query = dbNetsuite('purchase_orders as po');
+    let query = dbNetsuite('purchase_orders as po')
+      .where('po.is_delete', false);
 
     // Filter opsional
     if (body.search) {
@@ -1082,6 +1084,7 @@ const receiveItemPurchaseOrderToBridge = async (body, internalId) => {
 const getPurchaseOrderById = async (id) => {
   try {
     const baseQuery = () => dbNetsuite('purchase_orders as po')
+      .where('po.is_delete', false)
       // JOIN HEADER MASTER
       .leftJoin('vendors as v', dbNetsuite.raw('po.vendor_id = v.netsuite_id::integer'))
       .leftJoin('terms as t', dbNetsuite.raw('po.terms = t.netsuite_id::integer'))
@@ -2018,6 +2021,7 @@ const getItems = async (body) => {
     }
 
     let query = dbNetsuite('purchase_orders as po')
+      .where('po.is_delete', false)
       .crossJoin(dbNetsuite.raw("jsonb_array_elements(CASE WHEN po.lines IS NULL OR po.lines::text = '' OR po.lines::text = 'null' THEN '[]'::jsonb ELSE po.lines::jsonb END) AS line"))
       .leftJoin('items as i', dbNetsuite.raw("(line->>'item') = i.netsuite_id::text"))
       .leftJoin('items as i2', dbNetsuite.raw("(line->>'itemId') = i2.netsuite_id::text"))
@@ -2233,6 +2237,7 @@ const getFileRecordByShareUrl = async (shareUrl) => {
 const getPurchaseOrderByPoId = async (poId) => {
   const record = await dbNetsuite('purchase_orders')
     .where('po_id', poId.toString())
+    .andWhere('is_delete', false)
     .first();
   return record;
 };
