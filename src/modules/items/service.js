@@ -40,6 +40,11 @@ const getItemsList = async (body) => {
       query = query.whereIn('type', itemTypes);
     }
 
+    if (body.item_type_id) {
+      const itemTypeIds = Array.isArray(body.item_type_id) ? body.item_type_id : [body.item_type_id];
+      query = query.whereIn('type_id', itemTypeIds);
+    }
+
     // Filter opsional
     if (body.search) {
       query = query.where(function () {
@@ -189,11 +194,11 @@ const getItemLocation = async (body) => {
     const limit = parseInt(body.limit) || 10;
     const offset = (page - 1) * limit;
     const sortOrder = body.sort_order ? body.sort_order.toUpperCase() : 'DESC';
-    
+
     // Map sort_by parameter to actual columns
     let sortByRaw = body.sort_by || 'created_at';
     let orderCol = 'il.created_at';
-    
+
     if (sortByRaw === 'created_at' || sortByRaw === 'last_modified_netsuite') {
       orderCol = 'il.created_at';
     } else if (sortByRaw === 'item_id' || sortByRaw === 'item_code') {
