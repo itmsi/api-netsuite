@@ -28,30 +28,37 @@ const dbNetsuite = knex({
 const getQuotationById = async (id) => {
   try {
     const selectCols = [
-      'id', 'netsuite_id', 'tranid', 'tran_date', 'duedate',
-      'entitystatus', 'entitystatus_name', 'probability', 'expectedclosedate',
-      'custbody_me_approval_status', 'custbody_me_approval_status_name',
-      'custbody_me_wf_created_by', 'custbody_me_wf_created_by_name',
-      'salesrep', 'salesrep_name', 'opportunity', 'opportunity_name',
-      'forecasttype', 'forecasttype_name', 'partner', 'partner_name',
-      'status_code', 'status_name', 'customer_id', 'customer_name',
-      'memo', 'approvalstatus', 'otherrefnum', 'department', 'department_name',
-      'class_id', 'class_name', 'location', 'location_name',
-      'subsidiary', 'subsidiary_name', 'currency', 'currency_name',
-      'custbody_msi_bank_payment_so', 'custbody_msi_bank_payment_so_name',
-      'custbody_cseg_cn_cfi', 'custbody_cseg_cn_cfi_name',
-      'total_amount', 'last_modified_netsuite', 'datecreated', 'items',
-      'is_deleted', 'created_at', 'updated_at', 'created_by', 'updated_by'
+      'quotations.id', 'quotations.netsuite_id', 'quotations.title', 'quotations.tranid', 'quotations.tran_date', 'quotations.duedate',
+      'quotations.entitystatus', 'quotations.entitystatus_name', 'quotations.probability', 'quotations.expectedclosedate',
+      'quotations.custbody_me_approval_status', 'quotations.custbody_me_approval_status_name',
+      'quotations.custbody_me_wf_created_by', 'quotations.custbody_me_wf_created_by_name',
+      'quotations.salesrep', 'quotations.salesrep_name', 'quotations.opportunity', 'quotations.opportunity_name',
+      'quotations.forecasttype', 'quotations.forecasttype_name', 'quotations.partner', 'quotations.partner_name',
+      'quotations.status_code', 'quotations.status_name', 'quotations.customer_id', 'quotations.customer_name',
+      'quotations.memo', 'quotations.approvalstatus', 'quotations.otherrefnum', 'quotations.department', 'quotations.department_name',
+      'quotations.class_id', 'quotations.class_name', 'quotations.location', 'quotations.location_name',
+      'quotations.subsidiary', 'quotations.subsidiary_name', 'quotations.currency', 'quotations.currency_name',
+      'quotations.custbody_msi_bank_payment_so', 'quotations.custbody_msi_bank_payment_so_name',
+      'quotations.custbody_cseg_cn_cfi', 'quotations.custbody_cseg_cn_cfi_name',
+      'quotations.total_amount', 'quotations.last_modified_netsuite', 'quotations.datecreated', 'quotations.items',
+      'quotations.is_deleted', 'quotations.created_at', 'quotations.updated_at', 'quotations.created_by', 'quotations.updated_by',
+      'creator.employee_name as created_by_name',
+      'updater.employee_name as update_by_name',
+      'quotations.type_proccess', 'quotations.status_proccess', 'quotations.status_proccess_message'
     ];
 
     const isNetsuiteId = /^\d+$/.test(String(id));
     let row;
 
+    const baseQuery = () => dbNetsuite('quotations')
+      .leftJoin('gate_sso_employees as creator', 'creator.employee_id', 'quotations.created_by')
+      .leftJoin('gate_sso_employees as updater', 'updater.employee_id', 'quotations.updated_by');
+
     if (isNetsuiteId) {
-      row = await dbNetsuite('quotations')
+      row = await baseQuery()
         .select(selectCols)
-        .where('netsuite_id', parseInt(id))
-        .where('is_deleted', false)
+        .where('quotations.netsuite_id', parseInt(id))
+        .where('quotations.is_deleted', false)
         .first();
     }
 
@@ -60,10 +67,10 @@ const getQuotationById = async (id) => {
       // Regex untuk validasi format UUID (biar tidak error di Postgres jika input sembarang string)
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
       if (isUuid) {
-        row = await dbNetsuite('quotations')
+        row = await baseQuery()
           .select(selectCols)
-          .where('id', id)
-          .where('is_deleted', false)
+          .where('quotations.id', id)
+          .where('quotations.is_deleted', false)
           .first();
       }
     }
@@ -98,7 +105,9 @@ const getQuotationList = async (body) => {
     const sortByRaw = body.sort_by || 'tran_date';
     const orderCol = validSortColumns.includes(sortByRaw) ? `quotations.${sortByRaw}` : 'quotations.tran_date';
 
-    let query = dbNetsuite('quotations');
+    let query = dbNetsuite('quotations')
+      .leftJoin('gate_sso_employees as creator', 'creator.employee_id', 'quotations.created_by')
+      .leftJoin('gate_sso_employees as updater', 'updater.employee_id', 'quotations.updated_by');
 
     if (body.search) {
       query = query.where(function () {
@@ -137,7 +146,7 @@ const getQuotationList = async (body) => {
     const rows = await query
       .clone()
       .select([
-        'quotations.id', 'quotations.netsuite_id', 'quotations.tranid', 'quotations.tran_date', 'quotations.duedate',
+        'quotations.id', 'quotations.netsuite_id', 'quotations.title', 'quotations.tranid', 'quotations.tran_date', 'quotations.duedate',
         'quotations.entitystatus', 'quotations.entitystatus_name', 'quotations.probability', 'quotations.expectedclosedate',
         'quotations.custbody_me_approval_status', 'quotations.custbody_me_approval_status_name',
         'quotations.custbody_me_wf_created_by', 'quotations.custbody_me_wf_created_by_name',
@@ -150,7 +159,9 @@ const getQuotationList = async (body) => {
         'quotations.custbody_msi_bank_payment_so', 'quotations.custbody_msi_bank_payment_so_name',
         'quotations.custbody_cseg_cn_cfi', 'quotations.custbody_cseg_cn_cfi_name',
         'quotations.total_amount', 'quotations.last_modified_netsuite', 'quotations.datecreated',
-        'quotations.is_deleted', 'quotations.created_at', 'quotations.updated_at', 'quotations.created_by', 'quotations.updated_by'
+        'quotations.is_deleted', 'quotations.created_at', 'quotations.updated_at', 'quotations.created_by', 'quotations.updated_by',
+        'creator.employee_name as created_by_name',
+        'updater.employee_name as update_by_name'
       ])
       .orderBy(orderCol, sortOrder)
       .limit(limit)
