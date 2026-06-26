@@ -13,13 +13,21 @@ const itemsSchemas = {
       search: { type: 'string', default: '', example: '' },
       lastmodified: { type: 'string', nullable: true, example: '2026-03-18T08:56:00+07:00' },
       netsuite_id: { type: 'string', nullable: true, example: null },
-      item_type: { 
+      item_type: {
         oneOf: [
           { type: 'string' },
           { type: 'array', items: { type: 'string' } }
         ],
-        nullable: true, 
-        example: ['Non-inventory Item', 'Inventory Item'] 
+        nullable: true,
+        example: ['Non-inventory Item', 'Inventory Item']
+      },
+      item_type_id: {
+        oneOf: [
+          { type: 'string' },
+          { type: 'array', items: { type: 'string' } }
+        ],
+        nullable: true,
+        example: ['InvtPart', 'NonInvtPart']
       }
     }
   },

@@ -52,6 +52,7 @@ const poStatusSchema = require('./schema/po_status');
 const approvalStatusSchema = require('./schema/approval_status');
 const emailSchema = require('./schema/email');
 const quotationSchema = require('./schema/quotation');
+const itemTypeSchema = require('./schema/item_type');
 
 // Import paths
 // Tambahkan path module Anda di sini
@@ -78,6 +79,7 @@ const poStatusPaths = require('./path/po_status');
 const approvalStatusPaths = require('./path/approval_status');
 const emailPaths = require('./path/email');
 const quotationPaths = require('./path/quotation');
+const itemTypePaths = require('./path/item_type');
 
 // Combine all schemas
 const schemas = {
@@ -105,6 +107,7 @@ const schemas = {
   ...approvalStatusSchema,
   ...emailSchema,
   ...quotationSchema,
+  ...itemTypeSchema,
   // ...yourModuleSchema,
 };
 
@@ -133,6 +136,7 @@ const paths = {
   ...approvalStatusPaths,
   ...emailPaths,
   ...quotationPaths,
+  ...itemTypePaths,
   // ...yourModulePaths,
 };
 
