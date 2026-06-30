@@ -486,7 +486,8 @@ const getInvoiceSalesOrders = async (body) => {
 
     let query = db('invoice_sales_orders')
       .leftJoin('customers', 'invoice_sales_orders.entity', 'customers.customer_id_netsuite')
-      .where('invoice_sales_orders.is_deleted', false);
+      .where('invoice_sales_orders.is_deleted', false)
+      .where('customers.is_delete', false);
 
     // Filter opsional
     if (body.search) {
