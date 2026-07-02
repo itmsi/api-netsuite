@@ -13,6 +13,95 @@ const parsePayloadDate = (dateStr) => {
   return isNaN(dateObj.getTime()) ? null : dateObj;
 };
 
+const normalizeReferenceId = (value) => {
+  if (value === null || value === undefined) return null;
+  const normalized = String(value).trim();
+  return normalized === '' ? null : normalized;
+};
+
+const resolveQuotationReferenceValues = async (trx, body) => {
+  const customerId = normalizeReferenceId(body.customer_id || body.entity);
+  const subsidiaryId = normalizeReferenceId(body.subsidiary);
+  const classId = normalizeReferenceId(body.class_id || body.class);
+  const locationId = normalizeReferenceId(body.location);
+  const departmentId = normalizeReferenceId(body.department);
+  const currencyId = normalizeReferenceId(body.currency);
+
+  const [customerRow, subsidiaryRow, classRow, locationRow, departmentRow, currencyRow] = await Promise.all([
+    customerId ? trx('customers').whereRaw('netsuite_id::text = ?', [customerId]).select('name').first() : Promise.resolve(null),
+    subsidiaryId ? trx('subsidiarys').whereRaw('subsidiary_id::text = ?', [subsidiaryId]).select('subsidiary_name').first() : Promise.resolve(null),
+    classId ? trx('class').whereRaw('netsuite_id::text = ?', [classId]).select('name').first() : Promise.resolve(null),
+    locationId ? trx('locations').whereRaw('netsuite_id::text = ?', [locationId]).select('name').first() : Promise.resolve(null),
+    departmentId ? trx('departments').whereRaw('netsuite_id::text = ?', [departmentId]).select('name').first() : Promise.resolve(null),
+    currencyId ? trx('currencys').whereRaw('currency_id::text = ?', [currencyId]).select('currency_name').first() : Promise.resolve(null)
+  ]);
+
+  return {
+    customer_name: body.customer_name || customerRow?.name || null,
+    subsidiary_name: body.subsidiary_name || subsidiaryRow?.subsidiary_name || null,
+    class_name: body.class_name || classRow?.name || null,
+    location_name: body.location_name || locationRow?.name || null,
+    department_name: body.department_name || departmentRow?.name || null,
+    currency_name: body.currency_name || currencyRow?.currency_name || null
+  };
+};
+
+const normalizeQuotationItems = async (trx, items = [], defaultDepartment = null, defaultClass = null, defaultLocation = null) => {
+  if (!Array.isArray(items) || items.length === 0) {
+    return [];
+  }
+
+  const normalizedItems = [];
+
+  for (let index = 0; index < items.length; index += 1) {
+    const item = items[index] || {};
+    const itemId = normalizeReferenceId(item.itemId || item.item_id || item.item);
+    const classId = normalizeReferenceId(item.class || defaultClass);
+    const locationId = normalizeReferenceId(item.location || defaultLocation);
+    const departmentId = normalizeReferenceId(item.department || defaultDepartment);
+    const taxcodeId = normalizeReferenceId(item.taxcode);
+
+    const [itemRow, classRow, locationRow, departmentRow, taxcodeRow] = await Promise.all([
+      itemId ? trx('items').whereRaw('netsuite_id::text = ?', [itemId]).select(['item_id', 'display_name', 'type_id']).first() : Promise.resolve(null),
+      classId ? trx('class').whereRaw('netsuite_id::text = ?', [classId]).select('name').first() : Promise.resolve(null),
+      locationId ? trx('locations').whereRaw('netsuite_id::text = ?', [locationId]).select('name').first() : Promise.resolve(null),
+      departmentId ? trx('departments').whereRaw('netsuite_id::text = ?', [departmentId]).select('name').first() : Promise.resolve(null),
+      taxcodeId ? trx('taxcodes').whereRaw('taxcode_id::text = ?', [taxcodeId]).select('taxcode_name as name').first() : Promise.resolve(null)
+    ]);
+
+    normalizedItems.push({
+      line: index + 1,
+      rate: item.rate ?? null,
+      unit: item.unit || 'PCS',
+      class: classId ? String(classId) : null,
+      amount: item.amount != null ? String(item.amount) : null,
+      item_id: itemId ? String(itemId) : null,
+      line_id: item.line_id || null,
+      taxcode: taxcodeId ? String(taxcodeId) : null,
+      taxrate: item.taxrate ?? null,
+      grossamt: item.grossamt ?? null,
+      location: locationId ? String(locationId) : null,
+      quantity: item.qty ?? item.quantity ?? null,
+      item_name: itemRow?.item_id || null,
+      item_type: itemRow?.type_id || null,
+      taxamount: item.taxamount ?? null,
+      class_name: classRow?.name || null,
+      department: departmentId ? String(departmentId) : null,
+      pricelevel: item.pricelevel != null ? String(item.pricelevel) : null,
+      description: item.description || null,
+      taxcode_name: taxcodeRow?.name || null,
+      location_name: locationRow?.name || null,
+      quantityonhand: item.quantityonhand ?? null,
+      department_name: departmentRow?.name || null,
+      pricelevel_name: item.pricelevel_name || null,
+      item_displayname: itemRow?.display_name || null,
+      quantityavailable: item.quantityavailable ?? null
+    });
+  }
+
+  return normalizedItems;
+};
+
 // Knex instance untuk DB Netsuite
 const dbNetsuite = knex({
   client: 'pg',
@@ -221,6 +310,15 @@ const syncQuotationById = async (netsuite_id) => {
 const createQuotation = async (body, user, userId) => {
   const trx = await dbNetsuite.transaction();
   try {
+    const referenceValues = await resolveQuotationReferenceValues(trx, body);
+    const normalizedItems = await normalizeQuotationItems(
+      trx,
+      body.items,
+      body.department,
+      body.class_id || body.class,
+      body.location
+    );
+
     const quotationData = {
       tranid: null,
       tran_date: parsePayloadDate(body.tran_date || body.trandate),
@@ -235,15 +333,21 @@ const createQuotation = async (body, user, userId) => {
       otherrefnum: body.otherrefnum,
       custbody_msi_bank_payment_so: body.custbody_msi_bank_payment_so ? JSON.stringify(body.custbody_msi_bank_payment_so) : null,
       custbody_cseg_cn_cfi: body.custbody_cseg_cn_cfi,
-      items: body.items ? JSON.stringify(body.items) : null,
+      items: normalizedItems.length > 0 ? JSON.stringify(normalizedItems) : null,
       status_name: 'pending',
       memo: body.memo,
       customer_id: body.customer_id || body.entity,
+      customer_name: referenceValues.customer_name,
       subsidiary: body.subsidiary,
-      location: body.location,
-      department: body.department,
-      currency: body.currency,
+      subsidiary_name: referenceValues.subsidiary_name,
       class_id: body.class_id || body.class,
+      class_name: referenceValues.class_name,
+      location: body.location,
+      location_name: referenceValues.location_name,
+      department: body.department,
+      department_name: referenceValues.department_name,
+      currency: body.currency,
+      currency_name: referenceValues.currency_name,
       created_by: userId,
       created_at: new Date()
     };
@@ -316,6 +420,14 @@ const updateQuotation = async (body, user, userId) => {
     const localId = record.id;
     const netsuiteId = record.netsuite_id;
     const is_update = record.netsuite_id ? true : false;
+    const referenceValues = await resolveQuotationReferenceValues(trx, body);
+    const normalizedItems = await normalizeQuotationItems(
+      trx,
+      body.items,
+      body.department,
+      body.class_id || body.class,
+      body.location
+    );
 
     // 1. Update data di DB lokal dulu
     const updateData = {
@@ -333,12 +445,18 @@ const updateQuotation = async (body, user, userId) => {
       custbody_cseg_cn_cfi: body.custbody_cseg_cn_cfi,
       memo: body.memo,
       customer_id: body.customer_id || body.entity,
+      customer_name: referenceValues.customer_name,
       subsidiary: body.subsidiary,
+      subsidiary_name: referenceValues.subsidiary_name,
       location: body.location,
+      location_name: referenceValues.location_name,
       department: body.department,
+      department_name: referenceValues.department_name,
       currency: body.currency,
+      currency_name: referenceValues.currency_name,
       class_id: body.class_id || body.class,
-      items: body.items ? JSON.stringify(body.items) : undefined,
+      class_name: referenceValues.class_name,
+      items: normalizedItems.length > 0 ? JSON.stringify(normalizedItems) : undefined,
       updated_at: new Date(),
       updated_by: userId
     };

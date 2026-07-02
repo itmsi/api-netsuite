@@ -126,6 +126,7 @@ const getPurchaseOrders = async (body) => {
       .leftJoin('locations as l', dbNetsuite.raw('po.location = l.netsuite_id::integer'))
       .leftJoin('class as c2', dbNetsuite.raw('po.class::text = c2.netsuite_id::text'))
       .leftJoin('gate_sso_employees as updated_emp', dbNetsuite.raw("po.updated_by = updated_emp.employee_id"))
+      .leftJoin('gate_sso_employees as created_emp', dbNetsuite.raw("po.created_by = created_emp.employee_id"))
       .select([
         'po.id',
         'po.po_id',
@@ -148,7 +149,8 @@ const getPurchaseOrders = async (body) => {
         dbNetsuite.raw("COALESCE(NULLIF(po.datecreated, '')::timestamp, po.created_at) AS created_at"),
         'po.currency_symbol',
         'po.files',
-        'updated_emp.employee_name as updated_by_name'
+        'updated_emp.employee_name as updated_by_name',
+        dbNetsuite.raw("CASE WHEN NULLIF(po.custbody_msi_createdby_api, '') IS NULL THEN po.created_by_netsuite ELSE COALESCE(NULLIF(created_emp.employee_name, ''), '') END AS created_by_name")
       ])
       .orderBy(orderCol, sortOrder)
       .limit(limit)
