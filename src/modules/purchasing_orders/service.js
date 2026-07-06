@@ -850,6 +850,17 @@ const approvePurchaseOrder = async (body) => {
     else if (body.custbody_msi_reopen_api === true) transactionType = 'custbody_msi_reopen_api';
     else if (body.custbody_msi_resubmit_api === true) transactionType = 'custbody_msi_resubmit_api';
 
+    if (localPoId) {
+      await trx('purchase_orders')
+        .where('id', localPoId)
+        .update({
+          type_proccess: transactionType,
+          status_proccess: 'PROCESSING',
+          status_proccess_message: 'Processing purchase order approval',
+          updated_at: new Date()
+        });
+    }
+
     const notedData = {
       netsuite_id: null,
       transaction: transactionType,
@@ -918,6 +929,15 @@ const approvePurchaseOrder = async (body) => {
       }
     );
 
+    if (localPoId) {
+      await dbNetsuite('purchase_orders')
+        .where('id', localPoId)
+        .update({
+          status_proccess_message: 'Purchase order approval queued for processing',
+          updated_at: new Date()
+        });
+    }
+
     return {
       success: true,
       message: 'Purchase order approval is being processed',
@@ -928,7 +948,22 @@ const approvePurchaseOrder = async (body) => {
     };
 
   } catch (error) {
-    if (trx) await trx.rollback();
+    try {
+      if (trx) await trx.rollback();
+    } catch (e) {
+      // ignore if already committed
+    }
+    
+    if (body.id) {
+      await dbNetsuite('purchase_orders')
+        .where('po_id', body.id)
+        .update({
+          status_proccess: 'FAILED',
+          status_proccess_message: error.message || 'Failed to initiate purchase order approval',
+          updated_at: new Date()
+        });
+    }
+
     throw { message: error.message || 'Failed to initiate purchase order approval', statusCode: 500 };
   }
 };
