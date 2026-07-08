@@ -1057,7 +1057,7 @@ const receiveItemPurchaseOrder = async (body, user) => {
 
     if (body.po_id) {
       await trx('purchase_orders')
-        .where('id', body.po_id)
+        .where('po_id', body.po_id)
         .update({
           type_proccess: 'receive_item',
           status_proccess: 'PROCESSING',
