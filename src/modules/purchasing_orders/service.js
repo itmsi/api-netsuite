@@ -1914,7 +1914,7 @@ const getReceiveList = async (body) => {
 
     const formattedItems = items.map(item => ({
       ...item,
-      trandate: formatTransdate(item.trandate)
+      // trandate: formatTransdate(item.trandate)
     }));
 
     return {
