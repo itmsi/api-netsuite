@@ -953,7 +953,7 @@ const approvePurchaseOrder = async (body) => {
     } catch (e) {
       // ignore if already committed
     }
-    
+
     if (body.id) {
       await dbNetsuite('purchase_orders')
         .where('po_id', body.id)
@@ -1054,6 +1054,17 @@ const receiveItemPurchaseOrder = async (body, user) => {
       created_at: new Date(),
       updated_at: new Date()
     });
+
+    if (body.po_id) {
+      await trx('purchase_orders')
+        .where('id', body.po_id)
+        .update({
+          type_proccess: 'receive_item',
+          status_proccess: 'PROCESSING',
+          status_proccess_message: 'Processing item receipt',
+          updated_at: new Date()
+        });
+    }
 
     await trx.commit();
 
@@ -2207,9 +2218,9 @@ const finalizeUploadedFilesForPO = async (tempPoId, realPoId) => {
       if (!oldStoragePath.includes('/Temp/')) {
         // Tetap pastikan po_id terupdate jika tempPoId berbeda
         if (tempPoId !== realPoId.toString()) {
-           await pgCore('purchasing_orders_files')
-             .where('id', file.id)
-             .update({ po_id: realPoId.toString() });
+          await pgCore('purchasing_orders_files')
+            .where('id', file.id)
+            .update({ po_id: realPoId.toString() });
         }
         continue;
       }
