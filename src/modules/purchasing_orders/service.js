@@ -1113,11 +1113,17 @@ const receiveItemPurchaseOrderToBridge = async (body, internalId) => {
   const baseUrl = process.env.BRIDGE_BASE_URL || 'https://api-bridge-sb.motorsights.com';
   const url = `${baseUrl}/api/v1/bridge/purchase-orders/receive-item`;
 
-  // Normalize trandate to dd-mm-yyyy (accept dd-mm-yyyy or dd/mm/yyyy)
+  // Normalize trandate to mm-dd-yyyy (accept dd-mm-yyyy or dd/mm/yyyy)
   const formatTrandate = (date) => {
     if (!date) return date;
-    // Replace any '/' separator with '-' to unify format
-    return String(date).replace(/\//g, '-');
+    const str = String(date).trim();
+    // Match dd/mm/yyyy or dd-mm-yyyy
+    const match = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+    if (match) {
+      const [, dd, mm, yyyy] = match;
+      return `${mm.padStart(2, '0')}-${dd.padStart(2, '0')}-${yyyy}`;
+    }
+    return str.replace(/\//g, '-');
   };
 
   const payload = {
