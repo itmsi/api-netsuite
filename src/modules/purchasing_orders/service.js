@@ -1893,8 +1893,26 @@ const getReceiveList = async (body) => {
       .limit(limit)
       .offset(offset);
 
+    // Reformat trandate dari mm/dd/yyyy (NetSuite) ke dd/mm/yyyy
+    const formatTransdate = (date) => {
+      if (!date) return date;
+      const str = String(date).trim();
+      // Match mm/dd/yyyy or mm-dd-yyyy
+      const match = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+      if (match) {
+        const [, mm, dd, yyyy] = match;
+        return `${dd.padStart(2, '0')}/${mm.padStart(2, '0')}/${yyyy}`;
+      }
+      return date;
+    };
+
+    const formattedItems = items.map(item => ({
+      ...item,
+      trandate: formatTransdate(item.trandate)
+    }));
+
     return {
-      items,
+      items: formattedItems,
       pagination: {
         page,
         limit,
