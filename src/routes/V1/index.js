@@ -25,6 +25,9 @@ routing.use(`${API_TAG}/auth`, authModule);
 const purchasingOrdersModule = require('../../modules/purchasing_orders');
 routing.use(`${API_TAG}/purchasing-orders`, purchasingOrdersModule);
 
+const attachFileModule = require('../../modules/attach_file');
+routing.use(`${API_TAG}/attach_file`, attachFileModule);
+
 const componenModule = require('../../modules/componen');
 routing.use(`${API_TAG}/componen`, componenModule);
 
