@@ -83,9 +83,10 @@ const create = async (req, res) => {
     let result = {};
     if (netsuite_id) {
       result = await service.saveFileRecord({
+        transaction_type: type,
         netsuite_id,
-        file_name: fileName,
-        file_name_original: fileNameOriginal,
+        file_name: fileNameOriginal,
+        file_name_original: fileName,
         storage_provider: 'nextcloud',
         storage_path: filePath,
         share_url: shareUrl,
@@ -130,7 +131,7 @@ const update = async (req, res) => {
     const file = req.file;
 
     // We can find record by ID since it's PUT /attach_file/:id
-    const fileRecord = await service.getFileRecordById(id);
+    const fileRecord = await service.getFileRecordByNetsuiteId(id);
 
     if (!fileRecord) {
       return res.status(404).json({ success: false, message: 'File record not found' });

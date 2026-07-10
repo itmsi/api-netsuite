@@ -5,7 +5,7 @@ const getList = async (filters, page = 1, limit = 10) => {
   const { search, netsuite_id, sort_by = 'created_at', sort_order = 'desc' } = filters;
   const offset = (page - 1) * limit;
 
-  let query = dbNetsuite('attach_files').where(function() {
+  let query = dbNetsuite('attach_files').where(function () {
     this.whereNull('is_delete').orWhere('is_delete', false);
   });
 
@@ -42,7 +42,7 @@ const saveFileRecord = async (fileData) => {
 const getFileRecordByShareUrl = async (shareUrl) => {
   const record = await dbNetsuite('attach_files')
     .where('share_url', shareUrl)
-    .where(function() {
+    .where(function () {
       this.whereNull('is_delete').orWhere('is_delete', false);
     })
     .first();
@@ -52,7 +52,17 @@ const getFileRecordByShareUrl = async (shareUrl) => {
 const getFileRecordById = async (id) => {
   const record = await dbNetsuite('attach_files')
     .where('id', id)
-    .where(function() {
+    .where(function () {
+      this.whereNull('is_delete').orWhere('is_delete', false);
+    })
+    .first();
+  return record;
+};
+
+const getFileRecordByNetsuiteId = async (id) => {
+  const record = await dbNetsuite('attach_files')
+    .where('netsuite_id', id)
+    .where(function () {
       this.whereNull('is_delete').orWhere('is_delete', false);
     })
     .first();
@@ -71,9 +81,9 @@ const updateFileRecord = async (id, updateData) => {
 const deleteFileRecord = async (id) => {
   const [record] = await dbNetsuite('attach_files')
     .where({ id })
-    .update({ 
-      is_delete: true, 
-      deleted_at: new Date() 
+    .update({
+      is_delete: true,
+      deleted_at: new Date()
     })
     .returning('*');
   return record;
@@ -172,5 +182,6 @@ module.exports = {
   getPurchaseOrderByPoId,
   callBridgeCreate,
   callBridgeUpdate,
-  callBridgeDelete
+  callBridgeDelete,
+  getFileRecordByNetsuiteId
 };
