@@ -850,6 +850,9 @@ const approvePurchaseOrder = async (body) => {
     else if (body.custbody_msi_reopen_api === true) transactionType = 'custbody_msi_reopen_api';
     else if (body.custbody_msi_resubmit_api === true) transactionType = 'custbody_msi_resubmit_api';
 
+    const approvalBaseUrl = process.env.BRIDGE_BASE_URL || 'https://api-bridge-sb.motorsights.com';
+    const approvalUrl = `${approvalBaseUrl}/api/v1/bridge/purchase-orders/approval`;
+
     if (localPoId) {
       await trx('purchase_orders')
         .where('id', localPoId)
@@ -857,6 +860,7 @@ const approvePurchaseOrder = async (body) => {
           type_proccess: transactionType,
           status_proccess: 'PROCESSING',
           status_proccess_message: 'Processing purchase order approval',
+          url_proccess: approvalUrl,
           updated_at: new Date()
         });
     }
@@ -934,6 +938,7 @@ const approvePurchaseOrder = async (body) => {
         .where('id', localPoId)
         .update({
           status_proccess_message: 'Purchase order approval queued for processing',
+          url_proccess: approvalUrl,
           updated_at: new Date()
         });
     }
@@ -960,6 +965,7 @@ const approvePurchaseOrder = async (body) => {
         .update({
           status_proccess: 'FAILED',
           status_proccess_message: error.message || 'Failed to initiate purchase order approval',
+          url_proccess: approvalUrl,
           updated_at: new Date()
         });
     }
@@ -1055,6 +1061,9 @@ const receiveItemPurchaseOrder = async (body, user) => {
       updated_at: new Date()
     });
 
+    const receiveBaseUrl = process.env.BRIDGE_BASE_URL || 'https://api-bridge-sb.motorsights.com';
+    const receiveUrl = `${receiveBaseUrl}/api/v1/bridge/purchase-orders/receive-item`;
+
     if (body.po_id) {
       await trx('purchase_orders')
         .where('po_id', body.po_id)
@@ -1062,6 +1071,7 @@ const receiveItemPurchaseOrder = async (body, user) => {
           type_proccess: 'receive_item',
           status_proccess: 'PROCESSING',
           status_proccess_message: 'Processing item receipt',
+          url_proccess: receiveUrl,
           updated_at: new Date()
         });
     }

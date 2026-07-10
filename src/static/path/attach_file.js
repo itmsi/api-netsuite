@@ -47,7 +47,8 @@ const attachFilePaths = {
                 type: { type: 'string' },
                 file: { type: 'string', format: 'binary' },
                 file_name: { type: 'string' },
-                netsuite_id: { type: 'string' }
+                netsuite_id: { type: 'string' },
+                created_by_api: { type: 'string', description: 'Email/identifier dari pembuat file. Jika tidak diisi, diambil otomatis dari token.' }
               }
             }
           }
@@ -88,7 +89,8 @@ const attachFilePaths = {
                 fileUrl: { type: 'string' },
                 file: { type: 'string', format: 'binary' },
                 file_name: { type: 'string' },
-                netsuite_id: { type: 'string' }
+                netsuite_id: { type: 'string' },
+                created_by_api: { type: 'string', description: 'Email/identifier dari pembuat file. Jika tidak diisi, diambil otomatis dari token.' }
               }
             }
           }

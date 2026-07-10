@@ -1,3 +1,4 @@
+const axios = require('axios');
 const { dbNetsuite } = require('../../config/database');
 
 const getList = async (filters, page = 1, limit = 10) => {
@@ -85,6 +86,82 @@ const getPurchaseOrderByPoId = async (poId) => {
   return record;
 };
 
+const callBridgeCreate = async ({ localId, netsuiteId, createdByApi, files }) => {
+  try {
+    const authService = require('../auth/service');
+    const tokenResponse = await authService.getToken();
+    const token = tokenResponse.data.access_token;
+
+    const baseUrl = process.env.BRIDGE_BASE_URL || 'http://localhost:9570';
+    const url = `${baseUrl}/api/v1/bridge/attach_file`;
+
+    const response = await axios.post(url, {
+      local_id: localId,
+      netsuite_id: netsuiteId,
+      created_by_api: createdByApi,
+      files
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    return response.data;
+  } catch (error) {
+    console.error('[AttachFile] Bridge create error:', error?.response?.data || error.message);
+    // Non-blocking: log but don't throw
+  }
+};
+
+const callBridgeUpdate = async ({ bridgeId, fileName, fileUrl }) => {
+  try {
+    const authService = require('../auth/service');
+    const tokenResponse = await authService.getToken();
+    const token = tokenResponse.data.access_token;
+
+    const baseUrl = process.env.BRIDGE_BASE_URL || 'http://localhost:9570';
+    const url = `${baseUrl}/api/v1/bridge/attach_file/${bridgeId}`;
+
+    const response = await axios.put(url, {
+      fileName,
+      fileUrl
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    return response.data;
+  } catch (error) {
+    console.error('[AttachFile] Bridge update error:', error?.response?.data || error.message);
+    // Non-blocking: log but don't throw
+  }
+};
+
+const callBridgeDelete = async (bridgeId) => {
+  try {
+    const authService = require('../auth/service');
+    const tokenResponse = await authService.getToken();
+    const token = tokenResponse.data.access_token;
+
+    const baseUrl = process.env.BRIDGE_BASE_URL || 'http://localhost:9570';
+    const url = `${baseUrl}/api/v1/bridge/attach_file/${bridgeId}`;
+
+    const response = await axios.delete(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    return response.data;
+  } catch (error) {
+    console.error('[AttachFile] Bridge delete error:', error?.response?.data || error.message);
+    // Non-blocking: log but don't throw
+  }
+};
+
 module.exports = {
   getList,
   saveFileRecord,
@@ -92,5 +169,8 @@ module.exports = {
   getFileRecordById,
   updateFileRecord,
   deleteFileRecord,
-  getPurchaseOrderByPoId
+  getPurchaseOrderByPoId,
+  callBridgeCreate,
+  callBridgeUpdate,
+  callBridgeDelete
 };

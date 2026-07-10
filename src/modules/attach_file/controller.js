@@ -5,7 +5,7 @@ const path = require('path');
 const getList = async (req, res) => {
   try {
     const { page = 1, limit = 10, sort_by = 'created_at', sort_order = 'desc', search = '', netsuite_id = '' } = req.body;
-    
+
     const filters = {
       search,
       netsuite_id,
@@ -37,7 +37,9 @@ const create = async (req, res) => {
       return res.status(400).json({ success: false, message: 'No file uploaded' });
     }
 
-    const { netsuite_id, file_name, type } = req.body;
+    const { netsuite_id, file_name, type, created_by_api } = req.body;
+    const userId = req.user?.employee_id || req.user?.user_id || req.user?.id || req.user?.sub || null;
+    const userEmail = req.user?.email || null;
 
     // Extract original extension
     const extension = path.extname(file.originalname);
@@ -50,12 +52,13 @@ const create = async (req, res) => {
 
     // Normalize characters to lowercase and replace spaces with underscore
     const normalizedBaseName = baseName.toLowerCase().replace(/\s+/g, '_');
+    const fileNameOriginal = file_name;
 
     // Combine to form the finalized file name
     const fileName = `${Date.now()}_${normalizedBaseName}${extension}`;
-    
+
     let uploadDir = nextcloud.NEXTCLOUD_UPLOAD_DIR;
-    
+
     if (type === 'purchase_order' && netsuite_id) {
       const poRecord = await service.getPurchaseOrderByPoId(netsuite_id);
       if (poRecord) {
@@ -64,7 +67,7 @@ const create = async (req, res) => {
         uploadDir = `/NetSuite/PurchasingOrders/${year}/${folderName}`;
       }
     }
-    
+
     const filePath = `${uploadDir}/${fileName}`;
 
     // Ensure upload dir exists
@@ -82,10 +85,21 @@ const create = async (req, res) => {
       result = await service.saveFileRecord({
         netsuite_id,
         file_name: fileName,
+        file_name_original: fileNameOriginal,
         storage_provider: 'nextcloud',
         storage_path: filePath,
         share_url: shareUrl,
-        // type might be needed if there is a column for it, but not listed in schema provided, omitting unless needed
+        file_url: shareUrl,
+        created_by_api: created_by_api || userEmail || null,
+        created_by: userId,
+      });
+
+      // Notify bridge API (non-blocking)
+      service.callBridgeCreate({
+        localId: result?.id,
+        netsuiteId: netsuite_id,
+        createdByApi: created_by_api || userEmail || null,
+        files: [{ fileName: fileNameOriginal, fileUrl: shareUrl }]
       });
     }
 
@@ -95,7 +109,7 @@ const create = async (req, res) => {
       netsuiteId: netsuite_id || null,
       fileUrl: shareUrl,
       storagePath: filePath,
-      fileName: file_name
+      fileName: fileNameOriginal
     });
   } catch (error) {
     console.error('Error uploading file:', error);
@@ -110,8 +124,10 @@ const create = async (req, res) => {
 const update = async (req, res) => {
   try {
     const { id } = req.params;
-    const { fileUrl, file_name, netsuite_id, type } = req.body;
-    const file = req.file; 
+    const { fileUrl, file_name, netsuite_id, type, created_by_api } = req.body;
+    const userId = req.user?.employee_id || req.user?.user_id || req.user?.id || req.user?.sub || null;
+    const userEmail = req.user?.email || null;
+    const file = req.file;
 
     // We can find record by ID since it's PUT /attach_file/:id
     const fileRecord = await service.getFileRecordById(id);
@@ -146,7 +162,7 @@ const update = async (req, res) => {
       }
       const normalizedBaseName = baseName.toLowerCase().replace(/\s+/g, '_');
       finalFileName = `${Date.now()}_${normalizedBaseName}${extension}`;
-      
+
       finalStoragePath = `${dirPath}/${finalFileName}`;
 
       await nextcloud.client.putFileContents(finalStoragePath, file.buffer);
@@ -170,7 +186,7 @@ const update = async (req, res) => {
       }
       const normalizedBaseName = baseName.toLowerCase().replace(/\s+/g, '_');
       finalFileName = `${Date.now()}_${normalizedBaseName}${extension}`;
-      
+
       finalStoragePath = `${dirPath}/${finalFileName}`;
 
       if (fileRecord.storage_path !== finalStoragePath) {
@@ -189,14 +205,30 @@ const update = async (req, res) => {
       updateData.file_name = finalFileName;
       updateData.storage_path = finalStoragePath;
       updateData.share_url = finalShareUrl;
+      updateData.file_url = finalShareUrl;
     }
 
     if (netsuite_id) {
       updateData.netsuite_id = netsuite_id;
     }
 
+    if (created_by_api !== undefined) {
+      updateData.created_by_api = created_by_api || userEmail || null;
+    }
+
+    updateData.updated_b = userId;
+
     if (Object.keys(updateData).length > 0) {
       await service.updateFileRecord(id, updateData);
+    }
+
+    // Notify bridge API (non-blocking)
+    if (fileRecord.netsuite_file_id) {
+      service.callBridgeUpdate({
+        bridgeId: fileRecord.netsuite_file_id,
+        fileName: finalFileName,
+        fileUrl: finalShareUrl
+      });
     }
 
     return res.status(200).json({
@@ -242,6 +274,11 @@ const destroy = async (req, res) => {
     }
 
     await service.deleteFileRecord(fileRecord.id);
+
+    // Notify bridge API (non-blocking)
+    if (fileRecord.netsuite_file_id) {
+      service.callBridgeDelete(fileRecord.netsuite_file_id);
+    }
 
     return res.status(200).json({
       success: true,
