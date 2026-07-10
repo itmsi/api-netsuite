@@ -133,15 +133,11 @@ const update = async (req, res) => {
     // We can find record by ID since it's PUT /attach_file/:id
     const fileRecord = await service.getFileRecordByNetsuiteId(id);
 
-    if (!fileRecord) {
-      return res.status(404).json({ success: false, message: 'File record not found' });
+    // Determine target directory (either existing file's dir, or default/upload dir for the type)
+    let dirPath = nextcloud.NEXTCLOUD_UPLOAD_DIR;
+    if (fileRecord && fileRecord.storage_path) {
+      dirPath = path.dirname(fileRecord.storage_path);
     }
-
-    let finalStoragePath = fileRecord.storage_path;
-    let finalShareUrl = fileRecord.share_url;
-    let finalFileName = fileRecord.file_name;
-
-    let dirPath = path.dirname(fileRecord.storage_path);
     if (type === 'purchase_order' && netsuite_id) {
       const poRecord = await service.getPurchaseOrderByPoId(netsuite_id);
       if (poRecord) {
@@ -151,8 +147,74 @@ const update = async (req, res) => {
       }
     }
 
-    // Ensure final dir exists if it changed
+    // Ensure target dir exists
     await nextcloud.ensureDirectoryExists(dirPath);
+
+    // If record not found in local DB, insert it (and upload file if present)
+    if (!fileRecord) {
+      let createdRecord = {};
+
+      // If a file is provided, upload to Nextcloud
+      let createdStoragePath = null;
+      let createdShareUrl = null;
+      let createdFileName = null;
+
+      if (file) {
+        const extension = path.extname(file.originalname);
+        let baseName = file_name || file.originalname;
+        if (path.extname(baseName)) {
+          baseName = path.basename(baseName, path.extname(baseName));
+        }
+        const normalizedBaseName = baseName.toLowerCase().replace(/\s+/g, '_');
+        createdFileName = `${Date.now()}_${normalizedBaseName}${extension}`;
+
+        createdStoragePath = `${dirPath}/${createdFileName}`;
+        await nextcloud.client.putFileContents(createdStoragePath, file.buffer);
+        createdShareUrl = await nextcloud.generateShareLink(createdStoragePath);
+      }
+
+      // Save minimal record to DB
+      createdRecord = await service.saveFileRecord({
+        transaction_type: type,
+        netsuite_id: netsuite_id || null,
+        file_name: file_name || (file ? file.originalname : null),
+        file_name_original: createdFileName || null,
+        storage_provider: createdStoragePath ? 'nextcloud' : null,
+        storage_path: createdStoragePath,
+        share_url: createdShareUrl,
+        file_url: createdShareUrl,
+        created_by_api: created_by_api || userEmail || null,
+        created_by: userId,
+      });
+
+      // Notify bridge API (non-blocking)
+      try {
+        service.callBridgeCreate({
+          localId: createdRecord?.id,
+          netsuiteId: netsuite_id,
+          createdByApi: created_by_api || userEmail || null,
+          files: [{ fileName: file_name || (file ? file.originalname : null), fileUrl: createdShareUrl }]
+        });
+      } catch (notifyErr) {
+        console.warn('Bridge create notification failed:', notifyErr?.message || notifyErr);
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: 'File record created locally',
+        data: {
+          id: createdRecord?.id || null,
+          fileUrl: createdShareUrl || null,
+          storagePath: createdStoragePath || null,
+          fileName: createdFileName || (file_name || null)
+        }
+      });
+    }
+
+    // Existing record — proceed to update
+    let finalStoragePath = fileRecord.storage_path;
+    let finalShareUrl = fileRecord.share_url;
+    let finalFileName = fileRecord.file_name;
 
     // SCENARIO: File was uploaded, replace existing file
     if (file) {
@@ -203,7 +265,8 @@ const update = async (req, res) => {
 
     const updateData = {};
     if (file || file_name || dirPath !== path.dirname(fileRecord.storage_path)) {
-      updateData.file_name = finalFileName;
+      updateData.file_name = file_name;
+      updateData.file_name_original = finalFileName;
       updateData.storage_path = finalStoragePath;
       updateData.share_url = finalShareUrl;
       updateData.file_url = finalShareUrl;
@@ -217,17 +280,18 @@ const update = async (req, res) => {
       updateData.created_by_api = created_by_api || userEmail || null;
     }
 
-    updateData.updated_b = userId;
+    updateData.updated_by = userId;
 
     if (Object.keys(updateData).length > 0) {
-      await service.updateFileRecord(id, updateData);
+      // Use the DB primary id when updating (req.params.id is netsuite_id in this route)
+      await service.updateFileRecord(fileRecord.id, updateData);
     }
 
     // Notify bridge API (non-blocking)
     if (fileRecord.netsuite_file_id) {
       service.callBridgeUpdate({
         bridgeId: fileRecord.netsuite_file_id,
-        fileName: finalFileName,
+        fileName: file_name,
         fileUrl: finalShareUrl
       });
     }
@@ -236,7 +300,7 @@ const update = async (req, res) => {
       success: true,
       message: 'File record updated successfully',
       data: {
-        id,
+        id: fileRecord.id,
         fileUrl: finalShareUrl,
         storagePath: finalStoragePath,
         fileName: finalFileName
@@ -257,7 +321,7 @@ const destroy = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const fileRecord = await service.getFileRecordById(id);
+    const fileRecord = await service.getFileRecordByNetsuiteId(id);
     if (!fileRecord) {
       return res.status(200).json({
         success: true,
