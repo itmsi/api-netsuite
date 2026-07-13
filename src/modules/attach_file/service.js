@@ -69,6 +69,27 @@ const getFileRecordByNetsuiteId = async (id) => {
   return record;
 };
 
+const getFileRecordByNetsuiteFileId = async (netsuiteFileId) => {
+  const record = await dbNetsuite('attach_files')
+    .where('netsuite_file_id', netsuiteFileId)
+    .where(function () {
+      this.whereNull('is_delete').orWhere('is_delete', false);
+    })
+    .first();
+  return record;
+};
+
+const getFileRecordByNetsuiteIdAndShareUrl = async (id, shareUrl) => {
+  const record = await dbNetsuite('attach_files')
+    .where('netsuite_id', id)
+    .where('share_url', shareUrl)
+    .where(function () {
+      this.whereNull('is_delete').orWhere('is_delete', false);
+    })
+    .first();
+  return record;
+};
+
 const updateFileRecord = async (id, updateData) => {
   updateData.updated_at = new Date();
   const [record] = await dbNetsuite('attach_files')
@@ -92,6 +113,13 @@ const deleteFileRecord = async (id) => {
 const getPurchaseOrderByPoId = async (poId) => {
   const record = await dbNetsuite('purchase_orders')
     .where('po_id', poId)
+    .first();
+  return record;
+};
+
+const getPurchaseOrderById = async (id) => {
+  const record = await dbNetsuite('purchase_orders')
+    .where('id', id)
     .first();
   return record;
 };
@@ -180,8 +208,11 @@ module.exports = {
   updateFileRecord,
   deleteFileRecord,
   getPurchaseOrderByPoId,
+  getPurchaseOrderById,
   callBridgeCreate,
   callBridgeUpdate,
   callBridgeDelete,
-  getFileRecordByNetsuiteId
+  getFileRecordByNetsuiteId,
+  getFileRecordByNetsuiteFileId,
+  getFileRecordByNetsuiteIdAndShareUrl
 };

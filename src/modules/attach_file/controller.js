@@ -1,6 +1,30 @@
+const axios = require('axios');
 const service = require('./service');
 const nextcloud = require('../../utils/nextcloud');
 const path = require('path');
+
+const triggerSync = async ({ type, netsuite_id, token }) => {
+  try {
+    const gatewayBaseUrl = process.env.GATEWAY_BASE_URL || 'https://dev-gateway.motorsights.com';
+
+    if (type === 'purchase_order') {
+      const url = `${gatewayBaseUrl}/api/netsuite/purchasing-orders/sync/${netsuite_id}`;
+      await axios.get(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+        }
+      });
+      console.log(`[AttachFile] Sync triggered for purchase_order netsuite_id=${netsuite_id}`);
+    } else {
+      // TODO: handle sync for other types
+      console.log(`[AttachFile] Sync not yet implemented for type=${type}`);
+    }
+  } catch (error) {
+    console.error('[AttachFile] Sync trigger error:', error?.response?.data || error.message);
+    // Non-blocking: log but don't throw
+  }
+};
 
 const getList = async (req, res) => {
   try {
@@ -57,13 +81,28 @@ const create = async (req, res) => {
     // Combine to form the finalized file name
     const fileName = `${Date.now()}_${normalizedBaseName}${extension}`;
 
+    const isNetsuiteIdUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(netsuite_id);
+    let resolvedNetsuiteId = netsuite_id;
+
+    if (isNetsuiteIdUUID) {
+      // netsuite_id berformat UUID → cari di purchase_orders by id, ambil po_id
+      const poRecord = await service.getPurchaseOrderById(netsuite_id);
+      if (!poRecord || !poRecord.po_id) {
+        return res.status(400).json({
+          success: false,
+          message: 'Netsuite ID tidak ditemukan di data PO'
+        });
+      }
+      resolvedNetsuiteId = poRecord.po_id;
+    }
+
     let uploadDir = nextcloud.NEXTCLOUD_UPLOAD_DIR;
 
-    if (type === 'purchase_order' && netsuite_id) {
-      const poRecord = await service.getPurchaseOrderByPoId(netsuite_id);
+    if (type === 'purchase_order' && resolvedNetsuiteId) {
+      const poRecord = await service.getPurchaseOrderByPoId(resolvedNetsuiteId);
       if (poRecord) {
         const year = new Date().getFullYear();
-        const folderName = poRecord.po_number || netsuite_id;
+        const folderName = poRecord.po_number || resolvedNetsuiteId;
         uploadDir = `/NetSuite/PurchasingOrders/${year}/${folderName}`;
       }
     }
@@ -81,10 +120,11 @@ const create = async (req, res) => {
 
     // If netsuite_id provided, save to DB now, else wait for finalize
     let result = {};
-    if (netsuite_id) {
+    let bridgeResult = null;
+    if (resolvedNetsuiteId) {
       result = await service.saveFileRecord({
         transaction_type: type,
-        netsuite_id,
+        netsuite_id: resolvedNetsuiteId,
         file_name: fileNameOriginal,
         file_name_original: fileName,
         storage_provider: 'nextcloud',
@@ -95,19 +135,27 @@ const create = async (req, res) => {
         created_by: userId,
       });
 
-      // Notify bridge API (non-blocking)
-      service.callBridgeCreate({
+      // Notify bridge API — tunggu response dulu sebelum trigger sync
+      bridgeResult = await service.callBridgeCreate({
         localId: result?.id,
-        netsuiteId: netsuite_id,
+        netsuiteId: resolvedNetsuiteId,
         createdByApi: created_by_api || userEmail || null,
         files: [{ fileName: fileNameOriginal, fileUrl: shareUrl }]
       });
+
+      // Trigger sync hanya jika callBridgeCreate berhasil (non-blocking)
+      if (bridgeResult) {
+        const userToken = (req.headers.authorization || '').replace('Bearer ', '');
+        if (userToken) {
+          triggerSync({ type, netsuite_id: resolvedNetsuiteId, token: userToken });
+        }
+      }
     }
 
     return res.status(200).json({
       success: true,
-      id: result?.id || null,
-      netsuiteId: netsuite_id || null,
+      id: bridgeResult?.data?.[0]?.netsuite_file_id || null,
+      netsuiteId: resolvedNetsuiteId || null,
       fileUrl: shareUrl,
       storagePath: filePath,
       fileName: fileNameOriginal
@@ -130,8 +178,8 @@ const update = async (req, res) => {
     const userEmail = req.user?.email || null;
     const file = req.file;
 
-    // We can find record by ID since it's PUT /attach_file/:id
-    const fileRecord = await service.getFileRecordByNetsuiteId(id);
+    // Cari record berdasarkan netsuite_file_id (req.params.id)
+    const fileRecord = await service.getFileRecordByNetsuiteFileId(id);
 
     // Determine target directory (either existing file's dir, or default/upload dir for the type)
     let dirPath = nextcloud.NEXTCLOUD_UPLOAD_DIR;
@@ -177,6 +225,7 @@ const update = async (req, res) => {
       createdRecord = await service.saveFileRecord({
         transaction_type: type,
         netsuite_id: netsuite_id || null,
+        netsuite_file_id: id || null,
         file_name: file_name || (file ? file.originalname : null),
         file_name_original: createdFileName || null,
         storage_provider: createdStoragePath ? 'nextcloud' : null,
@@ -189,12 +238,20 @@ const update = async (req, res) => {
 
       // Notify bridge API (non-blocking)
       try {
-        service.callBridgeCreate({
+        const bridgeResult = await service.callBridgeCreate({
           localId: createdRecord?.id,
           netsuiteId: netsuite_id,
           createdByApi: created_by_api || userEmail || null,
-          files: [{ fileName: file_name || (file ? file.originalname : null), fileUrl: createdShareUrl }]
+          files: [{ fileName: file_name, fileUrl: createdShareUrl }]
         });
+
+        // Trigger sync hanya jika callBridgeCreate berhasil (non-blocking)
+        if (bridgeResult) {
+          const userToken = (req.headers.authorization || '').replace('Bearer ', '');
+          if (userToken) {
+            triggerSync({ type, netsuite_id, token: userToken });
+          }
+        }
       } catch (notifyErr) {
         console.warn('Bridge create notification failed:', notifyErr?.message || notifyErr);
       }
@@ -289,11 +346,23 @@ const update = async (req, res) => {
 
     // Notify bridge API (non-blocking)
     if (fileRecord.netsuite_file_id) {
-      service.callBridgeUpdate({
+      const bridgeResult = await service.callBridgeUpdate({
         bridgeId: fileRecord.netsuite_file_id,
         fileName: file_name,
         fileUrl: finalShareUrl
       });
+
+      // Trigger sync hanya jika callBridgeCreate berhasil (non-blocking)
+      if (bridgeResult) {
+        const userToken = (req.headers.authorization || '').replace('Bearer ', '');
+        if (userToken) {
+          triggerSync({
+            type: type || fileRecord.transaction_type,
+            netsuite_id: netsuite_id || fileRecord.netsuite_id,
+            token: userToken
+          });
+        }
+      }
     }
 
     return res.status(200).json({
@@ -321,7 +390,7 @@ const destroy = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const fileRecord = await service.getFileRecordByNetsuiteId(id);
+    const fileRecord = await service.getFileRecordByNetsuiteFileId(id);
     if (!fileRecord) {
       return res.status(200).json({
         success: true,
@@ -342,7 +411,18 @@ const destroy = async (req, res) => {
 
     // Notify bridge API (non-blocking)
     if (fileRecord.netsuite_file_id) {
-      service.callBridgeDelete(fileRecord.netsuite_file_id);
+      const bridgeResult = await service.callBridgeDelete(fileRecord.netsuite_file_id);
+      // Trigger sync hanya jika callBridgeCreate berhasil (non-blocking)
+      if (bridgeResult) {
+        const userToken = (req.headers.authorization || '').replace('Bearer ', '');
+        if (userToken) {
+          triggerSync({
+            type: fileRecord.transaction_type,
+            netsuite_id: fileRecord.netsuite_id,
+            token: userToken
+          });
+        }
+      }
     }
 
     return res.status(200).json({
