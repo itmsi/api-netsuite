@@ -181,9 +181,13 @@ const update = async (req, res) => {
     // Cari record berdasarkan netsuite_file_id (req.params.id)
     const fileRecord = await service.getFileRecordByNetsuiteFileId(id);
 
-    // Determine target directory (either existing file's dir, or default/upload dir for the type)
+    const hasExistingStoragePath = typeof fileRecord?.storage_path === 'string' && fileRecord.storage_path;
+    const hasNewFileUpload = Boolean(file);
+    const hasFileUrlUpdate = Boolean(fileUrl);
+    const hasNameOnlyUpdate = !hasNewFileUpload && !hasFileUrlUpdate && Boolean(file_name);
+
     let dirPath = nextcloud.NEXTCLOUD_UPLOAD_DIR;
-    if (fileRecord && fileRecord.storage_path) {
+    if (hasExistingStoragePath) {
       dirPath = path.dirname(fileRecord.storage_path);
     }
     if (type === 'purchase_order' && netsuite_id) {
@@ -195,8 +199,9 @@ const update = async (req, res) => {
       }
     }
 
-    // Ensure target dir exists
-    await nextcloud.ensureDirectoryExists(dirPath);
+    if (!hasNameOnlyUpdate) {
+      await nextcloud.ensureDirectoryExists(dirPath);
+    }
 
     // If record not found in local DB, insert it (and upload file if present)
     if (!fileRecord) {
@@ -275,7 +280,7 @@ const update = async (req, res) => {
     let finalFileName = fileRecord.file_name;
 
     // SCENARIO: File was uploaded, replace existing file
-    if (file) {
+    if (hasNewFileUpload) {
       const extension = path.extname(file.originalname);
       let baseName = file_name || file.originalname;
       if (path.extname(baseName)) {
@@ -298,7 +303,14 @@ const update = async (req, res) => {
       } catch (e) {
         console.warn(`Could not delete old file in Nextcloud: ${fileRecord.storage_path}`, e.message);
       }
-    } else if (file_name || dirPath !== path.dirname(fileRecord.storage_path)) {
+    } else if (hasFileUrlUpdate) {
+      // SCENARIO: Only remote file URL changed; keep existing storage path untouched.
+      finalShareUrl = fileUrl;
+    } else if (hasNameOnlyUpdate) {
+      finalFileName = file_name;
+      finalShareUrl = fileRecord.share_url;
+      finalStoragePath = fileRecord.storage_path;
+    } else if (hasExistingStoragePath && (file_name || dirPath !== path.dirname(fileRecord.storage_path))) {
       // SCENARIO: Only file_name changes or directory changes
       const extension = path.extname(fileRecord.storage_path);
       let baseName = file_name || fileRecord.file_name;
@@ -322,8 +334,8 @@ const update = async (req, res) => {
     }
 
     const updateData = {};
-    if (file || file_name || dirPath !== path.dirname(fileRecord.storage_path)) {
-      updateData.file_name = file_name;
+    if (hasNewFileUpload || file_name || hasFileUrlUpdate || (hasExistingStoragePath && dirPath !== path.dirname(fileRecord.storage_path))) {
+      updateData.file_name = file_name || fileRecord.file_name;
       updateData.file_name_original = finalFileName;
       updateData.storage_path = finalStoragePath;
       updateData.share_url = finalShareUrl;
@@ -373,7 +385,6 @@ const update = async (req, res) => {
         id: id || null,
         netsuiteId: netsuite_id || null,
         fileUrl: finalShareUrl,
-        storagePath: finalStoragePath,
         fileName: file_name
       }
     });
