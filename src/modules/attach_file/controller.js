@@ -267,8 +267,7 @@ const update = async (req, res) => {
         data: {
           id: id || null,
           netsuiteId: netsuite_id || null,
-          fileUrl: createdShareUrl || null,
-          storagePath: createdStoragePath || null,
+          fileUrl: createdShareUrl || fileUrl || null,
           fileName: file_name || null
         }
       });
@@ -384,7 +383,7 @@ const update = async (req, res) => {
       data: {
         id: id || null,
         netsuiteId: netsuite_id || null,
-        fileUrl: finalShareUrl,
+        fileUrl: finalShareUrl || fileUrl || null,
         fileName: file_name
       }
     });
