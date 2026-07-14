@@ -260,10 +260,11 @@ const update = async (req, res) => {
         success: true,
         message: 'File record created locally',
         data: {
-          id: createdRecord?.id || null,
+          id: id || null,
+          netsuiteId: netsuite_id || null,
           fileUrl: createdShareUrl || null,
           storagePath: createdStoragePath || null,
-          fileName: createdFileName || (file_name || null)
+          fileName: file_name || null
         }
       });
     }
@@ -369,10 +370,11 @@ const update = async (req, res) => {
       success: true,
       message: 'File record updated successfully',
       data: {
-        id: fileRecord.id,
+        id: id || null,
+        netsuiteId: netsuite_id || null,
         fileUrl: finalShareUrl,
         storagePath: finalStoragePath,
-        fileName: finalFileName
+        fileName: file_name
       }
     });
 
