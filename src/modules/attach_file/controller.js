@@ -185,6 +185,7 @@ const update = async (req, res) => {
     const hasNewFileUpload = Boolean(file);
     const hasFileUrlUpdate = Boolean(fileUrl);
     const hasNameOnlyUpdate = !hasNewFileUpload && !hasFileUrlUpdate && Boolean(file_name);
+    const shouldUseNextcloud = hasNewFileUpload || (hasExistingStoragePath && !hasNameOnlyUpdate && !hasFileUrlUpdate);
 
     let dirPath = nextcloud.NEXTCLOUD_UPLOAD_DIR;
     if (hasExistingStoragePath) {
@@ -199,7 +200,7 @@ const update = async (req, res) => {
       }
     }
 
-    if (!hasNameOnlyUpdate) {
+    if (shouldUseNextcloud) {
       await nextcloud.ensureDirectoryExists(dirPath);
     }
 
@@ -207,12 +208,11 @@ const update = async (req, res) => {
     if (!fileRecord) {
       let createdRecord = {};
 
-      // If a file is provided, upload to Nextcloud
       let createdStoragePath = null;
       let createdShareUrl = null;
       let createdFileName = null;
 
-      if (file) {
+      if (hasNewFileUpload) {
         const extension = path.extname(file.originalname);
         let baseName = file_name || file.originalname;
         if (path.extname(baseName)) {
@@ -231,7 +231,7 @@ const update = async (req, res) => {
         transaction_type: type,
         netsuite_id: netsuite_id || null,
         netsuite_file_id: id || null,
-        file_name: file_name || (file ? file.originalname : null),
+        file_name: file_name || (hasNewFileUpload ? file.originalname : null),
         file_name_original: createdFileName || null,
         storage_provider: createdStoragePath ? 'nextcloud' : null,
         storage_path: createdStoragePath,
@@ -247,7 +247,7 @@ const update = async (req, res) => {
           localId: createdRecord?.id,
           netsuiteId: netsuite_id,
           createdByApi: created_by_api || userEmail || null,
-          files: [{ fileName: file_name, fileUrl: createdShareUrl }]
+          files: [{ fileName: file_name, fileUrl: createdShareUrl || fileUrl || null }]
         });
 
         // Trigger sync hanya jika callBridgeCreate berhasil (non-blocking)
