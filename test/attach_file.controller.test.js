@@ -10,6 +10,7 @@ const axios = require('axios');
 axios.get = async () => ({ data: {} });
 
 let capturedUpdateData = null;
+let deletedPaths = [];
 const serviceStub = {
   getFileRecordByNetsuiteFileId: async () => ({
     id: 77,
@@ -25,15 +26,24 @@ const serviceStub = {
     return updateData;
   },
   callBridgeUpdate: async () => ({ success: true }),
-  getPurchaseOrderByPoId: async () => ({ po_number: 'PO-001' })
+  callBridgeDelete: async () => ({ success: true }),
+  getPurchaseOrderByPoId: async () => ({ po_number: 'PO-001' }),
+  deleteFileRecord: async () => ({ success: true })
 };
 
 const nextcloudStub = {
   NEXTCLOUD_UPLOAD_DIR: '/uploads',
   ensureDirectoryExists: async () => {},
   client: {
-    exists: async () => false,
-    deleteFile: async () => {},
+    exists: async (filePath) => {
+      if (filePath == null) {
+        throw new TypeError('The "path" argument must be of type string. Received null');
+      }
+      return true;
+    },
+    deleteFile: async (filePath) => {
+      deletedPaths.push(filePath);
+    },
     moveFile: async () => {}
   },
   generateShareLink: async (filePath) => `https://share.local/${filePath}`
@@ -55,6 +65,35 @@ require.cache[require.resolve(nextcloudPath)] = {
 
 delete require.cache[controllerPath];
 const controller = require(controllerPath);
+
+test('destroy skips Nextcloud deletion when no storage path exists locally', async () => {
+  deletedPaths = [];
+  const req = {
+    params: { id: 'net-123' },
+    body: {},
+    user: { employee_id: 'emp-1' },
+    headers: { authorization: 'Bearer token' }
+  };
+
+  const res = {
+    statusCode: null,
+    payload: null,
+    status(code) {
+      this.statusCode = code;
+      return this;
+    },
+    json(payload) {
+      this.payload = payload;
+      return this;
+    }
+  };
+
+  await controller.destroy(req, res);
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.payload.success, true);
+  assert.equal(deletedPaths.length, 0);
+});
 
 test('update handles a missing storage path when only a fileUrl is provided', async () => {
   const req = {

@@ -411,13 +411,15 @@ const destroy = async (req, res) => {
       });
     }
 
-    try {
-      const exists = await nextcloud.client.exists(fileRecord.storage_path);
-      if (exists) {
-        await nextcloud.client.deleteFile(fileRecord.storage_path);
+    if (typeof fileRecord?.storage_path === 'string' && fileRecord.storage_path) {
+      try {
+        const exists = await nextcloud.client.exists(fileRecord.storage_path);
+        if (exists) {
+          await nextcloud.client.deleteFile(fileRecord.storage_path);
+        }
+      } catch (ncError) {
+        console.error(`Failed to delete file from Nextcloud:`, ncError.message);
       }
-    } catch (ncError) {
-      console.error(`Failed to delete file from Nextcloud:`, ncError.message);
     }
 
     await service.deleteFileRecord(fileRecord.id);
