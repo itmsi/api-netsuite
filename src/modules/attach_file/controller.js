@@ -184,8 +184,7 @@ const update = async (req, res) => {
     const hasExistingStoragePath = typeof fileRecord?.storage_path === 'string' && fileRecord.storage_path;
     const hasNewFileUpload = Boolean(file);
     const hasFileUrlUpdate = Boolean(fileUrl);
-    const hasNameOnlyUpdate = !hasNewFileUpload && !hasFileUrlUpdate && Boolean(file_name);
-    const shouldUseNextcloud = hasNewFileUpload || (hasExistingStoragePath && !hasNameOnlyUpdate && !hasFileUrlUpdate);
+    const hasMetadataOnlyUpdate = !hasNewFileUpload && !hasFileUrlUpdate && Boolean(file_name);
 
     let dirPath = nextcloud.NEXTCLOUD_UPLOAD_DIR;
     if (hasExistingStoragePath) {
@@ -200,85 +199,12 @@ const update = async (req, res) => {
       }
     }
 
-    if (shouldUseNextcloud) {
+    let finalStoragePath = fileRecord?.storage_path || null;
+    let finalShareUrl = fileRecord?.share_url || null;
+    let finalFileName = fileRecord?.file_name || null;
+
+    if (!fileRecord && hasNewFileUpload) {
       await nextcloud.ensureDirectoryExists(dirPath);
-    }
-
-    // If record not found in local DB, insert it (and upload file if present)
-    if (!fileRecord) {
-      let createdRecord = {};
-
-      let createdStoragePath = null;
-      let createdShareUrl = null;
-      let createdFileName = null;
-
-      if (hasNewFileUpload) {
-        const extension = path.extname(file.originalname);
-        let baseName = file_name || file.originalname;
-        if (path.extname(baseName)) {
-          baseName = path.basename(baseName, path.extname(baseName));
-        }
-        const normalizedBaseName = baseName.toLowerCase().replace(/\s+/g, '_');
-        createdFileName = `${Date.now()}_${normalizedBaseName}${extension}`;
-
-        createdStoragePath = `${dirPath}/${createdFileName}`;
-        await nextcloud.client.putFileContents(createdStoragePath, file.buffer);
-        createdShareUrl = await nextcloud.generateShareLink(createdStoragePath);
-      }
-
-      // Save minimal record to DB
-      createdRecord = await service.saveFileRecord({
-        transaction_type: type,
-        netsuite_id: netsuite_id || null,
-        netsuite_file_id: id || null,
-        file_name: file_name || (hasNewFileUpload ? file.originalname : null),
-        file_name_original: createdFileName || null,
-        storage_provider: createdStoragePath ? 'nextcloud' : null,
-        storage_path: createdStoragePath,
-        share_url: createdShareUrl,
-        file_url: createdShareUrl,
-        created_by_api: created_by_api || userEmail || null,
-        created_by: userId,
-      });
-
-      // Notify bridge API (non-blocking)
-      try {
-        const bridgeResult = await service.callBridgeUpdate({
-          bridgeId: id,
-          fileName: file_name,
-          fileUrl: createdShareUrl || fileUrl || null
-        });
-
-        // Trigger sync hanya jika callBridgeCreate berhasil (non-blocking)
-        if (bridgeResult) {
-          const userToken = (req.headers.authorization || '').replace('Bearer ', '');
-          if (userToken) {
-            triggerSync({ type, netsuite_id, token: userToken });
-          }
-        }
-      } catch (notifyErr) {
-        console.warn('Bridge create notification failed:', notifyErr?.message || notifyErr);
-      }
-
-      return res.status(200).json({
-        success: true,
-        message: 'File record created locally',
-        data: {
-          id: id || null,
-          netsuiteId: netsuite_id || null,
-          fileUrl: createdShareUrl || fileUrl || null,
-          fileName: file_name || null
-        }
-      });
-    }
-
-    // Existing record — proceed to update
-    let finalStoragePath = fileRecord.storage_path;
-    let finalShareUrl = fileRecord.share_url;
-    let finalFileName = fileRecord.file_name;
-
-    // SCENARIO: File was uploaded, replace existing file
-    if (hasNewFileUpload) {
       const extension = path.extname(file.originalname);
       let baseName = file_name || file.originalname;
       if (path.extname(baseName)) {
@@ -286,13 +212,24 @@ const update = async (req, res) => {
       }
       const normalizedBaseName = baseName.toLowerCase().replace(/\s+/g, '_');
       finalFileName = `${Date.now()}_${normalizedBaseName}${extension}`;
-
       finalStoragePath = `${dirPath}/${finalFileName}`;
+      await nextcloud.client.putFileContents(finalStoragePath, file.buffer);
+      finalShareUrl = await nextcloud.generateShareLink(finalStoragePath);
+    }
 
+    if (fileRecord && hasNewFileUpload) {
+      await nextcloud.ensureDirectoryExists(dirPath);
+      const extension = path.extname(file.originalname);
+      let baseName = file_name || file.originalname;
+      if (path.extname(baseName)) {
+        baseName = path.basename(baseName, path.extname(baseName));
+      }
+      const normalizedBaseName = baseName.toLowerCase().replace(/\s+/g, '_');
+      finalFileName = `${Date.now()}_${normalizedBaseName}${extension}`;
+      finalStoragePath = `${dirPath}/${finalFileName}`;
       await nextcloud.client.putFileContents(finalStoragePath, file.buffer);
       finalShareUrl = await nextcloud.generateShareLink(finalStoragePath);
 
-      // Try to delete old file
       try {
         const exists = await nextcloud.client.exists(fileRecord.storage_path);
         if (exists) {
@@ -301,15 +238,14 @@ const update = async (req, res) => {
       } catch (e) {
         console.warn(`Could not delete old file in Nextcloud: ${fileRecord.storage_path}`, e.message);
       }
-    } else if (hasFileUrlUpdate) {
-      // SCENARIO: Only remote file URL changed; keep existing storage path untouched.
+    } else if (fileRecord && hasFileUrlUpdate) {
       finalShareUrl = fileUrl;
-    } else if (hasNameOnlyUpdate) {
+    } else if (fileRecord && hasMetadataOnlyUpdate) {
       finalFileName = file_name;
       finalShareUrl = fileRecord.share_url;
       finalStoragePath = fileRecord.storage_path;
-    } else if (hasExistingStoragePath && (file_name || dirPath !== path.dirname(fileRecord.storage_path))) {
-      // SCENARIO: Only file_name changes or directory changes
+    } else if (fileRecord && hasExistingStoragePath && (file_name || dirPath !== path.dirname(fileRecord.storage_path))) {
+      await nextcloud.ensureDirectoryExists(dirPath);
       const extension = path.extname(fileRecord.storage_path);
       let baseName = file_name || fileRecord.file_name;
       if (path.extname(baseName)) {
@@ -317,7 +253,6 @@ const update = async (req, res) => {
       }
       const normalizedBaseName = baseName.toLowerCase().replace(/\s+/g, '_');
       finalFileName = `${Date.now()}_${normalizedBaseName}${extension}`;
-
       finalStoragePath = `${dirPath}/${finalFileName}`;
 
       if (fileRecord.storage_path !== finalStoragePath) {
@@ -332,12 +267,57 @@ const update = async (req, res) => {
     }
 
     const updateData = {};
-    if (hasNewFileUpload || file_name || hasFileUrlUpdate || (hasExistingStoragePath && dirPath !== path.dirname(fileRecord.storage_path))) {
-      updateData.file_name = file_name || fileRecord.file_name;
+    if (hasNewFileUpload || file_name || hasFileUrlUpdate || (fileRecord && hasExistingStoragePath && dirPath !== path.dirname(fileRecord.storage_path))) {
+      updateData.file_name = file_name || fileRecord?.file_name || null;
       updateData.file_name_original = finalFileName;
       updateData.storage_path = finalStoragePath;
       updateData.share_url = finalShareUrl;
       updateData.file_url = finalShareUrl;
+    }
+
+    if (!fileRecord) {
+      const createdRecord = await service.saveFileRecord({
+        transaction_type: type,
+        netsuite_id: netsuite_id || null,
+        netsuite_file_id: id || null,
+        file_name: file_name || (hasNewFileUpload ? file.originalname : null),
+        file_name_original: finalFileName,
+        storage_provider: finalStoragePath ? 'nextcloud' : null,
+        storage_path: finalStoragePath,
+        share_url: finalShareUrl,
+        file_url: finalShareUrl,
+        created_by_api: created_by_api || userEmail || null,
+        created_by: userId,
+      });
+
+      try {
+        const bridgeResult = await service.callBridgeUpdate({
+          bridgeId: id,
+          fileName: file_name,
+          fileUrl: finalShareUrl || fileUrl || null
+        });
+
+        if (bridgeResult) {
+          const userToken = (req.headers.authorization || '').replace('Bearer ', '');
+          if (userToken) {
+            triggerSync({ type, netsuite_id, token: userToken });
+          }
+        }
+      } catch (notifyErr) {
+        console.warn('Bridge update notification failed:', notifyErr?.message || notifyErr);
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: 'File record created locally',
+        data: {
+          id: id || null,
+          netsuiteId: netsuite_id || null,
+          fileUrl: finalShareUrl || fileUrl || null,
+          storagePath: finalStoragePath || null,
+          fileName: file_name || null
+        }
+      });
     }
 
     if (netsuite_id) {
