@@ -402,7 +402,24 @@ const destroy = async (req, res) => {
     const { id } = req.params;
 
     const fileRecord = await service.getFileRecordByNetsuiteFileId(id);
+
     if (!fileRecord) {
+      try {
+        const bridgeResult = await service.callBridgeDelete(id);
+        if (bridgeResult) {
+          const userToken = (req.headers.authorization || '').replace('Bearer ', '');
+          if (userToken) {
+            triggerSync({
+              type: 'purchase_order',
+              netsuite_id: id,
+              token: userToken
+            });
+          }
+        }
+      } catch (notifyErr) {
+        console.warn('Bridge delete notification failed:', notifyErr?.message || notifyErr);
+      }
+
       return res.status(200).json({
         success: true,
         message: 'File deleted successfully'
