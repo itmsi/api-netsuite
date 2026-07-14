@@ -5,7 +5,7 @@ const path = require('path');
 
 const triggerSync = async ({ type, netsuite_id, token }) => {
   try {
-    const gatewayBaseUrl = process.env.BRIDGE_BASE_URL || 'https://dev-gateway.motorsights.com';
+    const gatewayBaseUrl = process.env.BRIDGE_BASE_URL || 'http://api-bridge-msi:9570';
 
     if (type === 'purchase_order') {
       const url = `${gatewayBaseUrl}/api/netsuite/purchasing-orders/sync/${netsuite_id}`;
