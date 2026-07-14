@@ -30,7 +30,7 @@ router.put(
 );
 
 router.delete(
-  '/:id',
+  '/:id/:netsuite_id',
   verifyToken,
   controller.destroy
 );

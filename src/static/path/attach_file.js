@@ -106,7 +106,9 @@ const attachFilePaths = {
           }
         }
       }
-    },
+    }
+  },
+  '/attach_file/{id}/{netsuite_id}': {
     delete: {
       tags: ['Attach File'],
       summary: 'Delete an attach file',
@@ -114,6 +116,12 @@ const attachFilePaths = {
       parameters: [
         {
           name: 'id',
+          in: 'path',
+          required: true,
+          schema: { type: 'string' }
+        },
+        {
+          name: 'netsuite_id',
           in: 'path',
           required: true,
           schema: { type: 'string' }

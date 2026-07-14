@@ -399,7 +399,7 @@ const update = async (req, res) => {
 
 const destroy = async (req, res) => {
   try {
-    const { id } = req.params;
+    const { id, netsuite_id } = req.params;
 
     const fileRecord = await service.getFileRecordByNetsuiteFileId(id);
 
@@ -411,7 +411,7 @@ const destroy = async (req, res) => {
           if (userToken) {
             triggerSync({
               type: 'purchase_order',
-              netsuite_id: id,
+              netsuite_id: netsuite_id || id,
               token: userToken
             });
           }
@@ -448,7 +448,7 @@ const destroy = async (req, res) => {
         if (userToken) {
           triggerSync({
             type: fileRecord.transaction_type,
-            netsuite_id: fileRecord.netsuite_id,
+            netsuite_id: netsuite_id || fileRecord.netsuite_id,
             token: userToken
           });
         }
