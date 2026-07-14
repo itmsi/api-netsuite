@@ -246,7 +246,7 @@ const update = async (req, res) => {
         const bridgeResult = await service.callBridgeUpdate({
           bridgeId: id,
           fileName: file_name,
-          fileUrl: fileUrl || createdShareUrl || null
+          fileUrl: createdShareUrl || fileUrl || null
         });
 
         // Trigger sync hanya jika callBridgeCreate berhasil (non-blocking)
