@@ -243,11 +243,10 @@ const update = async (req, res) => {
 
       // Notify bridge API (non-blocking)
       try {
-        const bridgeResult = await service.callBridgeCreate({
-          localId: createdRecord?.id,
-          netsuiteId: netsuite_id,
-          createdByApi: created_by_api || userEmail || null,
-          files: [{ fileName: file_name, fileUrl: createdShareUrl || fileUrl || null }]
+        const bridgeResult = await service.callBridgeUpdate({
+          bridgeId: id,
+          fileName: file_name,
+          fileUrl: fileUrl || createdShareUrl || null
         });
 
         // Trigger sync hanya jika callBridgeCreate berhasil (non-blocking)
