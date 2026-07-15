@@ -31,7 +31,7 @@ const getTermsList = async (body) => {
     const sortByRaw = body.sort_by || 'name';
     const orderCol = validSortColumns.includes(sortByRaw) ? sortByRaw : 'name';
 
-    let query = dbNetsuite('terms').where('is_delete', false);
+    let query = dbNetsuite('terms').where('is_delete', false).where('isinactive', false);
 
     // Filter opsional
     if (body.search) {
