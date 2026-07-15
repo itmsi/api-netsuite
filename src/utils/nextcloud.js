@@ -2,7 +2,7 @@ const { createClient } = require('webdav');
 const axios = require('axios');
 
 const NEXTCLOUD_URL = process.env.NEXTCLOUD_URL || 'https://cloud.inlinegroupdc.com';
-const NEXTCLOUD_USERNAME = process.env.NEXTCLOUD_USERNAME || 'admin_netsuite';
+const NEXTCLOUD_USERNAME = process.env.NEXTCLOUD_USERNAME || 'admin_netsuite_dev';
 const NEXTCLOUD_PASSWORD = process.env.NEXTCLOUD_PASSWORD || 'Rubysa179596';
 const NEXTCLOUD_WEBDAV_PATH = process.env.NEXTCLOUD_WEBDAV_PATH || '/remote.php/webdav';
 const NEXTCLOUD_SHARE_API_PATH = process.env.NEXTCLOUD_SHARE_API_PATH || '/ocs/v1.php/apps/files_sharing/api/v1/shares';
