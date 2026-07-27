@@ -556,6 +556,18 @@ module.exports = {
       data: { page: 1, page_size: 10, is_sync: true, sort_by: 'lastmodifieddate', sort_order: 'DESC', filters: {} },
       table: 'quotations',
       deleteCol: null
+    },
+    inbound_shipments: {
+      url: `${process.env.BRIDGE_BASE_URL || 'http://localhost:9570'}/api/v1/bridge/inbound-shipments/get`,
+      data: { page: 1, page_size: 10, is_sync: true, sort_by: 'lastmodifieddate', sort_order: 'DESC', filters: {} },
+      table: 'inbound_shipments',
+      deleteCol: null
+    },
+    transfer_orders: {
+      url: `${process.env.BRIDGE_BASE_URL || 'http://localhost:9570'}/api/v1/bridge/transfer-orders/get`,
+      data: { page: 1, page_size: 10, is_sync: true, sort_by: 'lastmodifieddate', sort_order: 'DESC', filters: {} },
+      table: 'transfer_orders',
+      deleteCol: null
     }
   }
 }
