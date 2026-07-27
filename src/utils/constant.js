@@ -568,6 +568,12 @@ module.exports = {
       data: { page: 1, page_size: 10, is_sync: true, sort_by: 'lastmodifieddate', sort_order: 'DESC', filters: {} },
       table: 'transfer_orders',
       deleteCol: null
+    },
+    customer_returns: {
+      url: `${process.env.BRIDGE_BASE_URL || 'http://localhost:9570'}/api/v1/bridge/customers/returns`,
+      data: { page: 1, page_size: 10, is_sync: true, sort_by: 'lastmodifieddate', sort_order: 'DESC', filters: {} },
+      table: 'customer_returns',
+      deleteCol: null
     }
   }
 }
