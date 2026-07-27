@@ -1954,6 +1954,7 @@ const syncReceiveList = async (body) => {
       page_size: body.page_size || body.limit || 20,
       sort_by: body.sort_by || 'last_modified',
       sort_order: body.sort_order ? body.sort_order.toUpperCase() : 'DESC',
+      is_sync: true,
       filters: body.filters || {}
     };
 
