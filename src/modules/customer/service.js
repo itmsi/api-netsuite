@@ -24,6 +24,14 @@ const getCustomerList = async (body) => {
     let query = dbNetsuite('customers').where('is_deleted', false).where('is_inactive', false);
 
     // Apply filters if provided
+    // Filter opsional
+    if (body.search) {
+      query = query.where(function () {
+        this.whereILike('entity_id', `%${body.search}%`)
+          .orWhereILike('company_name', `%${body.search}%`)
+          .orWhereILike('name', `%${body.search}%`);
+      });
+    }
     if (body.filters) {
       const { filters } = body;
 
