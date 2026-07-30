@@ -21,7 +21,7 @@ const getCustomerList = async (body) => {
     };
     const orderCol = sortMapping[body.sort_by] || 'last_modified_netsuite';
 
-    let query = dbNetsuite('customers');
+    let query = dbNetsuite('customers').where('is_deleted', false).where('is_inactive', false);
 
     // Apply filters if provided
     if (body.filters) {
