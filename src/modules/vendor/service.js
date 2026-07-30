@@ -33,7 +33,7 @@ const getVendorsList = async (body) => {
     const sortByRaw = body.sort_by === 'created_at' ? 'last_modified_netsuite' : (body.sort_by || 'last_modified_netsuite');
     const orderCol = validSortColumns.includes(sortByRaw) ? sortByRaw : 'last_modified_netsuite';
 
-    let query = dbNetsuite('vendors').where('is_deleted', false);
+    let query = dbNetsuite('vendors').where('is_deleted', false).where('is_inactive', false);
 
     // Filter opsional
     if (body.search) {
