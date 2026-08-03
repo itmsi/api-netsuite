@@ -1,6 +1,6 @@
-const service = require('./service');
-const syncService = require('../sync/service');
-const { baseResponse, decodeToken } = require('../../utils');
+const service = require("./service");
+const syncService = require("../sync/service");
+const { baseResponse, decodeToken } = require("../../utils");
 
 /**
  * Get purchasing orders list
@@ -9,22 +9,24 @@ const getList = async (req, res) => {
   try {
     const result = await service.getPurchaseOrders(req.body);
 
-    const syncInfo = await syncService.getLatestSyncInfo('purchasing_orders').catch(() => null);
+    const syncInfo = await syncService
+      .getLatestSyncInfo("purchasing_orders")
+      .catch(() => null);
 
     return baseResponse(res, {
       data: {
         success: true,
         data: result,
         sync_info: syncInfo,
-        message: 'Data purchase orders berhasil diambil'
-      }
+        message: "Data purchase orders berhasil diambil",
+      },
     });
   } catch (error) {
     const statusCode = error.statusCode || 500;
     return res.status(statusCode).json({
       success: false,
-      message: error.message || 'Internal Server Error',
-      errors: error.errors || error
+      message: error.message || "Internal Server Error",
+      errors: error.errors || error,
     });
   }
 };
@@ -36,22 +38,24 @@ const dashboard = async (req, res) => {
   try {
     const result = await service.getDashboard(req.body);
 
-    const syncInfo = await syncService.getLatestSyncInfo('purchasing_orders').catch(() => null);
+    const syncInfo = await syncService
+      .getLatestSyncInfo("purchasing_orders")
+      .catch(() => null);
 
     return baseResponse(res, {
       data: {
         success: true,
         data: result,
         sync_info: syncInfo,
-        message: 'Data purchase orders dashboard berhasil diambil'
-      }
+        message: "Data purchase orders dashboard berhasil diambil",
+      },
     });
   } catch (error) {
     const statusCode = error.statusCode || 500;
     return res.status(statusCode).json({
       success: false,
-      message: error.message || 'Internal Server Error',
-      errors: error.errors || error
+      message: error.message || "Internal Server Error",
+      errors: error.errors || error,
     });
   }
 };
@@ -66,37 +70,51 @@ const create = async (req, res) => {
       req.body.custbody_msi_createdby_api = req.user.email;
     }
 
-    if (req.body.items && Array.isArray(req.body.items) && req.body.items.length > 0) {
+    if (
+      req.body.items &&
+      Array.isArray(req.body.items) &&
+      req.body.items.length > 0
+    ) {
       // Pick department from first item if missing at top level
       if (!req.body.department && req.body.items[0].department) {
         req.body.department = req.body.items[0].department;
       }
 
-      req.body.items = req.body.items.map(item => ({
+      req.body.items = req.body.items.map((item) => ({
         ...item,
-        rate: (item.custcol_msi_fob || 0) + (item.custcol_me_landed_cost || 0)
+        rate: (item.custcol_msi_fob || 0) + (item.custcol_me_landed_cost || 0),
       }));
     }
 
-    const createdPayload = decodeToken('created', req);
-    const userId = createdPayload.created_by || req.user?.employee_id || req.user?.user_id || req.user?.id || req.user?.sub || null;
+    const createdPayload = decodeToken("created", req);
+    const userId =
+      createdPayload.created_by ||
+      req.user?.employee_id ||
+      req.user?.user_id ||
+      req.user?.id ||
+      req.user?.sub ||
+      null;
 
-    const result = await service.createPurchaseOrder(req.body, req.user, userId);
+    const result = await service.createPurchaseOrder(
+      req.body,
+      req.user,
+      userId,
+    );
     return res.status(201).json({
       success: true,
       data: {
         success: true,
         poId: result.data.poId,
-        local_id: result.data.event_id
+        local_id: result.data.event_id,
       },
-      message: 'Purchase order berhasil dibuat'
+      message: "Purchase order berhasil dibuat",
     });
   } catch (error) {
     const statusCode = error.statusCode || 500;
     return res.status(statusCode).json({
       success: false,
-      message: error.message || 'Internal Server Error',
-      errors: error.errors || error
+      message: error.message || "Internal Server Error",
+      errors: error.errors || error,
     });
   }
 };
@@ -111,15 +129,19 @@ const update = async (req, res) => {
       req.body.custbody_msi_createdby_api = req.user.email;
     }
 
-    if (req.body.items && Array.isArray(req.body.items) && req.body.items.length > 0) {
+    if (
+      req.body.items &&
+      Array.isArray(req.body.items) &&
+      req.body.items.length > 0
+    ) {
       // Pick department from first item if missing at top level
       if (!req.body.department && req.body.items[0].department) {
         req.body.department = req.body.items[0].department;
       }
 
-      req.body.items = req.body.items.map(item => ({
+      req.body.items = req.body.items.map((item) => ({
         ...item,
-        rate: (item.custcol_msi_fob || 0) + (item.custcol_me_landed_cost || 0)
+        rate: (item.custcol_msi_fob || 0) + (item.custcol_me_landed_cost || 0),
       }));
     }
     // if (req.body.files && Array.isArray(req.body.files)) {
@@ -151,25 +173,37 @@ const update = async (req, res) => {
     //   }
     //   req.body.files = filesToKeep;
     // }
-    const updatedPayload = decodeToken('updated', req);
-    const userId = updatedPayload.updated_by || updatedPayload.update_by || decodeToken('created', req).created_by || req.user?.employee_id || req.user?.user_id || req.user?.id || req.user?.sub || null;
+    const updatedPayload = decodeToken("updated", req);
+    const userId =
+      updatedPayload.updated_by ||
+      updatedPayload.update_by ||
+      decodeToken("created", req).created_by ||
+      req.user?.employee_id ||
+      req.user?.user_id ||
+      req.user?.id ||
+      req.user?.sub ||
+      null;
 
-    const result = await service.updatePurchaseOrder(req.body, req.user, userId);
+    const result = await service.updatePurchaseOrder(
+      req.body,
+      req.user,
+      userId,
+    );
     return res.status(200).json({
       success: true,
       data: {
         success: true,
         poId: result.data.poId,
-        local_id: result.data.event_id
+        local_id: result.data.event_id,
       },
-      message: 'Purchase order update berhasil diinisiasi'
+      message: "Purchase order update berhasil diinisiasi",
     });
   } catch (error) {
     const statusCode = error.statusCode || 500;
     return res.status(statusCode).json({
       success: false,
-      message: error.message || 'Internal Server Error',
-      errors: error.errors || error
+      message: error.message || "Internal Server Error",
+      errors: error.errors || error,
     });
   }
 };
@@ -182,31 +216,35 @@ const sync = async (req, res) => {
     const result = await service.syncPurchaseOrders(req.body, req.user);
 
     await syncService.upsertSync(
-      { sync_module: 'purchasing_orders', sync_status: 'success' },
-      req.user
+      { sync_module: "purchasing_orders", sync_status: "success" },
+      req.user,
     );
 
-    const syncInfo = await syncService.getLatestSyncInfo('purchasing_orders').catch(() => null);
+    const syncInfo = await syncService
+      .getLatestSyncInfo("purchasing_orders")
+      .catch(() => null);
 
     return baseResponse(res, {
       data: {
         success: true,
         data: result,
         sync_info: syncInfo,
-        message: 'Data purchase orders berhasil di-sync dari bridge API'
-      }
+        message: "Data purchase orders berhasil di-sync dari bridge API",
+      },
     });
   } catch (error) {
-    await syncService.upsertSync(
-      { sync_module: 'purchasing_orders', sync_status: 'failed' },
-      req.user
-    ).catch(() => { });
+    await syncService
+      .upsertSync(
+        { sync_module: "purchasing_orders", sync_status: "failed" },
+        req.user,
+      )
+      .catch(() => {});
 
     const statusCode = error.statusCode || 500;
     return res.status(statusCode).json({
       success: false,
-      message: error.message || 'Internal Server Error',
-      errors: error.errors || error
+      message: error.message || "Internal Server Error",
+      errors: error.errors || error,
     });
   }
 };
@@ -218,14 +256,14 @@ const approve = async (req, res) => {
   try {
     const result = await service.approvePurchaseOrder(req.body);
     return baseResponse(res, {
-      data: result
+      data: result,
     });
   } catch (error) {
     const statusCode = error.statusCode || 500;
     return res.status(statusCode).json({
       success: false,
-      message: error.message || 'Internal Server Error',
-      errors: error.errors || error
+      message: error.message || "Internal Server Error",
+      errors: error.errors || error,
     });
   }
 };
@@ -239,14 +277,14 @@ const receiveItem = async (req, res) => {
 
     return baseResponse(res, {
       code: 200,
-      data: result
+      data: result,
     });
   } catch (error) {
     const statusCode = error.statusCode || 500;
     return res.status(statusCode).json({
       success: false,
-      message: error.message || 'Internal Server Error',
-      errors: error.errors || error
+      message: error.message || "Internal Server Error",
+      errors: error.errors || error,
     });
   }
 };
@@ -259,7 +297,9 @@ const getById = async (req, res) => {
   try {
     const { id } = req.params;
     if (!id) {
-      return res.status(400).json({ success: false, message: 'Parameter id tidak boleh kosong' });
+      return res
+        .status(400)
+        .json({ success: false, message: "Parameter id tidak boleh kosong" });
     }
 
     const result = await service.getPurchaseOrderById(id);
@@ -288,16 +328,16 @@ const getById = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: '',
+      message: "",
       data: po ? [po] : [],
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   } catch (error) {
     const statusCode = error.statusCode || 500;
     return res.status(statusCode).json({
       success: false,
-      message: error.message || 'Internal Server Error',
-      errors: error.errors || error
+      message: error.message || "Internal Server Error",
+      errors: error.errors || error,
     });
   }
 };
@@ -310,37 +350,43 @@ const syncById = async (req, res) => {
   try {
     const { id } = req.params;
     if (!id) {
-      return res.status(400).json({ success: false, message: 'Parameter id tidak boleh kosong' });
+      return res
+        .status(400)
+        .json({ success: false, message: "Parameter id tidak boleh kosong" });
     }
 
     const result = await service.syncPurchaseOrderById(id);
 
     await syncService.upsertSync(
-      { sync_module: 'purchasing_orders', sync_status: 'success' },
-      req.user
+      { sync_module: "purchasing_orders", sync_status: "success" },
+      req.user,
     );
 
-    const syncInfo = await syncService.getLatestSyncInfo('purchasing_orders').catch(() => null);
+    const syncInfo = await syncService
+      .getLatestSyncInfo("purchasing_orders")
+      .catch(() => null);
 
     return baseResponse(res, {
       data: {
         success: true,
         data: result,
         sync_info: syncInfo,
-        message: `Purchase order ID ${id} berhasil di-sync dari bridge API`
-      }
+        message: `Purchase order ID ${id} berhasil di-sync dari bridge API`,
+      },
     });
   } catch (error) {
-    await syncService.upsertSync(
-      { sync_module: 'purchasing_orders', sync_status: 'failed' },
-      req.user
-    ).catch(() => { });
+    await syncService
+      .upsertSync(
+        { sync_module: "purchasing_orders", sync_status: "failed" },
+        req.user,
+      )
+      .catch(() => {});
 
     const statusCode = error.statusCode || 500;
     return res.status(statusCode).json({
       success: false,
-      message: error.message || 'Internal Server Error',
-      errors: error.errors || error
+      message: error.message || "Internal Server Error",
+      errors: error.errors || error,
     });
   }
 };
@@ -354,31 +400,36 @@ const syncByIdAll = async (req, res) => {
     const result = await service.syncPurchaseOrdersByIdAll();
 
     await syncService.upsertSync(
-      { sync_module: 'purchasing_orders', sync_status: 'success' },
-      req.user
+      { sync_module: "purchasing_orders", sync_status: "success" },
+      req.user,
     );
 
-    const syncInfo = await syncService.getLatestSyncInfo('purchasing_orders').catch(() => null);
+    const syncInfo = await syncService
+      .getLatestSyncInfo("purchasing_orders")
+      .catch(() => null);
 
     return baseResponse(res, {
       data: {
         success: true,
         data: result,
         sync_info: syncInfo,
-        message: 'Sync all purchase orders by status pendingBillPartReceived berhasil'
-      }
+        message:
+          "Sync all purchase orders by status pendingBillPartReceived berhasil",
+      },
     });
   } catch (error) {
-    await syncService.upsertSync(
-      { sync_module: 'purchasing_orders', sync_status: 'failed' },
-      req.user
-    ).catch(() => { });
+    await syncService
+      .upsertSync(
+        { sync_module: "purchasing_orders", sync_status: "failed" },
+        req.user,
+      )
+      .catch(() => {});
 
     const statusCode = error.statusCode || 500;
     return res.status(statusCode).json({
       success: false,
-      message: error.message || 'Internal Server Error',
-      errors: error.errors || error
+      message: error.message || "Internal Server Error",
+      errors: error.errors || error,
     });
   }
 };
@@ -394,8 +445,8 @@ const print = async (req, res) => {
     const statusCode = error.statusCode || 500;
     return res.status(statusCode).json({
       success: false,
-      message: error.message || 'Internal Server Error',
-      errors: error.errors || error
+      message: error.message || "Internal Server Error",
+      errors: error.errors || error,
     });
   }
 };
@@ -407,22 +458,24 @@ const getReceiveList = async (req, res) => {
   try {
     const result = await service.getReceiveList(req.body);
 
-    const syncInfo = await syncService.getLatestSyncInfo('receive_list').catch(() => null);
+    const syncInfo = await syncService
+      .getLatestSyncInfo("receives")
+      .catch(() => null);
 
     return baseResponse(res, {
       data: {
         success: true,
         data: result,
         sync_info: syncInfo,
-        message: 'Data receives berhasil diambil'
-      }
+        message: "Data receives berhasil diambil",
+      },
     });
   } catch (error) {
     const statusCode = error.statusCode || 500;
     return res.status(statusCode).json({
       success: false,
-      message: error.message || 'Internal Server Error',
-      errors: error.errors || error
+      message: error.message || "Internal Server Error",
+      errors: error.errors || error,
     });
   }
 };
@@ -435,31 +488,35 @@ const syncReceiveList = async (req, res) => {
     const result = await service.syncReceiveList(req.body);
 
     await syncService.upsertSync(
-      { sync_module: 'receive_list', sync_status: 'success' },
-      req.user
+      { sync_module: "receive_list", sync_status: "success" },
+      req.user,
     );
 
-    const syncInfo = await syncService.getLatestSyncInfo('receive_list').catch(() => null);
+    const syncInfo = await syncService
+      .getLatestSyncInfo("receive_list")
+      .catch(() => null);
 
     return baseResponse(res, {
       data: {
         success: true,
         data: result,
         sync_info: syncInfo,
-        message: 'Data receives berhasil di-sync dari bridge API'
-      }
+        message: "Data receives berhasil di-sync dari bridge API",
+      },
     });
   } catch (error) {
-    await syncService.upsertSync(
-      { sync_module: 'receive_list', sync_status: 'failed' },
-      req.user
-    ).catch(() => { });
+    await syncService
+      .upsertSync(
+        { sync_module: "receive_list", sync_status: "failed" },
+        req.user,
+      )
+      .catch(() => {});
 
     const statusCode = error.statusCode || 500;
     return res.status(statusCode).json({
       success: false,
-      message: error.message || 'Internal Server Error',
-      errors: error.errors || error
+      message: error.message || "Internal Server Error",
+      errors: error.errors || error,
     });
   }
 };
@@ -472,27 +529,31 @@ const getReceiveById = async (req, res) => {
   try {
     const { id } = req.params;
     if (!id) {
-      return res.status(400).json({ success: false, message: 'Parameter id tidak boleh kosong' });
+      return res
+        .status(400)
+        .json({ success: false, message: "Parameter id tidak boleh kosong" });
     }
 
     const result = await service.getReceiveById(id);
 
-    const syncInfo = await syncService.getLatestSyncInfo('receive_list').catch(() => null);
+    const syncInfo = await syncService
+      .getLatestSyncInfo("receive_list")
+      .catch(() => null);
 
     return baseResponse(res, {
       data: {
         success: true,
         data: result,
         sync_info: syncInfo,
-        message: 'Data receives berhasil diambil'
-      }
+        message: "Data receives berhasil diambil",
+      },
     });
   } catch (error) {
     const statusCode = error.statusCode || 500;
     return res.status(statusCode).json({
       success: false,
-      message: error.message || 'Internal Server Error',
-      errors: error.errors || error
+      message: error.message || "Internal Server Error",
+      errors: error.errors || error,
     });
   }
 };
@@ -504,7 +565,9 @@ const retry = async (req, res) => {
   try {
     const { id } = req.params;
     if (!id) {
-      return res.status(400).json({ success: false, message: 'Parameter id tidak boleh kosong' });
+      return res
+        .status(400)
+        .json({ success: false, message: "Parameter id tidak boleh kosong" });
     }
 
     const result = await service.retryPurchaseOrder(id, req.user);
@@ -512,15 +575,15 @@ const retry = async (req, res) => {
       data: {
         success: true,
         data: result,
-        message: 'Retry purchase order berhasil diinisiasi'
-      }
+        message: "Retry purchase order berhasil diinisiasi",
+      },
     });
   } catch (error) {
     const statusCode = error.statusCode || 500;
     return res.status(statusCode).json({
       success: false,
-      message: error.message || 'Internal Server Error',
-      errors: error.errors || error
+      message: error.message || "Internal Server Error",
+      errors: error.errors || error,
     });
   }
 };
@@ -532,15 +595,15 @@ const getReceiveHistoryLogs = async (req, res) => {
       data: {
         success: true,
         data: result,
-        message: 'Data history logs berhasil diambil'
-      }
+        message: "Data history logs berhasil diambil",
+      },
     });
   } catch (error) {
     const statusCode = error.statusCode || 500;
     return res.status(statusCode).json({
       success: false,
-      message: error.message || 'Internal Server Error',
-      errors: error.errors || error
+      message: error.message || "Internal Server Error",
+      errors: error.errors || error,
     });
   }
 };
@@ -556,21 +619,21 @@ const getItems = async (req, res) => {
       data: {
         success: true,
         data: result,
-        message: 'Data items berhasil diambil'
-      }
+        message: "Data items berhasil diambil",
+      },
     });
   } catch (error) {
     const statusCode = error.statusCode || 500;
     return res.status(statusCode).json({
       success: false,
-      message: error.message || 'Internal Server Error',
-      errors: error.errors || error
+      message: error.message || "Internal Server Error",
+      errors: error.errors || error,
     });
   }
 };
 
-const nextcloud = require('../../utils/nextcloud');
-const path = require('path');
+const nextcloud = require("../../utils/nextcloud");
+const path = require("path");
 
 /**
  * Upload file to Nextcloud Temp Directory
@@ -580,7 +643,9 @@ const uploadTempFile = async (req, res) => {
   try {
     const file = req.file;
     if (!file) {
-      return res.status(400).json({ success: false, message: 'No file uploaded' });
+      return res
+        .status(400)
+        .json({ success: false, message: "No file uploaded" });
     }
 
     const { po_id, file_name } = req.body;
@@ -595,7 +660,7 @@ const uploadTempFile = async (req, res) => {
     }
 
     // Normalize characters to lowercase and replace spaces with underscore
-    const normalizedBaseName = baseName.toLowerCase().replace(/\s+/g, '_');
+    const normalizedBaseName = baseName.toLowerCase().replace(/\s+/g, "_");
 
     // Combine to form the finalized file name
     const fileName = `${Date.now()}_${normalizedBaseName}${extension}`;
@@ -618,9 +683,9 @@ const uploadTempFile = async (req, res) => {
         po_id,
         file_name: fileName,
         file_name_original: file_name,
-        storage_provider: 'nextcloud',
+        storage_provider: "nextcloud",
         storage_path: filePath,
-        share_url: shareUrl
+        share_url: shareUrl,
       });
     }
 
@@ -630,20 +695,20 @@ const uploadTempFile = async (req, res) => {
       poId: po_id || null,
       fileUrl: shareUrl,
       storagePath: filePath,
-      fileName: file_name
+      fileName: file_name,
     });
   } catch (error) {
-    console.error('Error uploading file:', error);
+    console.error("Error uploading file:", error);
     return res.status(500).json({
       success: false,
-      message: 'Failed to upload file to Nextcloud',
-      error: error.message
+      message: "Failed to upload file to Nextcloud",
+      error: error.message,
     });
   }
 };
 /**
  * 1. user create po
- * 2. user masukan file attachment dan tekan add, otomatis UI akan hit ke api /purchasing-orders/upload ketika klik add file, 
+ * 2. user masukan file attachment dan tekan add, otomatis UI akan hit ke api /purchasing-orders/upload ketika klik add file,
  * 3. ada rspin url dan path
  * 4. user klik create po maka otomati dari UI akan menambahkan body "po_id": dari fe, di files, nanti dari api akan otomatis mengakses finalizeUpload
  * 5. proses di api, ketika create po di listener, jika berhasil maka akan mendapatkan respon po_id, nah nanti pindahkan semua file dengan po_id sementara, masukn ke dalam folder /uploads/po/${year}/${po_id} ini po id nya pakek po id hasil respon create po di listener.
@@ -658,7 +723,10 @@ const finalizeUpload = async (req, res) => {
     const { po_id, storage_path } = req.body;
 
     if (!po_id || !storage_path) {
-      return res.status(400).json({ success: false, message: 'po_id and storage_path are required' });
+      return res.status(400).json({
+        success: false,
+        message: "po_id and storage_path are required",
+      });
     }
 
     const fileName = path.basename(storage_path);
@@ -677,15 +745,15 @@ const finalizeUpload = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      path: finalPath
+      path: finalPath,
     });
   } catch (error) {
-    console.error('Error finalizing upload:', error);
+    console.error("Error finalizing upload:", error);
     return res.status(500).json({
       success: false,
       path: null,
-      message: 'Failed to finalize file upload',
-      error: error.message
+      message: "Failed to finalize file upload",
+      error: error.message,
     });
   }
 };
@@ -698,7 +766,9 @@ const deleteUpload = async (req, res) => {
   try {
     const { fileUrl } = req.body;
     if (!fileUrl) {
-      return res.status(400).json({ success: false, message: 'Parameter fileUrl is required' });
+      return res
+        .status(400)
+        .json({ success: false, message: "Parameter fileUrl is required" });
     }
 
     // 1. Get file record from DB to retrieve nextcloud storage_path and ID
@@ -707,7 +777,7 @@ const deleteUpload = async (req, res) => {
       //jika file tidak ada maka di anggap sukses saja, karena file masuk bukan dari apps tapi dari netsuitenya langunsg, jadi ini jangan sampai stoper respon error
       return res.status(200).json({
         success: true,
-        message: 'File deleted successfully'
+        message: "File deleted successfully",
       });
       // return res.status(404).json({ success: false, message: 'File record not found for the provided fileUrl' });
     }
@@ -717,12 +787,19 @@ const deleteUpload = async (req, res) => {
       const exists = await nextcloud.client.exists(fileRecord.storage_path);
       if (exists) {
         await nextcloud.client.deleteFile(fileRecord.storage_path);
-        console.info(`[Controller] Deleted file from Nextcloud: ${fileRecord.storage_path}`);
+        console.info(
+          `[Controller] Deleted file from Nextcloud: ${fileRecord.storage_path}`,
+        );
       } else {
-        console.warn(`[Controller] File not found in Nextcloud at path: ${fileRecord.storage_path}`);
+        console.warn(
+          `[Controller] File not found in Nextcloud at path: ${fileRecord.storage_path}`,
+        );
       }
     } catch (ncError) {
-      console.error(`[Controller] Failed to delete file from Nextcloud:`, ncError.message);
+      console.error(
+        `[Controller] Failed to delete file from Nextcloud:`,
+        ncError.message,
+      );
     }
 
     // 3. Delete file record from Database
@@ -730,14 +807,14 @@ const deleteUpload = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'File deleted successfully'
+      message: "File deleted successfully",
     });
   } catch (error) {
-    console.error('Error deleting uploaded file:', error);
+    console.error("Error deleting uploaded file:", error);
     return res.status(500).json({
       success: false,
-      message: 'Failed to delete file',
-      error: error.message
+      message: "Failed to delete file",
+      error: error.message,
     });
   }
 };
@@ -753,7 +830,9 @@ const updateUpload = async (req, res) => {
     const file = req.file; // New file uploaded (optional for update, required for create)
 
     if (!fileUrl) {
-      return res.status(400).json({ success: false, message: 'Parameter fileUrl is required' });
+      return res
+        .status(400)
+        .json({ success: false, message: "Parameter fileUrl is required" });
     }
 
     // 1. Get existing file record from DB by share_url
@@ -762,11 +841,18 @@ const updateUpload = async (req, res) => {
     if (!fileRecord) {
       // SCENARIO C: File does not exist, CREATE a new one directly in the NetSuite PO folder
       if (!file) {
-        return res.status(400).json({ success: false, message: 'File record not found for the provided fileUrl, and no new file was uploaded to create a new record.' });
+        return res.status(400).json({
+          success: false,
+          message:
+            "File record not found for the provided fileUrl, and no new file was uploaded to create a new record.",
+        });
       }
 
       if (!po_id) {
-        return res.status(400).json({ success: false, message: 'po_id is required to create a new file record.' });
+        return res.status(400).json({
+          success: false,
+          message: "po_id is required to create a new file record.",
+        });
       }
 
       // Determine folder name by po_id or po_number
@@ -775,10 +861,15 @@ const updateUpload = async (req, res) => {
         const poRecord = await service.getPurchaseOrderByPoId(po_id);
         if (poRecord && poRecord.po_number) {
           folderName = poRecord.po_number;
-          console.info(`[Controller] Found po_number: ${folderName} for po_id: ${po_id}`);
+          console.info(
+            `[Controller] Found po_number: ${folderName} for po_id: ${po_id}`,
+          );
         }
       } catch (dbErr) {
-        console.warn(`[Controller] Error fetching po_number for new upload:`, dbErr.message);
+        console.warn(
+          `[Controller] Error fetching po_number for new upload:`,
+          dbErr.message,
+        );
       }
 
       const year = new Date().getFullYear();
@@ -793,7 +884,7 @@ const updateUpload = async (req, res) => {
       if (path.extname(baseName)) {
         baseName = path.basename(baseName, path.extname(baseName));
       }
-      const normalizedBaseName = baseName.toLowerCase().replace(/\s+/g, '_');
+      const normalizedBaseName = baseName.toLowerCase().replace(/\s+/g, "_");
       const finalFileName = `${Date.now()}_${normalizedBaseName}${extension}`;
       const finalStoragePath = `${finalDir}/${finalFileName}`;
 
@@ -801,11 +892,14 @@ const updateUpload = async (req, res) => {
       await nextcloud.client.putFileContents(finalStoragePath, file.buffer);
 
       // Generate public share link
-      let finalShareUrl = '';
+      let finalShareUrl = "";
       try {
         finalShareUrl = await nextcloud.generateShareLink(finalStoragePath);
       } catch (shareErr) {
-        console.warn(`[Controller] Failed to generate share link for new file:`, shareErr.message);
+        console.warn(
+          `[Controller] Failed to generate share link for new file:`,
+          shareErr.message,
+        );
       }
 
       // Save to Database
@@ -813,21 +907,21 @@ const updateUpload = async (req, res) => {
         po_id: po_id,
         file_name: finalFileName,
         file_name_original: file_name || file.originalname,
-        storage_provider: 'nextcloud',
+        storage_provider: "nextcloud",
         storage_path: finalStoragePath,
-        share_url: finalShareUrl
+        share_url: finalShareUrl,
       });
 
       return res.status(200).json({
         success: true,
-        message: 'File created successfully',
+        message: "File created successfully",
         data: {
           id: newRecord.id,
           poId: newRecord.po_id,
           fileUrl: newRecord.share_url,
           storagePath: newRecord.storage_path,
-          fileName: newRecord.file_name_original
-        }
+          fileName: newRecord.file_name_original,
+        },
       });
     }
 
@@ -848,7 +942,10 @@ const updateUpload = async (req, res) => {
           await nextcloud.client.deleteFile(oldStoragePath);
         }
       } catch (ncErr) {
-        console.warn(`[Controller] Could not delete old file in Nextcloud: ${oldStoragePath}`, ncErr.message);
+        console.warn(
+          `[Controller] Could not delete old file in Nextcloud: ${oldStoragePath}`,
+          ncErr.message,
+        );
       }
 
       // 2. Determine new file name
@@ -857,7 +954,7 @@ const updateUpload = async (req, res) => {
       if (path.extname(baseName)) {
         baseName = path.basename(baseName, path.extname(baseName));
       }
-      const normalizedBaseName = baseName.toLowerCase().replace(/\s+/g, '_');
+      const normalizedBaseName = baseName.toLowerCase().replace(/\s+/g, "_");
       finalFileName = `${Date.now()}_${normalizedBaseName}${extension}`;
       finalOriginalName = file_name || file.originalname;
       finalStoragePath = `${parentDir}/${finalFileName}`;
@@ -869,7 +966,10 @@ const updateUpload = async (req, res) => {
       try {
         finalShareUrl = await nextcloud.generateShareLink(finalStoragePath);
       } catch (shareErr) {
-        console.warn(`[Controller] Failed to generate new share link:`, shareErr.message);
+        console.warn(
+          `[Controller] Failed to generate new share link:`,
+          shareErr.message,
+        );
       }
     } else if (file_name) {
       const extension = path.extname(fileRecord.file_name);
@@ -877,7 +977,7 @@ const updateUpload = async (req, res) => {
       if (path.extname(baseName)) {
         baseName = path.basename(baseName, path.extname(baseName));
       }
-      const normalizedBaseName = baseName.toLowerCase().replace(/\s+/g, '_');
+      const normalizedBaseName = baseName.toLowerCase().replace(/\s+/g, "_");
       finalFileName = `${Date.now()}_${normalizedBaseName}${extension}`;
       finalOriginalName = file_name;
       finalStoragePath = `${parentDir}/${finalFileName}`;
@@ -889,15 +989,25 @@ const updateUpload = async (req, res) => {
           await nextcloud.client.moveFile(oldStoragePath, finalStoragePath);
         }
       } catch (ncErr) {
-        console.error(`[Controller] Failed to rename file in Nextcloud:`, ncErr.message);
-        return res.status(500).json({ success: false, message: 'Failed to rename file in Nextcloud', error: ncErr.message });
+        console.error(
+          `[Controller] Failed to rename file in Nextcloud:`,
+          ncErr.message,
+        );
+        return res.status(500).json({
+          success: false,
+          message: "Failed to rename file in Nextcloud",
+          error: ncErr.message,
+        });
       }
 
       // Regenerate public link for renamed file path
       try {
         finalShareUrl = await nextcloud.generateShareLink(finalStoragePath);
       } catch (shareErr) {
-        console.warn(`[Controller] Failed to generate new share link for renamed file:`, shareErr.message);
+        console.warn(
+          `[Controller] Failed to generate new share link for renamed file:`,
+          shareErr.message,
+        );
       }
     }
 
@@ -906,33 +1016,31 @@ const updateUpload = async (req, res) => {
       file_name: finalFileName,
       file_name_original: finalOriginalName,
       storage_path: finalStoragePath,
-      share_url: finalShareUrl
+      share_url: finalShareUrl,
     });
 
     return res.status(200).json({
       success: true,
-      message: 'File updated successfully',
+      message: "File updated successfully",
       data: {
         id: updatedRecord.id,
         poId: updatedRecord.po_id,
         fileUrl: updatedRecord.share_url,
         storagePath: updatedRecord.storage_path,
-        fileName: updatedRecord.file_name_original
-      }
+        fileName: updatedRecord.file_name_original,
+      },
     });
-
   } catch (error) {
-    console.error('Error updating/creating uploaded file:', error);
+    console.error("Error updating/creating uploaded file:", error);
     return res.status(500).json({
       success: false,
-      message: 'Failed to update/create file',
-      error: error.message
+      message: "Failed to update/create file",
+      error: error.message,
     });
   }
 };
 
 module.exports = {
-
   getList,
   dashboard,
   print,
@@ -953,5 +1061,5 @@ module.exports = {
   uploadTempFile,
   finalizeUpload,
   deleteUpload,
-  updateUpload
+  updateUpload,
 };
