@@ -1,40 +1,53 @@
-const axios = require('axios');
-const service = require('./service');
-const nextcloud = require('../../utils/nextcloud');
-const path = require('path');
+const axios = require("axios");
+const service = require("./service");
+const nextcloud = require("../../utils/nextcloud");
+const path = require("path");
 
 const triggerSync = async ({ type, netsuite_id, token }) => {
   try {
-    const gatewayBaseUrl = process.env.BRIDGE_BASE_URL || 'http://api-bridge-msi:9570';
+    const gatewayBaseUrl =
+      process.env.BRIDGE_BASE_URL || "http://api-bridge-msi:9570";
 
-    if (type === 'purchase_order') {
+    if (type === "purchase_order") {
       const url = `${gatewayBaseUrl}/api/v1/bridge/purchase-orders/sync/${netsuite_id}`;
       await axios.get(url, {
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json'
-        }
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+        },
       });
-      console.log(`[AttachFile] Sync triggered for purchase_order netsuite_id=${netsuite_id}`);
+      console.log(
+        `[AttachFile] Sync triggered for purchase_order netsuite_id=${netsuite_id}`,
+      );
     } else {
       // TODO: handle sync for other types
       console.log(`[AttachFile] Sync not yet implemented for type=${type}`);
     }
   } catch (error) {
-    console.error('[AttachFile] Sync trigger error:', error?.response?.data || error.message);
+    console.error(
+      "[AttachFile] Sync trigger error:",
+      error?.response?.data || error.message,
+    );
     // Non-blocking: log but don't throw
   }
 };
 
 const getList = async (req, res) => {
   try {
-    const { page = 1, limit = 10, sort_by = 'created_at', sort_order = 'desc', search = '', netsuite_id = '' } = req.body;
+    const {
+      page = 1,
+      limit = 10,
+      sort_by = "created_at",
+      sort_order = "desc",
+      search = "",
+      netsuite_id = "",
+    } = req.body;
 
     const filters = {
       search,
       netsuite_id,
       sort_by,
-      sort_order
+      sort_order,
     };
 
     const result = await service.getList(filters, page, limit);
@@ -42,14 +55,14 @@ const getList = async (req, res) => {
     return res.status(200).json({
       success: true,
       data: result,
-      message: 'Data berhasil diambil'
+      message: "Data berhasil diambil",
     });
   } catch (error) {
-    console.error('Error fetching attach files:', error);
+    console.error("Error fetching attach files:", error);
     return res.status(500).json({
       success: false,
-      message: 'Failed to fetch data',
-      error: error.message
+      message: "Failed to fetch data",
+      error: error.message,
     });
   }
 };
@@ -58,11 +71,18 @@ const create = async (req, res) => {
   try {
     const file = req.file;
     if (!file) {
-      return res.status(400).json({ success: false, message: 'No file uploaded' });
+      return res
+        .status(400)
+        .json({ success: false, message: "No file uploaded" });
     }
 
     const { netsuite_id, file_name, type, created_by_api } = req.body;
-    const userId = req.user?.employee_id || req.user?.user_id || req.user?.id || req.user?.sub || null;
+    const userId =
+      req.user?.employee_id ||
+      req.user?.user_id ||
+      req.user?.id ||
+      req.user?.sub ||
+      null;
     const userEmail = req.user?.email || null;
 
     // Extract original extension
@@ -75,13 +95,16 @@ const create = async (req, res) => {
     }
 
     // Normalize characters to lowercase and replace spaces with underscore
-    const normalizedBaseName = baseName.toLowerCase().replace(/\s+/g, '_');
+    const normalizedBaseName = baseName.toLowerCase().replace(/\s+/g, "_");
     const fileNameOriginal = file_name;
 
     // Combine to form the finalized file name
     const fileName = `${Date.now()}_${normalizedBaseName}${extension}`;
 
-    const isNetsuiteIdUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(netsuite_id);
+    const isNetsuiteIdUUID =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        netsuite_id,
+      );
     let resolvedNetsuiteId = netsuite_id;
 
     if (isNetsuiteIdUUID) {
@@ -90,7 +113,7 @@ const create = async (req, res) => {
       if (!poRecord || !poRecord.po_id) {
         return res.status(400).json({
           success: false,
-          message: 'Netsuite ID tidak ditemukan di data PO'
+          message: "Netsuite ID tidak ditemukan di data PO",
         });
       }
       resolvedNetsuiteId = poRecord.po_id;
@@ -98,7 +121,7 @@ const create = async (req, res) => {
 
     let uploadDir = nextcloud.NEXTCLOUD_UPLOAD_DIR;
 
-    if (type === 'purchase_order' && resolvedNetsuiteId) {
+    if (type === "purchase_order" && resolvedNetsuiteId) {
       const poRecord = await service.getPurchaseOrderByPoId(resolvedNetsuiteId);
       if (poRecord) {
         const year = new Date().getFullYear();
@@ -127,7 +150,7 @@ const create = async (req, res) => {
         netsuite_id: resolvedNetsuiteId,
         file_name: fileNameOriginal,
         file_name_original: fileName,
-        storage_provider: 'nextcloud',
+        storage_provider: "nextcloud",
         storage_path: filePath,
         share_url: shareUrl,
         file_url: shareUrl,
@@ -138,16 +161,24 @@ const create = async (req, res) => {
       // Notify bridge API — tunggu response dulu sebelum trigger sync
       bridgeResult = await service.callBridgeCreate({
         localId: result?.id,
+        type: type,
         netsuiteId: resolvedNetsuiteId,
         createdByApi: created_by_api || userEmail || null,
-        files: [{ fileName: fileNameOriginal, fileUrl: shareUrl }]
+        files: [{ fileName: fileNameOriginal, fileUrl: shareUrl }],
       });
 
       // Trigger sync hanya jika callBridgeCreate berhasil (non-blocking)
       if (bridgeResult) {
-        const userToken = (req.headers.authorization || '').replace('Bearer ', '');
+        const userToken = (req.headers.authorization || "").replace(
+          "Bearer ",
+          "",
+        );
         if (userToken) {
-          triggerSync({ type, netsuite_id: resolvedNetsuiteId, token: userToken });
+          triggerSync({
+            type,
+            netsuite_id: resolvedNetsuiteId,
+            token: userToken,
+          });
         }
       }
     }
@@ -158,14 +189,14 @@ const create = async (req, res) => {
       netsuiteId: resolvedNetsuiteId || null,
       fileUrl: shareUrl,
       storagePath: filePath,
-      fileName: fileNameOriginal
+      fileName: fileNameOriginal,
     });
   } catch (error) {
-    console.error('Error uploading file:', error);
+    console.error("Error uploading file:", error);
     return res.status(500).json({
       success: false,
-      message: 'Failed to upload file to Nextcloud',
-      error: error.message
+      message: "Failed to upload file to Nextcloud",
+      error: error.message,
     });
   }
 };
@@ -174,23 +205,30 @@ const update = async (req, res) => {
   try {
     const { id } = req.params;
     const { fileUrl, file_name, netsuite_id, type, created_by_api } = req.body;
-    const userId = req.user?.employee_id || req.user?.user_id || req.user?.id || req.user?.sub || null;
+    const userId =
+      req.user?.employee_id ||
+      req.user?.user_id ||
+      req.user?.id ||
+      req.user?.sub ||
+      null;
     const userEmail = req.user?.email || null;
     const file = req.file;
 
     // Cari record berdasarkan netsuite_file_id (req.params.id)
     const fileRecord = await service.getFileRecordByNetsuiteFileId(id);
 
-    const hasExistingStoragePath = typeof fileRecord?.storage_path === 'string' && fileRecord.storage_path;
+    const hasExistingStoragePath =
+      typeof fileRecord?.storage_path === "string" && fileRecord.storage_path;
     const hasNewFileUpload = Boolean(file);
     const hasFileUrlUpdate = Boolean(fileUrl);
-    const hasMetadataOnlyUpdate = !hasNewFileUpload && !hasFileUrlUpdate && Boolean(file_name);
+    const hasMetadataOnlyUpdate =
+      !hasNewFileUpload && !hasFileUrlUpdate && Boolean(file_name);
 
     let dirPath = nextcloud.NEXTCLOUD_UPLOAD_DIR;
     if (hasExistingStoragePath) {
       dirPath = path.dirname(fileRecord.storage_path);
     }
-    if (type === 'purchase_order' && netsuite_id) {
+    if (type === "purchase_order" && netsuite_id) {
       const poRecord = await service.getPurchaseOrderByPoId(netsuite_id);
       if (poRecord) {
         const year = new Date().getFullYear();
@@ -210,7 +248,7 @@ const update = async (req, res) => {
       if (path.extname(baseName)) {
         baseName = path.basename(baseName, path.extname(baseName));
       }
-      const normalizedBaseName = baseName.toLowerCase().replace(/\s+/g, '_');
+      const normalizedBaseName = baseName.toLowerCase().replace(/\s+/g, "_");
       finalFileName = `${Date.now()}_${normalizedBaseName}${extension}`;
       finalStoragePath = `${dirPath}/${finalFileName}`;
       await nextcloud.client.putFileContents(finalStoragePath, file.buffer);
@@ -224,7 +262,7 @@ const update = async (req, res) => {
       if (path.extname(baseName)) {
         baseName = path.basename(baseName, path.extname(baseName));
       }
-      const normalizedBaseName = baseName.toLowerCase().replace(/\s+/g, '_');
+      const normalizedBaseName = baseName.toLowerCase().replace(/\s+/g, "_");
       finalFileName = `${Date.now()}_${normalizedBaseName}${extension}`;
       finalStoragePath = `${dirPath}/${finalFileName}`;
       await nextcloud.client.putFileContents(finalStoragePath, file.buffer);
@@ -236,7 +274,10 @@ const update = async (req, res) => {
           await nextcloud.client.deleteFile(fileRecord.storage_path);
         }
       } catch (e) {
-        console.warn(`Could not delete old file in Nextcloud: ${fileRecord.storage_path}`, e.message);
+        console.warn(
+          `Could not delete old file in Nextcloud: ${fileRecord.storage_path}`,
+          e.message,
+        );
       }
     } else if (fileRecord && hasFileUrlUpdate) {
       finalShareUrl = fileUrl;
@@ -244,30 +285,48 @@ const update = async (req, res) => {
       finalFileName = file_name;
       finalShareUrl = fileRecord.share_url;
       finalStoragePath = fileRecord.storage_path;
-    } else if (fileRecord && hasExistingStoragePath && (file_name || dirPath !== path.dirname(fileRecord.storage_path))) {
+    } else if (
+      fileRecord &&
+      hasExistingStoragePath &&
+      (file_name || dirPath !== path.dirname(fileRecord.storage_path))
+    ) {
       await nextcloud.ensureDirectoryExists(dirPath);
       const extension = path.extname(fileRecord.storage_path);
       let baseName = file_name || fileRecord.file_name;
       if (path.extname(baseName)) {
         baseName = path.basename(baseName, path.extname(baseName));
       }
-      const normalizedBaseName = baseName.toLowerCase().replace(/\s+/g, '_');
+      const normalizedBaseName = baseName.toLowerCase().replace(/\s+/g, "_");
       finalFileName = `${Date.now()}_${normalizedBaseName}${extension}`;
       finalStoragePath = `${dirPath}/${finalFileName}`;
 
       if (fileRecord.storage_path !== finalStoragePath) {
         try {
-          await nextcloud.client.moveFile(fileRecord.storage_path, finalStoragePath);
+          await nextcloud.client.moveFile(
+            fileRecord.storage_path,
+            finalStoragePath,
+          );
           finalShareUrl = await nextcloud.generateShareLink(finalStoragePath);
         } catch (ncError) {
-          console.error('Error renaming/moving in Nextcloud:', ncError);
-          return res.status(500).json({ success: false, message: 'Failed to move file in Nextcloud', error: ncError.message });
+          console.error("Error renaming/moving in Nextcloud:", ncError);
+          return res.status(500).json({
+            success: false,
+            message: "Failed to move file in Nextcloud",
+            error: ncError.message,
+          });
         }
       }
     }
 
     const updateData = {};
-    if (hasNewFileUpload || file_name || hasFileUrlUpdate || (fileRecord && hasExistingStoragePath && dirPath !== path.dirname(fileRecord.storage_path))) {
+    if (
+      hasNewFileUpload ||
+      file_name ||
+      hasFileUrlUpdate ||
+      (fileRecord &&
+        hasExistingStoragePath &&
+        dirPath !== path.dirname(fileRecord.storage_path))
+    ) {
       updateData.file_name = file_name || fileRecord?.file_name || null;
       updateData.file_name_original = finalFileName;
       updateData.storage_path = finalStoragePath;
@@ -282,7 +341,7 @@ const update = async (req, res) => {
         netsuite_file_id: id || null,
         file_name: file_name || (hasNewFileUpload ? file.originalname : null),
         file_name_original: finalFileName,
-        storage_provider: finalStoragePath ? 'nextcloud' : null,
+        storage_provider: finalStoragePath ? "nextcloud" : null,
         storage_path: finalStoragePath,
         share_url: finalShareUrl,
         file_url: finalShareUrl,
@@ -293,30 +352,38 @@ const update = async (req, res) => {
       try {
         const bridgeResult = await service.callBridgeUpdate({
           bridgeId: id,
+          netsuite_id: netsuite_id || null,
+          type: type,
           fileName: file_name,
-          fileUrl: finalShareUrl || fileUrl || null
+          fileUrl: finalShareUrl || fileUrl || null,
         });
 
         if (bridgeResult) {
-          const userToken = (req.headers.authorization || '').replace('Bearer ', '');
+          const userToken = (req.headers.authorization || "").replace(
+            "Bearer ",
+            "",
+          );
           if (userToken) {
             triggerSync({ type, netsuite_id, token: userToken });
           }
         }
       } catch (notifyErr) {
-        console.warn('Bridge update notification failed:', notifyErr?.message || notifyErr);
+        console.warn(
+          "Bridge update notification failed:",
+          notifyErr?.message || notifyErr,
+        );
       }
 
       return res.status(200).json({
         success: true,
-        message: 'File record created locally',
+        message: "File record created locally",
         data: {
           id: id || null,
           netsuiteId: netsuite_id || null,
           fileUrl: finalShareUrl || fileUrl || null,
           storagePath: finalStoragePath || null,
-          fileName: file_name || null
-        }
+          fileName: file_name || null,
+        },
       });
     }
 
@@ -340,17 +407,20 @@ const update = async (req, res) => {
       const bridgeResult = await service.callBridgeUpdate({
         bridgeId: fileRecord.netsuite_file_id,
         fileName: file_name,
-        fileUrl: finalShareUrl
+        fileUrl: finalShareUrl,
       });
 
       // Trigger sync hanya jika callBridgeCreate berhasil (non-blocking)
       if (bridgeResult) {
-        const userToken = (req.headers.authorization || '').replace('Bearer ', '');
+        const userToken = (req.headers.authorization || "").replace(
+          "Bearer ",
+          "",
+        );
         if (userToken) {
           triggerSync({
             type: type || fileRecord.transaction_type,
             netsuite_id: netsuite_id || fileRecord.netsuite_id,
-            token: userToken
+            token: userToken,
           });
         }
       }
@@ -358,21 +428,20 @@ const update = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'File record updated successfully',
+      message: "File record updated successfully",
       data: {
         id: id || null,
         netsuiteId: netsuite_id || null,
         fileUrl: finalShareUrl || fileUrl || null,
-        fileName: file_name
-      }
+        fileName: file_name,
+      },
     });
-
   } catch (error) {
-    console.error('Error updating file:', error);
+    console.error("Error updating file:", error);
     return res.status(500).json({
       success: false,
-      message: 'Failed to update file',
-      error: error.message
+      message: "Failed to update file",
+      error: error.message,
     });
   }
 };
@@ -387,26 +456,35 @@ const destroy = async (req, res) => {
       try {
         const bridgeResult = await service.callBridgeDelete(id);
         if (bridgeResult) {
-          const userToken = (req.headers.authorization || '').replace('Bearer ', '');
+          const userToken = (req.headers.authorization || "").replace(
+            "Bearer ",
+            "",
+          );
           if (userToken) {
             triggerSync({
-              type: 'purchase_order',
+              type: "purchase_order",
               netsuite_id: netsuite_id || id,
-              token: userToken
+              token: userToken,
             });
           }
         }
       } catch (notifyErr) {
-        console.warn('Bridge delete notification failed:', notifyErr?.message || notifyErr);
+        console.warn(
+          "Bridge delete notification failed:",
+          notifyErr?.message || notifyErr,
+        );
       }
 
       return res.status(200).json({
         success: true,
-        message: 'File deleted successfully'
+        message: "File deleted successfully",
       });
     }
 
-    if (typeof fileRecord?.storage_path === 'string' && fileRecord.storage_path) {
+    if (
+      typeof fileRecord?.storage_path === "string" &&
+      fileRecord.storage_path
+    ) {
       try {
         const exists = await nextcloud.client.exists(fileRecord.storage_path);
         if (exists) {
@@ -421,15 +499,20 @@ const destroy = async (req, res) => {
 
     // Notify bridge API (non-blocking)
     if (fileRecord.netsuite_file_id) {
-      const bridgeResult = await service.callBridgeDelete(fileRecord.netsuite_file_id);
+      const bridgeResult = await service.callBridgeDelete(
+        fileRecord.netsuite_file_id,
+      );
       // Trigger sync hanya jika callBridgeCreate berhasil (non-blocking)
       if (bridgeResult) {
-        const userToken = (req.headers.authorization || '').replace('Bearer ', '');
+        const userToken = (req.headers.authorization || "").replace(
+          "Bearer ",
+          "",
+        );
         if (userToken) {
           triggerSync({
             type: fileRecord.transaction_type,
             netsuite_id: netsuite_id || fileRecord.netsuite_id,
-            token: userToken
+            token: userToken,
           });
         }
       }
@@ -437,14 +520,14 @@ const destroy = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'File deleted successfully'
+      message: "File deleted successfully",
     });
   } catch (error) {
-    console.error('Error deleting file:', error);
+    console.error("Error deleting file:", error);
     return res.status(500).json({
       success: false,
-      message: 'Failed to delete file',
-      error: error.message
+      message: "Failed to delete file",
+      error: error.message,
     });
   }
 };
@@ -453,5 +536,5 @@ module.exports = {
   getList,
   create,
   update,
-  destroy
+  destroy,
 };
