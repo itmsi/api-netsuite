@@ -1,5 +1,5 @@
-const purchasingService = require('../modules/purchasing_orders/service');
-const { EXCHANGES, QUEUE } = require('../utils/constant');
+const purchasingService = require("../modules/purchasing_orders/service");
+const { EXCHANGES, QUEUE } = require("../utils/constant");
 
 /**
  * Worker logic for processing purchase order item receipt
@@ -10,47 +10,96 @@ const methodExecution = async (payload, channel, msg) => {
   // Guard: cek status event di DB sebelum proses
   try {
     const eventStatus = await purchasingService.getEventStatus(event_id);
-    if (eventStatus === 'FAILED' || eventStatus === 'SUCCESS') {
-      console.info(`[ReceiveWorker] Event ${event_id} already ${eventStatus}, skipping (ACK)`);
+    if (eventStatus === "FAILED" || eventStatus === "SUCCESS") {
+      console.info(
+        `[ReceiveWorker] Event ${event_id} already ${eventStatus}, skipping (ACK)`,
+      );
       return channel.ack(msg);
     }
   } catch (guardErr) {
-    console.warn(`[ReceiveWorker] Could not check event status for ${event_id}:`, guardErr.message);
+    console.warn(
+      `[ReceiveWorker] Could not check event status for ${event_id}:`,
+      guardErr.message,
+    );
   }
 
   try {
-    console.info(`[ReceiveWorker] Processing Item Receipt for Event ID: ${event_id}`);
+    console.info(
+      `[ReceiveWorker] Processing Item Receipt for Event ID: ${event_id}`,
+    );
 
     // Log start of process
-    await purchasingService.logEvent(event_id, 'processing', 'Starting request to bridge API', data);
+    await purchasingService.logEvent(
+      event_id,
+      "processing",
+      "Starting request to bridge API",
+      data,
+    );
 
-    const result = await purchasingService.receiveItemPurchaseOrderToBridge(data, receive_internal_id);
+    const result = await purchasingService.receiveItemPurchaseOrderToBridge(
+      data,
+      receive_internal_id,
+    );
 
     if (result && result.success) {
       // Update outbox event status
-      await purchasingService.updateEventStatus(event_id, 'SUCCESS', result.message || 'Item receipt successful', { request: data, response: result });
-      await purchasingService.logEvent(event_id, 'success', 'Item receipt processed successfully in NetSuite', result);
+      await purchasingService.updateEventStatus(
+        event_id,
+        "SUCCESS",
+        result.message || "Item receipt successful",
+        { request: data, response: result },
+      );
+      await purchasingService.logEvent(
+        event_id,
+        "success",
+        "Item receipt processed successfully in NetSuite",
+        result,
+      );
 
       // Point 6: Update data ke DB pakai param id internal dari DB
-      if (result.goods_receipts && Array.isArray(result.goods_receipts) && result.goods_receipts.length > 0) {
+      if (
+        result.goods_receipts &&
+        Array.isArray(result.goods_receipts) &&
+        result.goods_receipts.length > 0
+      ) {
         const firstGr = result.goods_receipts[0];
-        console.info(`[ReceiveWorker] Updating local receive record ${receive_internal_id} with NetSuite ID: ${firstGr.id}`);
-        await purchasingService.updateLocalReceive(receive_internal_id, firstGr);
+        console.info(
+          `[ReceiveWorker] Updating local receive record ${receive_internal_id} with NetSuite ID: ${firstGr.id}`,
+        );
+        await purchasingService.updateLocalReceive(
+          receive_internal_id,
+          firstGr,
+        );
 
         // Optional: Trigger full sync for all GRs returned
         for (const gr of result.goods_receipts) {
           if (gr.id) {
-            console.info(`[ReceiveWorker] Triggering full sync for Goods Receipt ID: ${gr.id}`);
+            console.info(
+              `[ReceiveWorker] Triggering full sync for Goods Receipt ID: ${gr.id}`,
+            );
             try {
               await purchasingService.syncReceiveList({
                 filters: {
-                  receipt_ids: [gr.id.toString()]
-                }
+                  receipt_ids: [gr.id.toString()],
+                },
               });
-              await purchasingService.logEvent(event_id, 'sync_success', `Goods Receipt ${gr.id} fully synced from Bridge API`, { gr_id: gr.id });
+              await purchasingService.logEvent(
+                event_id,
+                "sync_success",
+                `Goods Receipt ${gr.id} fully synced from Bridge API`,
+                { gr_id: gr.id },
+              );
             } catch (syncError) {
-              console.error(`[ReceiveWorker] Full sync failed for GR ${gr.id}:`, syncError.message);
-              await purchasingService.logEvent(event_id, 'sync_failed', syncError.message, { gr_id: gr.id });
+              console.error(
+                `[ReceiveWorker] Full sync failed for GR ${gr.id}:`,
+                syncError.message,
+              );
+              await purchasingService.logEvent(
+                event_id,
+                "sync_failed",
+                syncError.message,
+                { gr_id: gr.id },
+              );
             }
           }
         }
@@ -58,49 +107,80 @@ const methodExecution = async (payload, channel, msg) => {
 
       channel.ack(msg);
     } else {
-      throw new Error(result?.message || 'Bridge API returned failure');
+      throw new Error(result?.message || "Bridge API returned failure");
     }
   } catch (error) {
-    console.log('error----------------------------', JSON.stringify(error));
-    const errorDetail = error.response ? error.response.data : (error.errors || error);
-    const errorMessage = error.response?.data?.message || error.message || String(error);
+    const errorDetail = error.response
+      ? error.response.data
+      : error.errors || error;
+    const errorMessage =
+      error.response?.data?.message || error.message || String(error);
 
-    console.error(`[ReceiveWorker] Error processing Item Receipt Event ${event_id}:`, errorMessage);
+    console.error(
+      `[ReceiveWorker] Error processing Item Receipt Event ${event_id}:`,
+      errorMessage,
+    );
 
     try {
       // Cek apakah masih bisa auto-retry
-      const allowRetry = await purchasingService.canAutoRetry(event_id);
+      //const allowRetry = await purchasingService.canAutoRetry(event_id);
+      const allowRetry = false;
 
       if (allowRetry) {
-        const updated = await purchasingService.incrementRetryCount(event_id, errorMessage);
-        console.info(`[ReceiveWorker] Retrying Item Receipt Event ${event_id} (retry_count: ${updated?.retry_count}/${updated?.max_retry})`);
-        await purchasingService.logEvent(event_id, 'retry', `Retry attempt ${updated?.retry_count}: ${errorMessage}`, errorDetail);
+        const updated = await purchasingService.incrementRetryCount(
+          event_id,
+          errorMessage,
+        );
+        console.info(
+          `[ReceiveWorker] Retrying Item Receipt Event ${event_id} (retry_count: ${updated?.retry_count}/${updated?.max_retry})`,
+        );
+        await purchasingService.logEvent(
+          event_id,
+          "retry",
+          `Retry attempt ${updated?.retry_count}: ${errorMessage}`,
+          errorDetail,
+        );
         channel.nack(msg, false, false); // → DLX
       } else {
-        console.error(`[ReceiveWorker] Max retries reached for Item Receipt Event ${event_id}, marking as FAILED`);
+        console.error(
+          `[ReceiveWorker] Max retries reached for Item Receipt Event ${event_id}, marking as FAILED`,
+        );
 
         // Simpan request & response ke properties untuk audit
         const failureProperties = { request: data, response: errorDetail };
-        await purchasingService.updateEventStatus(event_id, 'FAILED', errorMessage, failureProperties);
+        await purchasingService.updateEventStatus(
+          event_id,
+          "FAILED",
+          errorMessage,
+          failureProperties,
+        );
 
-        await purchasingService.logEvent(event_id, 'failed', `Max retries reached: ${errorMessage}`, errorDetail);
+        await purchasingService.logEvent(
+          event_id,
+          "failed",
+          `Max retries reached: ${errorMessage}`,
+          errorDetail,
+        );
         channel.ack(msg);
       }
     } catch (retryErr) {
-      console.error(`[ReceiveWorker] Failed to handle retry logic:`, retryErr.message);
+      console.error(
+        `[ReceiveWorker] Failed to handle retry logic:`,
+        retryErr.message,
+      );
       channel.ack(msg);
     }
   }
 };
 
-const { connectRabbitMQ } = require('../config/rabbitmq');
+const { connectRabbitMQ } = require("../config/rabbitmq");
 
 const initPurchaseOrderReceiveServices = async () => {
-  if (process.env.RABBITMQ_ENABLED !== 'true') return;
+  if (process.env.RABBITMQ_ENABLED !== "true") return;
 
   const { channel, connection } = await connectRabbitMQ();
 
-  process.once('SIGINT', async () => {
+  process.once("SIGINT", async () => {
     await channel.close();
     await connection.close();
   });
@@ -112,38 +192,44 @@ const initPurchaseOrderReceiveServices = async () => {
     const dlqName = `${queueName}-retry`;
 
     // Setup DLX
-    await channel.assertExchange(dlxName, 'fanout', { durable: true });
+    await channel.assertExchange(dlxName, "fanout", { durable: true });
     await channel.assertQueue(dlqName, {
       durable: true,
       arguments: {
-        'x-message-ttl': 5000,
-        'x-dead-letter-exchange': exchangeName
-      }
+        "x-message-ttl": 5000,
+        "x-dead-letter-exchange": exchangeName,
+      },
     });
-    await channel.bindQueue(dlqName, dlxName, '');
+    await channel.bindQueue(dlqName, dlxName, "");
 
     // Setup Main
-    await channel.assertExchange(exchangeName, 'fanout', { durable: true });
+    await channel.assertExchange(exchangeName, "fanout", { durable: true });
     await channel.assertQueue(queueName, {
       durable: true,
       arguments: {
-        'x-dead-letter-exchange': dlxName
-      }
+        "x-dead-letter-exchange": dlxName,
+      },
     });
-    await channel.bindQueue(queueName, exchangeName, '');
+    await channel.bindQueue(queueName, exchangeName, "");
 
     await channel.prefetch(1);
 
-    await channel.consume(queueName, async (msg) => {
-      if (msg !== null) {
-        const payload = JSON.parse(msg.content.toString());
-        await methodExecution(payload, channel, msg);
-      }
-    }, { noAck: false });
+    await channel.consume(
+      queueName,
+      async (msg) => {
+        if (msg !== null) {
+          const payload = JSON.parse(msg.content.toString());
+          await methodExecution(payload, channel, msg);
+        }
+      },
+      { noAck: false },
+    );
 
-    console.info(`[ReceiveWorker] Purchase Order receive listener initialized on queue: ${queueName}`);
+    console.info(
+      `[ReceiveWorker] Purchase Order receive listener initialized on queue: ${queueName}`,
+    );
   } catch (error) {
-    console.error('[ReceiveWorker] Failed to initialize listener:', error);
+    console.error("[ReceiveWorker] Failed to initialize listener:", error);
   }
 };
 
