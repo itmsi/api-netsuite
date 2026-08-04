@@ -3,35 +3,6 @@ const service = require("./service");
 const nextcloud = require("../../utils/nextcloud");
 const path = require("path");
 
-const triggerSync = async ({ type, netsuite_id, token }) => {
-  try {
-    const gatewayBaseUrl =
-      process.env.BRIDGE_BASE_URL || "http://api-bridge-msi:9570";
-
-    if (type === "purchase_order") {
-      const url = `${gatewayBaseUrl}/api/v1/bridge/purchase-orders/sync/${netsuite_id}`;
-      await axios.get(url, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/json",
-        },
-      });
-      console.log(
-        `[AttachFile] Sync triggered for purchase_order netsuite_id=${netsuite_id}`,
-      );
-    } else {
-      // TODO: handle sync for other types
-      console.log(`[AttachFile] Sync not yet implemented for type=${type}`);
-    }
-  } catch (error) {
-    console.error(
-      "[AttachFile] Sync trigger error:",
-      error?.response?.data || error.message,
-    );
-    // Non-blocking: log but don't throw
-  }
-};
-
 const getList = async (req, res) => {
   try {
     const {
@@ -166,21 +137,6 @@ const create = async (req, res) => {
         createdByApi: created_by_api || userEmail || null,
         files: [{ fileName: fileNameOriginal, fileUrl: shareUrl }],
       });
-
-      // Trigger sync hanya jika callBridgeCreate berhasil (non-blocking)
-      if (bridgeResult) {
-        const userToken = (req.headers.authorization || "").replace(
-          "Bearer ",
-          "",
-        );
-        if (userToken) {
-          triggerSync({
-            type,
-            netsuite_id: resolvedNetsuiteId,
-            token: userToken,
-          });
-        }
-      }
     }
 
     return res.status(200).json({
@@ -352,21 +308,11 @@ const update = async (req, res) => {
       try {
         const bridgeResult = await service.callBridgeUpdate({
           bridgeId: id,
-          netsuite_id: netsuite_id || null,
+          netsuiteId: netsuite_id || null,
           type: type,
           fileName: file_name,
           fileUrl: finalShareUrl || fileUrl || null,
         });
-
-        if (bridgeResult) {
-          const userToken = (req.headers.authorization || "").replace(
-            "Bearer ",
-            "",
-          );
-          if (userToken) {
-            triggerSync({ type, netsuite_id, token: userToken });
-          }
-        }
       } catch (notifyErr) {
         console.warn(
           "Bridge update notification failed:",
@@ -408,22 +354,9 @@ const update = async (req, res) => {
         bridgeId: fileRecord.netsuite_file_id,
         fileName: file_name,
         fileUrl: finalShareUrl,
+        type: type,
+        netsuiteId: netsuite_id || null,
       });
-
-      // Trigger sync hanya jika callBridgeCreate berhasil (non-blocking)
-      if (bridgeResult) {
-        const userToken = (req.headers.authorization || "").replace(
-          "Bearer ",
-          "",
-        );
-        if (userToken) {
-          triggerSync({
-            type: type || fileRecord.transaction_type,
-            netsuite_id: netsuite_id || fileRecord.netsuite_id,
-            token: userToken,
-          });
-        }
-      }
     }
 
     return res.status(200).json({
@@ -448,26 +381,17 @@ const update = async (req, res) => {
 
 const destroy = async (req, res) => {
   try {
-    const { id, netsuite_id } = req.params;
+    const { id, netsuite_id, type = "purchase_order" } = req.params;
 
     const fileRecord = await service.getFileRecordByNetsuiteFileId(id);
 
     if (!fileRecord) {
       try {
-        const bridgeResult = await service.callBridgeDelete(id);
-        if (bridgeResult) {
-          const userToken = (req.headers.authorization || "").replace(
-            "Bearer ",
-            "",
-          );
-          if (userToken) {
-            triggerSync({
-              type: "purchase_order",
-              netsuite_id: netsuite_id || id,
-              token: userToken,
-            });
-          }
-        }
+        const bridgeResult = await service.callBridgeDelete(
+          id,
+          netsuite_id,
+          type,
+        );
       } catch (notifyErr) {
         console.warn(
           "Bridge delete notification failed:",
@@ -501,21 +425,9 @@ const destroy = async (req, res) => {
     if (fileRecord.netsuite_file_id) {
       const bridgeResult = await service.callBridgeDelete(
         fileRecord.netsuite_file_id,
+        netsuite_id,
+        type,
       );
-      // Trigger sync hanya jika callBridgeCreate berhasil (non-blocking)
-      if (bridgeResult) {
-        const userToken = (req.headers.authorization || "").replace(
-          "Bearer ",
-          "",
-        );
-        if (userToken) {
-          triggerSync({
-            type: fileRecord.transaction_type,
-            netsuite_id: netsuite_id || fileRecord.netsuite_id,
-            token: userToken,
-          });
-        }
-      }
     }
 
     return res.status(200).json({

@@ -1,5 +1,6 @@
 const axios = require("axios");
 const { dbNetsuite } = require("../../config/database");
+const authService = require("../auth/service");
 
 const getList = async (filters, page = 1, limit = 10) => {
   const {
@@ -140,7 +141,6 @@ const callBridgeCreate = async ({
   files,
 }) => {
   try {
-    const authService = require("../auth/service");
     const tokenResponse = await authService.getToken();
     const token = tokenResponse.data.access_token;
 
@@ -182,7 +182,6 @@ const callBridgeUpdate = async ({
   type,
 }) => {
   try {
-    const authService = require("../auth/service");
     const tokenResponse = await authService.getToken();
     const token = tokenResponse.data.access_token;
 
@@ -215,20 +214,27 @@ const callBridgeUpdate = async ({
   }
 };
 
-const callBridgeDelete = async (bridgeId) => {
+const callBridgeDelete = async (netsuiteFileId, netsuiteId, type) => {
   try {
-    const authService = require("../auth/service");
     const tokenResponse = await authService.getToken();
     const token = tokenResponse.data.access_token;
 
     const baseUrl = process.env.BRIDGE_BASE_URL || "http://localhost:9570";
-    const url = `${baseUrl}/api/v1/bridge/attach_file/${bridgeId}`;
+    const url = `${baseUrl}/api/v1/bridge/attach_file/delete/${netsuiteFileId}`;
 
-    const response = await axios.delete(url, {
-      headers: {
-        Authorization: `Bearer ${token}`,
+    const response = await axios.put(
+      url,
+      {
+        netsuite_id: netsuiteId,
+        type: type,
       },
-    });
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    );
 
     return response.data;
   } catch (error) {
