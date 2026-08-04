@@ -47,7 +47,8 @@ const methodExecution = async (payload, channel, msg) => {
 
     try {
       // Cek apakah masih bisa auto-retry
-      const allowRetry = await purchasingService.canAutoRetry(event_id);
+      //const allowRetry = await purchasingService.canAutoRetry(event_id);
+       const allowRetry = false; 
 
       if (allowRetry) {
         const updated = await purchasingService.incrementRetryCount(event_id, errorMessage);
