@@ -1318,19 +1318,6 @@ const receiveItemPurchaseOrderToBridge = async (body, internalId) => {
     process.env.BRIDGE_BASE_URL || "https://api-bridge-sb.motorsights.com";
   const url = `${baseUrl}/api/v1/bridge/items/item-receipt`;
 
-  // Normalize trandate to mm-dd-yyyy (accept dd-mm-yyyy or dd/mm/yyyy)
-  const formatTrandate = (date) => {
-    if (!date) return date;
-    const str = String(date).trim();
-    // Match dd/mm/yyyy or dd-mm-yyyy
-    const match = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-    if (match) {
-      const [, dd, mm, yyyy] = match;
-      return `${mm.padStart(2, "0")}-${dd.padStart(2, "0")}-${yyyy}`;
-    }
-    return str.replace(/\//g, "-");
-  };
-
   // cari employee_name dari tabel gate_sso_employees berdasarkan created_by employee_id = body.created_by
   let employeeEmail = body.created_by_name || null;
   try {
@@ -1346,6 +1333,7 @@ const receiveItemPurchaseOrderToBridge = async (body, internalId) => {
     // ignore error, just fallback to body.created_by_name or null
   }
 
+  delete body.customform; // remove customform from payload to avoid sending unnecessary data
   const payload = {
     ...body,
     transaction_type: "purchase_order",
