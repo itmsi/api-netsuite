@@ -1350,7 +1350,7 @@ const receiveItemPurchaseOrderToBridge = async (body, internalId) => {
     ...body,
     transaction_type: "purchase_order",
     transaction_id: body.po_id || null,
-    trandate: formatTrandate(body.trandate),
+    trandate: body.trandate,
     // internal_id: internalId,
     items: Array.isArray(body.items)
       ? body.items.map((item) => {
