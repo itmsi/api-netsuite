@@ -315,7 +315,9 @@ const getItemReceipts = async (body) => {
       ? body.sort_by
       : "last_modified_netsuite";
 
-    let query = dbNetsuite("receives");
+    let query = dbNetsuite("receives")
+      .whereNotNull("netsuite_id")
+      .where("netsuite_id", "!=", "");
 
     if (body.search) {
       query = query.where(function () {
