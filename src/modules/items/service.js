@@ -1,17 +1,17 @@
-const axios = require('axios');
-const knex = require('knex');
-const authService = require('../auth/service');
+const axios = require("axios");
+const knex = require("knex");
+const authService = require("../auth/service");
 
 // Knex instance untuk DB Netsuite (bridge_sanbox)
 const dbNetsuite = knex({
-  client: 'pg',
+  client: "pg",
   connection: {
-    host: process.env.DB_HOST_NETSUITE || 'localhost',
+    host: process.env.DB_HOST_NETSUITE || "localhost",
     port: parseInt(process.env.DB_PORT_NETSUITE) || 9541,
-    user: process.env.DB_USER_NETSUITE || 'msiserver',
+    user: process.env.DB_USER_NETSUITE || "msiserver",
     password: process.env.DB_PASS_NETSUITE,
-    database: process.env.DB_NAME_NETSUITE || 'bridge_sanbox'
-  }
+    database: process.env.DB_NAME_NETSUITE || "bridge_sanbox",
+  },
 });
 
 /**
@@ -22,40 +22,53 @@ const getItemsList = async (body) => {
   try {
     const page = parseInt(body.page) || 1;
     const limit = parseInt(body.limit) || 10;
-    const sortOrder = body.sort_order ? body.sort_order.toUpperCase() : 'DESC';
+    const sortOrder = body.sort_order ? body.sort_order.toUpperCase() : "DESC";
     const offset = (page - 1) * limit;
 
     // Kolom yang boleh dijadikan sort_by
     const validSortColumns = [
-      'netsuite_id', 'item_id', 'display_name',
-      'last_modified_netsuite', 'created_at', 'updated_at'
+      "netsuite_id",
+      "item_id",
+      "display_name",
+      "last_modified_netsuite",
+      "created_at",
+      "updated_at",
     ];
-    const sortByRaw = body.sort_by === 'created_at' ? 'last_modified_netsuite' : (body.sort_by || 'last_modified_netsuite');
-    const orderCol = validSortColumns.includes(sortByRaw) ? sortByRaw : 'last_modified_netsuite';
+    const sortByRaw =
+      body.sort_by === "created_at"
+        ? "last_modified_netsuite"
+        : body.sort_by || "last_modified_netsuite";
+    const orderCol = validSortColumns.includes(sortByRaw)
+      ? sortByRaw
+      : "last_modified_netsuite";
 
-    let query = dbNetsuite('items').where('is_deleted', false);
+    let query = dbNetsuite("items").where("is_deleted", false);
 
     if (body.item_type) {
-      const itemTypes = Array.isArray(body.item_type) ? body.item_type : [body.item_type];
-      query = query.whereIn('type', itemTypes);
+      const itemTypes = Array.isArray(body.item_type)
+        ? body.item_type
+        : [body.item_type];
+      query = query.whereIn("type", itemTypes);
     }
 
     if (body.item_type_id) {
-      const itemTypeIds = Array.isArray(body.item_type_id) ? body.item_type_id : [body.item_type_id];
-      query = query.whereIn('type_id', itemTypeIds);
+      const itemTypeIds = Array.isArray(body.item_type_id)
+        ? body.item_type_id
+        : [body.item_type_id];
+      query = query.whereIn("type_id", itemTypeIds);
     }
 
     // Filter opsional
     if (body.search) {
       query = query.where(function () {
-        this.whereILike('item_id', `%${body.search}%`)
-          .orWhereILike('display_name', `%${body.search}%`)
-          .orWhere('netsuite_id', body.search);
+        this.whereILike("item_id", `%${body.search}%`)
+          .orWhereILike("display_name", `%${body.search}%`)
+          .orWhere("netsuite_id", body.search);
       });
     }
 
     // Hitung total
-    const countResult = await query.clone().count('* as total').first();
+    const countResult = await query.clone().count("* as total").first();
     const total = parseInt(countResult.total) || 0;
     const totalPages = Math.ceil(total / limit);
 
@@ -63,34 +76,36 @@ const getItemsList = async (body) => {
     const rows = await query
       .clone()
       .select([
-        'netsuite_id as internalId',
-        'item_id as itemId',
-        'type as itemType',
-        'display_name as displayName',
-        'last_modified_netsuite as lastModifiedDate',
-        'data'
+        "netsuite_id as internalId",
+        "item_id as itemId",
+        "type as itemType",
+        "display_name as displayName",
+        "last_modified_netsuite as lastModifiedDate",
+        "data",
       ])
       .orderBy(orderCol, sortOrder)
       .limit(limit)
       .offset(offset);
 
     // Map: ambil locations dari kolom data (JSONB), hapus data dari output
-    const items = rows.map(row => ({
+    const items = rows.map((row) => ({
       internalId: row.internalId,
       itemId: row.itemId,
       itemType: row.itemType,
-      displayName: row.displayName || '',
+      displayName: row.displayName || "",
       lastModifiedDate: row.lastModifiedDate,
-      locations: (row.data && row.data.locations) ? row.data.locations : []
+      locations: row.data && row.data.locations ? row.data.locations : [],
     }));
 
     return {
       items,
-      pagination: { page, limit, total, totalPages }
+      pagination: { page, limit, total, totalPages },
     };
-
   } catch (error) {
-    throw { message: error.message || 'Failed to fetch items from database', statusCode: 500 };
+    throw {
+      message: error.message || "Failed to fetch items from database",
+      statusCode: 500,
+    };
   }
 };
 
@@ -104,22 +119,26 @@ const syncItemsList = async (body) => {
     const token = tokenResponse.data.access_token;
 
     // 2. Fetch data from bridge API
-    const baseUrl = process.env.BRIDGE_BASE_URL || 'https://api-bridge-sb.motorsights.com';
+    const baseUrl =
+      process.env.BRIDGE_BASE_URL || "https://api-bridge-sb.motorsights.com";
     const url = `${baseUrl}/api/v1/bridge/items/get`;
 
     const requestData = {
       pageIndex: body.page - 1 || 0,
       pageSize: body.limit || 10,
-      sort_by: body.sort_by === 'created_at' ? 'last_modified' : (body.sort_by || 'last_modified'),
-      sort_order: body.sort_order ? body.sort_order.toUpperCase() : 'DESC',
-      search: body.search || null
+      sort_by:
+        body.sort_by === "created_at"
+          ? "last_modified"
+          : body.sort_by || "last_modified",
+      sort_order: body.sort_order ? body.sort_order.toUpperCase() : "DESC",
+      search: body.search || null,
     };
 
     const response = await axios.post(url, requestData, {
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      }
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
     });
 
     const resData = response.data;
@@ -130,23 +149,23 @@ const syncItemsList = async (body) => {
         page: resData.page || resData.pageIndex || body.page || 1,
         limit: resData.page_size || resData.pageSize || body.limit || 10,
         total: resData.total_records || resData.totalRows || 0,
-        totalPages: resData.total_pages || resData.totalPages || 0
-      }
+        totalPages: resData.total_pages || resData.totalPages || 0,
+      },
     };
-
   } catch (error) {
     if (error.response) {
       throw {
-        message: error.response.data.message || 'Failed to sync items from bridge API',
+        message:
+          error.response.data.message || "Failed to sync items from bridge API",
         statusCode: error.response.status,
-        errors: error.response.data
+        errors: error.response.data,
       };
     }
     throw { message: error.message, statusCode: 500 };
   }
 };
 
-const { pgCore: db } = require('../../config/database');
+const { pgCore: db } = require("../../config/database");
 
 /**
  * Memproses sync ke tabel items di gate_sso
@@ -163,24 +182,30 @@ const processItemsSync = async (records) => {
         display_name: record.display_name || null,
         type: record.type || null,
         data: record.data ? JSON.stringify(record.data) : null,
-        last_modified_netsuite: record.last_modified_netsuite ? new Date(record.last_modified_netsuite) : null,
+        last_modified_netsuite: record.last_modified_netsuite
+          ? new Date(record.last_modified_netsuite)
+          : null,
         is_deleted: record.is_deleted || null,
         created_at: db.fn.now(),
         updated_at: db.fn.now(),
       };
 
-      const existing = await trx('items').where('netsuite_id', data.netsuite_id.toString()).first();
+      const existing = await trx("items")
+        .where("netsuite_id", data.netsuite_id.toString())
+        .first();
       if (existing) {
-        await trx('items').where('netsuite_id', data.netsuite_id.toString()).update(data);
+        await trx("items")
+          .where("netsuite_id", data.netsuite_id.toString())
+          .update(data);
       } else {
         data.created_at = db.fn.now();
-        await trx('items').insert(data);
+        await trx("items").insert(data);
       }
     }
     await trx.commit();
   } catch (error) {
     await trx.rollback();
-    console.error('Error syncing items to gate_sso:', error);
+    console.error("Error syncing items to gate_sso:", error);
     throw error;
   }
 };
@@ -193,40 +218,48 @@ const getItemLocation = async (body) => {
     const page = parseInt(body.page) || 1;
     const limit = parseInt(body.limit) || 10;
     const offset = (page - 1) * limit;
-    const sortOrder = body.sort_order ? body.sort_order.toUpperCase() : 'DESC';
+    const sortOrder = body.sort_order ? body.sort_order.toUpperCase() : "DESC";
 
     // Map sort_by parameter to actual columns
-    let sortByRaw = body.sort_by || 'created_at';
-    let orderCol = 'il.created_at';
+    let sortByRaw = body.sort_by || "created_at";
+    let orderCol = "il.created_at";
 
-    if (sortByRaw === 'created_at' || sortByRaw === 'last_modified_netsuite') {
-      orderCol = 'il.created_at';
-    } else if (sortByRaw === 'item_id' || sortByRaw === 'item_code') {
-      orderCol = 'i.item_id';
-    } else if (sortByRaw === 'display_name' || sortByRaw === 'item_name') {
-      orderCol = 'i.display_name';
-    } else if (sortByRaw === 'location_name') {
-      orderCol = 'l.name';
-    } else if (sortByRaw === 'qtyAvailable') {
+    if (sortByRaw === "created_at" || sortByRaw === "last_modified_netsuite") {
+      orderCol = "il.created_at";
+    } else if (sortByRaw === "item_id" || sortByRaw === "item_code") {
+      orderCol = "i.item_id";
+    } else if (sortByRaw === "display_name" || sortByRaw === "item_name") {
+      orderCol = "i.display_name";
+    } else if (sortByRaw === "location_name") {
+      orderCol = "l.name";
+    } else if (sortByRaw === "qtyAvailable") {
       orderCol = 'il."qtyAvailable"';
     }
 
-    let query = dbNetsuite('item_locations as il')
-      .leftJoin('locations as l', dbNetsuite.raw('l.netsuite_id::integer'), dbNetsuite.raw('il."inventorylocationId"::integer'))
-      .leftJoin('items as i', dbNetsuite.raw('i.netsuite_id::integer'), dbNetsuite.raw('il.item_id::integer'))
-      .where(dbNetsuite.raw('il."qtyAvailable"::numeric'), '>', 0);
+    let query = dbNetsuite("item_locations as il")
+      .leftJoin(
+        "locations as l",
+        dbNetsuite.raw("l.netsuite_id::integer"),
+        dbNetsuite.raw('il."inventorylocationId"::integer'),
+      )
+      .leftJoin(
+        "items as i",
+        dbNetsuite.raw("i.netsuite_id::integer"),
+        dbNetsuite.raw("il.item_id::integer"),
+      )
+      .where(dbNetsuite.raw('il."qtyAvailable"::numeric'), ">", 0);
 
     // Filter opsional
     if (body.search) {
       query = query.where(function () {
-        this.whereILike('i.item_id', `%${body.search}%`)
-          .orWhereILike('i.display_name', `%${body.search}%`)
-          .orWhereILike('l.name', `%${body.search}%`);
+        this.whereILike("i.item_id", `%${body.search}%`)
+          .orWhereILike("i.display_name", `%${body.search}%`)
+          .orWhereILike("l.name", `%${body.search}%`);
       });
     }
 
     // Hitung total
-    const countResult = await query.clone().count('* as total').first();
+    const countResult = await query.clone().count("* as total").first();
     const total = parseInt(countResult.total) || 0;
     const totalPages = Math.ceil(total / limit);
 
@@ -234,16 +267,16 @@ const getItemLocation = async (body) => {
     const rows = await query
       .clone()
       .select([
-        'il.inventorylocationId',
-        'il.item_id',
-        'l.name as location_name',
-        'i.item_id as item_code',
-        'i.display_name as item_name',
-        'il.qtyAvailable',
-        'il.qtyBackOrder',
-        'il.qtyCommitted',
-        'il.qtyOnHand',
-        'il.qtyOnOrder'
+        "il.inventorylocationId",
+        "il.item_id",
+        "l.name as location_name",
+        "i.item_id as item_code",
+        "i.display_name as item_name",
+        "il.qtyAvailable",
+        "il.qtyBackOrder",
+        "il.qtyCommitted",
+        "il.qtyOnHand",
+        "il.qtyOnOrder",
       ])
       .orderByRaw(`${orderCol} ${sortOrder} NULLS LAST`)
       .limit(limit)
@@ -251,11 +284,173 @@ const getItemLocation = async (body) => {
 
     return {
       items: rows,
-      pagination: { page, limit, total, totalPages }
+      pagination: { page, limit, total, totalPages },
     };
-
   } catch (error) {
-    throw { message: error.message || 'Failed to fetch item locations from database', statusCode: 500 };
+    throw {
+      message: error.message || "Failed to fetch item locations from database",
+      statusCode: 500,
+    };
+  }
+};
+
+/**
+ * Get receipts from local receives table
+ */
+const getItemReceipts = async (body) => {
+  try {
+    const page = parseInt(body.page) || 1;
+    const limit = parseInt(body.limit || body.page_size) || 20;
+    const offset = (page - 1) * limit;
+    const sortOrder = body.sort_order ? body.sort_order.toUpperCase() : "DESC";
+
+    const validSortColumns = [
+      "last_modified_netsuite",
+      "tranid",
+      "trandate",
+      "created_at",
+      "updated_at",
+    ];
+    const orderCol = validSortColumns.includes(body.sort_by)
+      ? body.sort_by
+      : "last_modified_netsuite";
+
+    let query = dbNetsuite("receives")
+      .whereNotNull("netsuite_id")
+      .where("netsuite_id", "!=", "");
+
+    if (body.search) {
+      query = query.where(function () {
+        this.whereILike("tranid", `%${body.search}%`)
+          .orWhereILike("vendor_name", `%${body.search}%`)
+          .orWhereILike("createdfrom", `%${body.search}%`)
+          .orWhereILike("subsidiary_display", `%${body.search}%`)
+          .orWhereILike("location_display", `%${body.search}%`);
+      });
+    }
+
+    if (body.status) {
+      query = query.where("status", body.status);
+    }
+
+    if (body.vendor_id) {
+      query = query.where("vendor_id", body.vendor_id);
+    }
+
+    if (body.location) {
+      query = query.where("location", body.location);
+    }
+
+    if (body.source_type) {
+      query = query.where("source_type", body.source_type);
+    }
+
+    const countResult = await query.clone().count("* as total").first();
+    const total = parseInt(countResult.total) || 0;
+    const totalPages = Math.ceil(total / limit);
+
+    const rows = await query
+      .clone()
+      .select([
+        "id",
+        "netsuite_id",
+        "source_type",
+        "source_type_display",
+        "tranid",
+        "trandate",
+        "status",
+        "status_display",
+        "memo",
+        "vendor_id",
+        "vendor_name",
+        "createdfrom",
+        "createdfrom_display",
+        "subsidiary",
+        "subsidiary_display",
+        "location",
+        "location_display",
+        "department",
+        "department_display",
+        "class",
+        "class_display",
+        "last_modified_netsuite",
+        "datecreated_netsuite",
+        "created_at",
+        "created_by_name",
+        "updated_at",
+      ])
+      .orderBy(orderCol, sortOrder)
+      .limit(limit)
+      .offset(offset);
+
+    return {
+      items: rows,
+      pagination: { page, limit, total, totalPages },
+    };
+  } catch (error) {
+    throw {
+      message: error.message || "Failed to fetch receipts from database",
+      statusCode: 500,
+    };
+  }
+};
+
+/**
+ * Get single receipt detail by id (UUID) or netsuite_id from local receives table
+ */
+const getItemReceiptById = async (id) => {
+  try {
+    const query = () =>
+      dbNetsuite("receives").select([
+        "id",
+        "netsuite_id",
+        "source_type",
+        "source_type_display",
+        "tranid",
+        "trandate",
+        "status",
+        "status_display",
+        "memo",
+        "vendor_id",
+        "vendor_name",
+        "createdfrom",
+        "createdfrom_display",
+        "subsidiary",
+        "subsidiary_display",
+        "location",
+        "location_display",
+        "department",
+        "department_display",
+        "class",
+        "class_display",
+        "last_modified_netsuite",
+        "datecreated_netsuite",
+        "created_at",
+        "created_by_name",
+        "updated_at",
+        "lines",
+      ]);
+
+    let item;
+    if (/^\d+$/.test(id)) {
+      item = await query().where("netsuite_id", id).first();
+    }
+
+    if (!item) {
+      item = await query().where("id", id).first();
+    }
+
+    if (!item) {
+      throw { message: "Data receipt tidak ditemukan", statusCode: 404 };
+    }
+
+    return item;
+  } catch (error) {
+    if (error.statusCode) throw error;
+    throw {
+      message: error.message || "Failed to fetch receipt detail from database",
+      statusCode: 500,
+    };
   }
 };
 
@@ -263,5 +458,7 @@ module.exports = {
   getItemsList,
   syncItemsList,
   processItemsSync,
-  getItemLocation
+  getItemLocation,
+  getItemReceipts,
+  getItemReceiptById,
 };

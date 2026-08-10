@@ -1,6 +1,6 @@
-const service = require('./service');
-const syncService = require('../sync/service');
-const { baseResponse } = require('../../utils');
+const service = require("./service");
+const syncService = require("../sync/service");
+const { baseResponse } = require("../../utils");
 
 /**
  * Get items list (dari DB)
@@ -8,19 +8,19 @@ const { baseResponse } = require('../../utils');
 const getList = async (req, res) => {
   try {
     const result = await service.getItemsList(req.body);
-    return baseResponse(res, { 
+    return baseResponse(res, {
       data: {
         success: true,
         data: result,
-        message: 'Data items berhasil diambil'
-      }
+        message: "Data items berhasil diambil",
+      },
     });
   } catch (error) {
     const statusCode = error.statusCode || 500;
     return res.status(statusCode).json({
       success: false,
-      message: error.message || 'Internal Server Error',
-      errors: error.errors || error
+      message: error.message || "Internal Server Error",
+      errors: error.errors || error,
     });
   }
 };
@@ -33,31 +33,32 @@ const sync = async (req, res) => {
     const result = await service.syncItemsList(req.body);
 
     await syncService.createSync(
-      { sync_module: 'items', sync_status: 'success' },
-      req.user
+      { sync_module: "items", sync_status: "success" },
+      req.user,
     );
 
-    const syncInfo = await syncService.getLatestSyncInfo('items').catch(() => null);
+    const syncInfo = await syncService
+      .getLatestSyncInfo("items")
+      .catch(() => null);
 
     return baseResponse(res, {
       data: {
         success: true,
         data: result,
         sync_info: syncInfo,
-        message: 'Data items berhasil di-sync dari bridge API'
-      }
+        message: "Data items berhasil di-sync dari bridge API",
+      },
     });
   } catch (error) {
-    await syncService.createSync(
-      { sync_module: 'items', sync_status: 'failed' },
-      req.user
-    ).catch(() => {});
+    await syncService
+      .createSync({ sync_module: "items", sync_status: "failed" }, req.user)
+      .catch(() => {});
 
     const statusCode = error.statusCode || 500;
     return res.status(statusCode).json({
       success: false,
-      message: error.message || 'Internal Server Error',
-      errors: error.errors || error
+      message: error.message || "Internal Server Error",
+      errors: error.errors || error,
     });
   }
 };
@@ -68,19 +69,73 @@ const sync = async (req, res) => {
 const getItemLocation = async (req, res) => {
   try {
     const result = await service.getItemLocation(req.body);
-    return baseResponse(res, { 
+    return baseResponse(res, {
       data: {
         success: true,
         data: result,
-        message: 'Data item locations berhasil diambil'
-      }
+        message: "Data item locations berhasil diambil",
+      },
     });
   } catch (error) {
     const statusCode = error.statusCode || 500;
     return res.status(statusCode).json({
       success: false,
-      message: error.message || 'Internal Server Error',
-      errors: error.errors || error
+      message: error.message || "Internal Server Error",
+      errors: error.errors || error,
+    });
+  }
+};
+
+/**
+ * Get receipts from local receives table
+ */
+const getItemReceipts = async (req, res) => {
+  try {
+    const result = await service.getItemReceipts(req.body);
+    return baseResponse(res, {
+      data: {
+        success: true,
+        data: result,
+        message: "Data receipts berhasil diambil",
+      },
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+      errors: error.errors || error,
+    });
+  }
+};
+
+/**
+ * Get receipt detail by id from local receives table
+ */
+const getItemReceiptById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Parameter id tidak boleh kosong",
+      });
+    }
+
+    const result = await service.getItemReceiptById(id);
+    return baseResponse(res, {
+      data: {
+        success: true,
+        data: result,
+        message: "Data receipt berhasil diambil",
+      },
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+      errors: error.errors || error,
     });
   }
 };
@@ -88,5 +143,7 @@ const getItemLocation = async (req, res) => {
 module.exports = {
   getList,
   sync,
-  getItemLocation
+  getItemLocation,
+  getItemReceipts,
+  getItemReceiptById,
 };
