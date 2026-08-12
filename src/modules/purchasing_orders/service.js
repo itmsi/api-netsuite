@@ -1257,7 +1257,7 @@ const receiveItemPurchaseOrder = async (body, user) => {
       await trx("purchase_orders").where("po_id", body.po_id).update({
         type_proccess: "receive_item",
         status_proccess: "PROCESSING",
-        status_proccess_message: "Processing item receipt",
+        status_proccess_message: "Processing item receipt in NetSuite",
         url_proccess: receiveUrl,
         updated_at: new Date(),
       });
