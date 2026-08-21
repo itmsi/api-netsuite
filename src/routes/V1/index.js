@@ -67,6 +67,9 @@ routing.use(`${API_TAG}/classes`, classesModule);
 const departmentModule = require('../../modules/department');
 routing.use(`${API_TAG}/departments`, departmentModule);
 
+const projectSegmentationsModule = require('../../modules/project_segmentations');
+routing.use(`${API_TAG}/project-segmentations`, projectSegmentationsModule);
+
 const subsidiaryModule = require('../../modules/subsidiary');
 routing.use(`${API_TAG}/subsidiary`, subsidiaryModule);
 

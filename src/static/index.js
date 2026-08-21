@@ -42,6 +42,7 @@ const referenceSchema = require('./schema/reference');
 const invoiceSalesOrderSchema = require('./schema/invoice_sales_order');
 const classesSchema = require('./schema/classes');
 const departmentSchema = require('./schema/department');
+const projectSegmentationsSchema = require('./schema/project_segmentations');
 const subsidiarySchema = require('./schema/subsidiary');
 const termsSchema = require('./schema/terms');
 const syncSchema = require('./schema/sync');
@@ -70,6 +71,7 @@ const referencePaths = require('./path/reference');
 const invoiceSalesOrderPaths = require('./path/invoice_sales_order');
 const classesPaths = require('./path/classes');
 const departmentPaths = require('./path/department');
+const projectSegmentationsPaths = require('./path/project_segmentations');
 const subsidiaryPaths = require('./path/subsidiary');
 const termsPaths = require('./path/terms');
 const syncPaths = require('./path/sync');
@@ -99,6 +101,7 @@ const schemas = {
   ...invoiceSalesOrderSchema,
   ...classesSchema,
   ...departmentSchema,
+  ...projectSegmentationsSchema,
   ...subsidiarySchema,
   ...termsSchema,
   ...syncSchema,
@@ -129,6 +132,7 @@ const paths = {
   ...invoiceSalesOrderPaths,
   ...classesPaths,
   ...departmentPaths,
+  ...projectSegmentationsPaths,
   ...subsidiaryPaths,
   ...termsPaths,
   ...syncPaths,
