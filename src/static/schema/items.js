@@ -52,6 +52,36 @@ const itemsSchemas = {
       message: { type: "string", example: "Data items berhasil diambil" },
     },
   },
+  ItemSyncByIdResponse: {
+    type: "object",
+    properties: {
+      success: { type: "boolean", example: true },
+      data: {
+        type: "object",
+        description:
+          "Item hasil query ulang dari database lokal (bridge_sanbox.items) setelah sync berhasil, format sama dengan item pada `/get-list`",
+        properties: {
+          internalId: { type: "string", example: "7337" },
+          itemId: { type: "string", example: "ITM-001" },
+          itemType: { type: "string", example: "Inventory Item" },
+          displayName: { type: "string", example: "Item Display Name" },
+          lastModifiedDate: {
+            type: "string",
+            nullable: true,
+            example: "2026-03-18T08:56:00+07:00",
+          },
+          locations: {
+            type: "array",
+            items: { type: "object" },
+          },
+        },
+      },
+      message: {
+        type: "string",
+        example: "Item ID 7337 berhasil di-sync dari bridge API",
+      },
+    },
+  },
   ReceiptsRequest: {
     type: "object",
     properties: {

@@ -38,4 +38,11 @@ router.post("/get-receipts", verifyToken, controller.getItemReceipts);
  */
 router.get("/get-receipts/:id", verifyToken, controller.getItemReceiptById);
 
+/**
+ * @route   GET /api/netsuite/items/sync/:id
+ * @desc    Sync single item by ID dari bridge API
+ * @access  Private
+ */
+router.get("/sync/:id", verifyToken, controller.syncById);
+
 module.exports = router;

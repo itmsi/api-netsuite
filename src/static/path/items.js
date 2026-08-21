@@ -81,6 +81,66 @@ const itemsPaths = {
       },
     },
   },
+  "/items/sync/{id}": {
+    get: {
+      tags: ["Items"],
+      summary: "Sync single item by ID dari bridge API",
+      description:
+        "Hit bridge API `POST /api/v1/bridge/items/sync/netsuite/{id}` untuk sync satu item berdasarkan NetSuite internal ID, lalu ambil ulang data item tersebut dari database lokal (format sama dengan get by netsuite_id).",
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        {
+          name: "id",
+          in: "path",
+          required: true,
+          description: "NetSuite internal ID dari item",
+          schema: { type: "integer", example: 7337 },
+        },
+      ],
+      responses: {
+        200: {
+          description: "Success",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ItemSyncByIdResponse" },
+            },
+          },
+        },
+        400: {
+          description: "Bad Request - ID not provided",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+            },
+          },
+        },
+        401: {
+          description: "Unauthorized",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+            },
+          },
+        },
+        404: {
+          description: "Not Found - Item tidak ditemukan di database lokal setelah sync",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+            },
+          },
+        },
+        500: {
+          description: "Internal Server Error",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+            },
+          },
+        },
+      },
+    },
+  },
   "/items/get-item-location": {
     post: {
       tags: ["Items"],

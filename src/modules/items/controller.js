@@ -64,6 +64,53 @@ const sync = async (req, res) => {
 };
 
 /**
+ * Sync single item by ID dari bridge API
+ */
+const syncById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Parameter id tidak boleh kosong" });
+    }
+
+    await service.syncItemById(id);
+
+    const result = await service.getItemByNetsuiteId(id);
+
+    // await syncService.upsertSync(
+    //   { sync_module: "items", sync_status: "success" },
+    //   req.user
+    // );
+
+    // const syncInfo = await syncService
+    //   .getLatestSyncInfo("items")
+    //   .catch(() => null);
+
+    return baseResponse(res, {
+      data: {
+        success: true,
+        data: result,
+        // sync_info: syncInfo,
+        message: `Item ID ${id} berhasil di-sync dari bridge API`,
+      },
+    });
+  } catch (error) {
+    await syncService
+      .upsertSync({ sync_module: "items", sync_status: "failed" }, req.user)
+      .catch(() => {});
+
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+      errors: error.errors || error,
+    });
+  }
+};
+
+/**
  * Get item locations
  */
 const getItemLocation = async (req, res) => {
@@ -143,6 +190,7 @@ const getItemReceiptById = async (req, res) => {
 module.exports = {
   getList,
   sync,
+  syncById,
   getItemLocation,
   getItemReceipts,
   getItemReceiptById,

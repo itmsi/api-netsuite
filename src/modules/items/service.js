@@ -165,6 +165,80 @@ const syncItemsList = async (body) => {
   }
 };
 
+/**
+ * Sync single item by ID dari bridge API
+ * Hit: POST {BRIDGE_BASE_URL}/api/v1/bridge/items/sync/netsuite/{id}
+ */
+const syncItemById = async (id) => {
+  try {
+    // 1. Get token
+    const tokenResponse = await authService.getToken();
+    const token = tokenResponse.data.access_token;
+
+    // 2. Hit bridge sync by ID endpoint
+    const baseUrl =
+      process.env.BRIDGE_BASE_URL || "https://api-bridge-sb.motorsights.com";
+    const url = `${baseUrl}/api/v1/bridge/items/sync/netsuite/${id}`;
+
+    const response = await axios.post(url, {}, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw {
+        message:
+          error.response.data?.message ||
+          "Failed to sync item by ID from bridge API",
+        statusCode: error.response.status,
+        errors: error.response.data,
+      };
+    }
+    throw { message: error.message, statusCode: 500 };
+  }
+};
+
+/**
+ * Get single item by netsuite_id dari DB Netsuite (bridge_sanbox.items)
+ */
+const getItemByNetsuiteId = async (netsuiteId) => {
+  try {
+    const row = await dbNetsuite("items")
+      .where("netsuite_id", netsuiteId.toString())
+      .select([
+        "netsuite_id as internalId",
+        "item_id as itemId",
+        "type as itemType",
+        "display_name as displayName",
+        "last_modified_netsuite as lastModifiedDate",
+        "data",
+      ])
+      .first();
+
+    if (!row) {
+      throw { message: "Data item tidak ditemukan", statusCode: 404 };
+    }
+
+    return {
+      internalId: row.internalId,
+      itemId: row.itemId,
+      itemType: row.itemType,
+      displayName: row.displayName || "",
+      lastModifiedDate: row.lastModifiedDate,
+      locations: row.data && row.data.locations ? row.data.locations : [],
+    };
+  } catch (error) {
+    if (error.statusCode) throw error;
+    throw {
+      message: error.message || "Failed to fetch item from database",
+      statusCode: 500,
+    };
+  }
+};
+
 const { pgCore: db } = require("../../config/database");
 
 /**
@@ -483,6 +557,8 @@ const getItemReceiptById = async (id) => {
 module.exports = {
   getItemsList,
   syncItemsList,
+  syncItemById,
+  getItemByNetsuiteId,
   processItemsSync,
   getItemLocation,
   getItemReceipts,
