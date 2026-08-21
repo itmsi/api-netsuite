@@ -1,19 +1,19 @@
-const axios = require('axios');
-const knex = require('knex');
-const { pgCore } = require('../../config/database');
-const authService = require('../auth/service');
-const { dateStrConvertion } = require('../../utils/date');
+const axios = require("axios");
+const knex = require("knex");
+const { pgCore } = require("../../config/database");
+const authService = require("../auth/service");
+const { dateStrConvertion } = require("../../utils/date");
 
 // Knex instance untuk DB Netsuite (bridge_sanbox)
 const dbNetsuite = knex({
-  client: 'pg',
+  client: "pg",
   connection: {
-    host: process.env.DB_HOST_NETSUITE || 'localhost',
+    host: process.env.DB_HOST_NETSUITE || "localhost",
     port: parseInt(process.env.DB_PORT_NETSUITE) || 9541,
-    user: process.env.DB_USER_NETSUITE || 'msiserver',
+    user: process.env.DB_USER_NETSUITE || "msiserver",
     password: process.env.DB_PASS_NETSUITE,
-    database: process.env.DB_NAME_NETSUITE || 'bridge_sanbox'
-  }
+    database: process.env.DB_NAME_NETSUITE || "bridge_sanbox",
+  },
 });
 
 /**
@@ -23,7 +23,7 @@ const mapSalesOrder = (row) => {
   return {
     ...row,
     id: row.id ? row.id.toString() : null,
-    customer_id: row.customer_id ? row.customer_id.toString() : '',
+    customer_id: row.customer_id ? row.customer_id.toString() : "",
     last_modified: row.last_modified_netsuite || row.updated_at || null,
     // items: row.items || []
   };
@@ -33,74 +33,130 @@ const mapSalesOrder = (row) => {
  * Get base query for sales orders with all joins and items aggregation
  */
 const getBaseQuery = () => {
-  return dbNetsuite('sales_orders as so')
-    .leftJoin('customers as c', dbNetsuite.raw('c.netsuite_id::integer = so.customer_id::integer'))
-    .leftJoin('subsidiarys as s', 's.subsidiary_id', 'so.subsidiary')
-    .leftJoin('currencys as c2', 'c2.currency_id', 'so.currency')
-    .leftJoin('departments as d', dbNetsuite.raw('d.netsuite_id::integer = so.department::integer'))
-    .leftJoin('class as c3', dbNetsuite.raw('c3.netsuite_id::integer = so.class::integer'))
-    .leftJoin('locations as l', dbNetsuite.raw('l.netsuite_id::integer = so.location::integer'))
-    .leftJoin('terms as t', dbNetsuite.raw('t.netsuite_id::integer = so.terms::integer'))
-    // JOIN ITEMS LATERAL — hanya expand jika items adalah array (bukan null, {}, atau object)
-    .leftJoin(dbNetsuite.raw(`LATERAL jsonb_array_elements(
+  return (
+    dbNetsuite("sales_orders as so")
+      .leftJoin(
+        "customers as c",
+        dbNetsuite.raw("c.netsuite_id::integer = so.customer_id::integer"),
+      )
+      .leftJoin("subsidiarys as s", "s.subsidiary_id", "so.subsidiary")
+      .leftJoin("currencys as c2", "c2.currency_id", "so.currency")
+      .leftJoin(
+        "departments as d",
+        dbNetsuite.raw("d.netsuite_id::integer = so.department::integer"),
+      )
+      .leftJoin(
+        "class as c3",
+        dbNetsuite.raw("c3.netsuite_id::integer = so.class::integer"),
+      )
+      .leftJoin(
+        "locations as l",
+        dbNetsuite.raw("l.netsuite_id::integer = so.location::integer"),
+      )
+      .leftJoin(
+        "terms as t",
+        dbNetsuite.raw("t.netsuite_id::integer = so.terms::integer"),
+      )
+      // JOIN ITEMS LATERAL — hanya expand jika items adalah array (bukan null, {}, atau object)
+      .leftJoin(
+        dbNetsuite.raw(`LATERAL jsonb_array_elements(
         CASE
           WHEN so.items IS NULL THEN '[]'::jsonb
           WHEN jsonb_typeof(so.items) = 'array' THEN so.items
           ELSE '[]'::jsonb
         END
-      ) AS item_row ON TRUE`))
-    .leftJoin('items as i', dbNetsuite.raw("(item_row->>'item_id') = i.netsuite_id::text"))
-    .leftJoin('items as i2', dbNetsuite.raw("(item_row->>'itemId') = i2.netsuite_id::text"))
-    .leftJoin('class as ic', dbNetsuite.raw("(item_row->>'class') = ic.netsuite_id::text"))
-    .leftJoin('locations as il', dbNetsuite.raw("(item_row->>'location') = il.netsuite_id::text"))
-    .leftJoin('departments as id_item', dbNetsuite.raw("(item_row->>'department') = id_item.netsuite_id::text"))
-    .leftJoin('taxcodes as tx', dbNetsuite.raw("(item_row->>'taxcode') = tx.taxcode_id::text"))
-    .select([
-      'so.id',
-      'so.netsuite_id',
-      'so.tranid',
-      dbNetsuite.raw("TO_CHAR(so.tran_date AT TIME ZONE 'Asia/Jakarta', 'DD/MM/YYYY') AS tran_date"),
-      'so.status_code',
-      'so.status_name',
-      'so.customer_id',
-      dbNetsuite.raw("CASE WHEN so.status_proccess = 'PROCESSING' THEN COALESCE(NULLIF(c.entity_id, ''), so.customer_name) ELSE COALESCE(NULLIF(so.customer_name, ''), c.entity_id) END AS customer_name"),
-      'so.memo',
-      'so.last_modified_netsuite',
-      'so.created_at',
-      'so.updated_at',
-      'so.subsidiary',
-      dbNetsuite.raw("CASE WHEN so.status_proccess = 'PROCESSING' THEN COALESCE(NULLIF(s.subsidiary_name, ''), so.subsidiary_name) ELSE COALESCE(NULLIF(so.subsidiary_name, ''), s.subsidiary_name) END AS subsidiary_name"),
-      'so.otherrefnum',
-      'so.currency',
-      dbNetsuite.raw("CASE WHEN so.status_proccess = 'PROCESSING' THEN COALESCE(NULLIF(c2.currency_name, ''), so.currency_name) ELSE COALESCE(NULLIF(so.currency_name, ''), c2.currency_name) END AS currency_name"),
-      'so.department',
-      dbNetsuite.raw("CASE WHEN so.status_proccess = 'PROCESSING' THEN COALESCE(NULLIF(d.name, ''), so.department_name) ELSE COALESCE(NULLIF(so.department_name, ''), d.name) END AS department_name"),
-      'so.class',
-      dbNetsuite.raw("CASE WHEN so.status_proccess = 'PROCESSING' THEN COALESCE(NULLIF(c3.name, ''), so.class_name) ELSE COALESCE(NULLIF(so.class_name, ''), c3.name) END AS class_name"),
-      'so.location',
-      dbNetsuite.raw("CASE WHEN so.status_proccess = 'PROCESSING' THEN COALESCE(NULLIF(l.name, ''), so.location_name) ELSE COALESCE(NULLIF(so.location_name, ''), l.name) END AS location_name"),
-      'so.custbody_msi_quotation_no_iec',
-      'so.custbody_msi_bank_payment_so',
-      'so.custbody_msi_bank_payment_so_name',
-      'so.custbody_cseg_cn_cfi',
-      'so.intercotransaction',
-      'so.intercotransaction_name',
-      'so.intercostatus',
-      'so.intercostatus_name',
-      'so.total_amount',
-      'so.datecreated as created_at_netsuite',
-      dbNetsuite.raw("TO_CHAR(so.startdate::date AT TIME ZONE 'Asia/Jakarta', 'DD/MM/YYYY') AS startdate"),
-      dbNetsuite.raw("TO_CHAR(so.enddate::date AT TIME ZONE 'Asia/Jakarta', 'DD/MM/YYYY') AS enddate"),
-      'so.terms',
-      dbNetsuite.raw("CASE WHEN so.status_proccess = 'PROCESSING' THEN COALESCE(NULLIF(t.name, ''), so.terms_name) ELSE COALESCE(NULLIF(so.terms_name, ''), t.name) END AS terms_name"),
-      'so.custbody_me_approval_status',
-      'so.custbody_me_approval_status_name',
-      'so.type_proccess',
-      'so.status_proccess',
-      'so.status_proccess_message',
-      'so.nextapprover',
-      'so.custbody_msi_createdby_api',
-      dbNetsuite.raw(`
+      ) AS item_row ON TRUE`),
+      )
+      .leftJoin(
+        "items as i",
+        dbNetsuite.raw("(item_row->>'item_id') = i.netsuite_id::text"),
+      )
+      .leftJoin(
+        "items as i2",
+        dbNetsuite.raw("(item_row->>'itemId') = i2.netsuite_id::text"),
+      )
+      .leftJoin(
+        "class as ic",
+        dbNetsuite.raw("(item_row->>'class') = ic.netsuite_id::text"),
+      )
+      .leftJoin(
+        "locations as il",
+        dbNetsuite.raw("(item_row->>'location') = il.netsuite_id::text"),
+      )
+      .leftJoin(
+        "departments as id_item",
+        dbNetsuite.raw("(item_row->>'department') = id_item.netsuite_id::text"),
+      )
+      .leftJoin(
+        "taxcodes as tx",
+        dbNetsuite.raw("(item_row->>'taxcode') = tx.taxcode_id::text"),
+      )
+      .select([
+        "so.id",
+        "so.netsuite_id",
+        "so.tranid",
+        dbNetsuite.raw(
+          "TO_CHAR(so.tran_date AT TIME ZONE 'Asia/Jakarta', 'DD/MM/YYYY') AS tran_date",
+        ),
+        "so.status_code",
+        "so.status_name",
+        "so.customer_id",
+        dbNetsuite.raw(
+          "CASE WHEN so.status_proccess = 'PROCESSING' THEN COALESCE(NULLIF(c.entity_id, ''), so.customer_name) ELSE COALESCE(NULLIF(so.customer_name, ''), c.entity_id) END AS customer_name",
+        ),
+        "so.memo",
+        "so.last_modified_netsuite",
+        "so.created_at",
+        "so.updated_at",
+        "so.subsidiary",
+        dbNetsuite.raw(
+          "CASE WHEN so.status_proccess = 'PROCESSING' THEN COALESCE(NULLIF(s.subsidiary_name, ''), so.subsidiary_name) ELSE COALESCE(NULLIF(so.subsidiary_name, ''), s.subsidiary_name) END AS subsidiary_name",
+        ),
+        "so.otherrefnum",
+        "so.currency",
+        dbNetsuite.raw(
+          "CASE WHEN so.status_proccess = 'PROCESSING' THEN COALESCE(NULLIF(c2.currency_name, ''), so.currency_name) ELSE COALESCE(NULLIF(so.currency_name, ''), c2.currency_name) END AS currency_name",
+        ),
+        "so.department",
+        dbNetsuite.raw(
+          "CASE WHEN so.status_proccess = 'PROCESSING' THEN COALESCE(NULLIF(d.name, ''), so.department_name) ELSE COALESCE(NULLIF(so.department_name, ''), d.name) END AS department_name",
+        ),
+        "so.class",
+        dbNetsuite.raw(
+          "CASE WHEN so.status_proccess = 'PROCESSING' THEN COALESCE(NULLIF(c3.name, ''), so.class_name) ELSE COALESCE(NULLIF(so.class_name, ''), c3.name) END AS class_name",
+        ),
+        "so.location",
+        dbNetsuite.raw(
+          "CASE WHEN so.status_proccess = 'PROCESSING' THEN COALESCE(NULLIF(l.name, ''), so.location_name) ELSE COALESCE(NULLIF(so.location_name, ''), l.name) END AS location_name",
+        ),
+        "so.custbody_msi_quotation_no_iec",
+        "so.custbody_msi_bank_payment_so",
+        "so.custbody_msi_bank_payment_so_name",
+        "so.custbody_cseg_cn_cfi",
+        "so.intercotransaction",
+        "so.intercotransaction_name",
+        "so.intercostatus",
+        "so.intercostatus_name",
+        "so.total_amount",
+        "so.datecreated as created_at_netsuite",
+        dbNetsuite.raw(
+          "TO_CHAR(so.startdate::date AT TIME ZONE 'Asia/Jakarta', 'DD/MM/YYYY') AS startdate",
+        ),
+        dbNetsuite.raw(
+          "TO_CHAR(so.enddate::date AT TIME ZONE 'Asia/Jakarta', 'DD/MM/YYYY') AS enddate",
+        ),
+        "so.terms",
+        dbNetsuite.raw(
+          "CASE WHEN so.status_proccess = 'PROCESSING' THEN COALESCE(NULLIF(t.name, ''), so.terms_name) ELSE COALESCE(NULLIF(so.terms_name, ''), t.name) END AS terms_name",
+        ),
+        "so.custbody_me_approval_status",
+        "so.custbody_me_approval_status_name",
+        "so.type_proccess",
+        "so.status_proccess",
+        "so.status_proccess_message",
+        "so.nextapprover",
+        "so.custbody_msi_createdby_api",
+        dbNetsuite.raw(`
         jsonb_agg(
           jsonb_build_object(
             'item_id', COALESCE(NULLIF(item_row->>'item_id', ''), item_row->>'itemId'),
@@ -145,12 +201,20 @@ const getBaseQuery = () => {
           )
         ) FILTER (WHERE item_row IS NOT NULL) AS items
       `),
-      'so.user_notes',
-      'so.files'
-    ])
-    .groupBy([
-      'so.id', 'c.entity_id', 's.subsidiary_name', 'c2.currency_name', 'd.name', 'c3.name', 'l.name', 't.term_id'
-    ]);
+        "so.user_notes",
+        "so.files",
+      ])
+      .groupBy([
+        "so.id",
+        "c.entity_id",
+        "s.subsidiary_name",
+        "c2.currency_name",
+        "d.name",
+        "c3.name",
+        "l.name",
+        "t.term_id",
+      ])
+  );
 };
 
 /**
@@ -160,84 +224,132 @@ const getSalesOrders = async (body) => {
   try {
     const page = parseInt(body.page) || 1;
     const limit = parseInt(body.limit) || parseInt(body.page_size) || 10;
-    const sortOrder = body.sort_order ? body.sort_order.toUpperCase() : 'DESC';
+    const sortOrder = body.sort_order ? body.sort_order.toUpperCase() : "DESC";
     const offset = (page - 1) * limit;
 
     const validSortColumns = [
-      'netsuite_id', 'tranid', 'tran_date', 'status_code', 'customer_id',
-      'customer_name', 'last_modified_netsuite', 'created_at', 'updated_at'
+      "netsuite_id",
+      "tranid",
+      "tran_date",
+      "status_code",
+      "customer_id",
+      "customer_name",
+      "last_modified_netsuite",
+      "created_at",
+      "updated_at",
     ];
-    const sortBy = validSortColumns.includes(body.sort_by) ? body.sort_by : 'last_modified_netsuite';
+    const sortBy = validSortColumns.includes(body.sort_by)
+      ? body.sort_by
+      : "last_modified_netsuite";
 
-    let countQuery = dbNetsuite('sales_orders as so').where('so.is_deleted', false);
-    let dataQuery = dbNetsuite('sales_orders as so')
-      .leftJoin('customers as c', dbNetsuite.raw('c.netsuite_id::integer = so.customer_id::integer'))
-      .leftJoin('currencys as c2', 'c2.currency_id', 'so.currency')
-      .leftJoin('locations as l', dbNetsuite.raw('l.netsuite_id::integer = so.location::integer'))
+    let countQuery = dbNetsuite("sales_orders as so").where(
+      "so.is_deleted",
+      false,
+    );
+    let dataQuery = dbNetsuite("sales_orders as so")
+      .leftJoin(
+        "customers as c",
+        dbNetsuite.raw("c.netsuite_id::integer = so.customer_id::integer"),
+      )
+      .leftJoin("currencys as c2", "c2.currency_id", "so.currency")
+      .leftJoin(
+        "locations as l",
+        dbNetsuite.raw("l.netsuite_id::integer = so.location::integer"),
+      )
       .select([
-        'so.id',
-        'so.netsuite_id',
-        'so.tranid',
-        'so.tran_date',
-        'so.startdate',
-        'so.enddate',
-        'so.status_code',
-        'so.status_name',
-        'so.custbody_me_approval_status',
-        'so.custbody_me_approval_status_name',
-        'so.customer_id',
-        dbNetsuite.raw("COALESCE(NULLIF(so.customer_name, ''), c.entity_id) AS customer_name"),
-        'so.memo',
-        'so.last_modified_netsuite',
-        'so.created_at',
-        'so.updated_at',
-        'so.currency',
-        'so.total_amount',
-        dbNetsuite.raw("COALESCE(NULLIF(so.currency_name, ''), c2.currency_name) AS currency_name"),
-        'so.datecreated as created_at_netsuite',
-        'so.custbody_msi_quotation_no_iec',
-        'so.location',
-        dbNetsuite.raw("COALESCE(NULLIF(so.location_name, ''), l.name) AS location_name"),
-        'so.otherrefnum',
-        'so.nextapprover'
+        "so.id",
+        "so.netsuite_id",
+        "so.tranid",
+        "so.tran_date",
+        "so.startdate",
+        "so.enddate",
+        "so.status_code",
+        "so.status_name",
+        "so.custbody_me_approval_status",
+        "so.custbody_me_approval_status_name",
+        "so.customer_id",
+        dbNetsuite.raw(
+          "COALESCE(NULLIF(so.customer_name, ''), c.entity_id) AS customer_name",
+        ),
+        "so.memo",
+        "so.last_modified_netsuite",
+        "so.created_at",
+        "so.updated_at",
+        "so.currency",
+        "so.total_amount",
+        dbNetsuite.raw(
+          "COALESCE(NULLIF(so.currency_name, ''), c2.currency_name) AS currency_name",
+        ),
+        "so.datecreated as created_at_netsuite",
+        "so.custbody_msi_quotation_no_iec",
+        "so.location",
+        dbNetsuite.raw(
+          "COALESCE(NULLIF(so.location_name, ''), l.name) AS location_name",
+        ),
+        "so.otherrefnum",
+        "so.nextapprover",
       ])
-      .where('so.is_deleted', false);
+      .where("so.is_deleted", false);
 
     if (body.search) {
       const searchFn = function () {
-        this.whereILike('so.tranid', `%${body.search}%`)
-          .orWhereILike('so.netsuite_id', `%${body.search}%`)
-          .orWhereILike('so.customer_name', `%${body.search}%`)
-          .orWhereILike('so.memo', `%${body.search}%`);
+        this.whereILike("so.tranid", `%${body.search}%`)
+          .orWhereILike("so.netsuite_id", `%${body.search}%`)
+          .orWhereILike("so.customer_name", `%${body.search}%`)
+          .orWhereILike("so.memo", `%${body.search}%`);
       };
       countQuery = countQuery.where(searchFn);
       dataQuery = dataQuery.where(searchFn);
     }
     if (body.customer_id) {
-      countQuery = countQuery.where('so.customer_id', body.customer_id.toString());
-      dataQuery = dataQuery.where('so.customer_id', body.customer_id.toString());
+      countQuery = countQuery.where(
+        "so.customer_id",
+        body.customer_id.toString(),
+      );
+      dataQuery = dataQuery.where(
+        "so.customer_id",
+        body.customer_id.toString(),
+      );
     }
     if (body.status_code) {
-      countQuery = countQuery.where('so.status_code', body.status_code);
-      dataQuery = dataQuery.where('so.status_code', body.status_code);
+      countQuery = countQuery.where("so.status_code", body.status_code);
+      dataQuery = dataQuery.where("so.status_code", body.status_code);
     }
     if (body.id || body.netsuite_id) {
-      const ids = Array.isArray(body.id) ? body.id : (body.id ? [body.id] : (body.netsuite_id || []));
-      countQuery = countQuery.whereIn('so.netsuite_id', ids);
-      dataQuery = dataQuery.whereIn('so.netsuite_id', ids);
+      const ids = Array.isArray(body.id)
+        ? body.id
+        : body.id
+          ? [body.id]
+          : body.netsuite_id || [];
+      countQuery = countQuery.whereIn("so.netsuite_id", ids);
+      dataQuery = dataQuery.whereIn("so.netsuite_id", ids);
     }
 
-    if (body.trans_date_start && String(body.trans_date_start).trim() !== '' && String(body.trans_date_start).trim() !== 'null' && String(body.trans_date_start).trim() !== 'NaN') {
-      countQuery = countQuery.where('so.startdate', '>=', body.trans_date_start);
-      dataQuery = dataQuery.where('so.startdate', '>=', body.trans_date_start);
+    if (
+      body.trans_date_start &&
+      String(body.trans_date_start).trim() !== "" &&
+      String(body.trans_date_start).trim() !== "null" &&
+      String(body.trans_date_start).trim() !== "NaN"
+    ) {
+      countQuery = countQuery.where(
+        "so.startdate",
+        ">=",
+        body.trans_date_start,
+      );
+      dataQuery = dataQuery.where("so.startdate", ">=", body.trans_date_start);
     }
 
-    if (body.trans_date_end && String(body.trans_date_end).trim() !== '' && String(body.trans_date_end).trim() !== 'null' && String(body.trans_date_end).trim() !== 'NaN') {
-      countQuery = countQuery.where('so.enddate', '<=', body.trans_date_end);
-      dataQuery = dataQuery.where('so.enddate', '<=', body.trans_date_end);
+    if (
+      body.trans_date_end &&
+      String(body.trans_date_end).trim() !== "" &&
+      String(body.trans_date_end).trim() !== "null" &&
+      String(body.trans_date_end).trim() !== "NaN"
+    ) {
+      countQuery = countQuery.where("so.enddate", "<=", body.trans_date_end);
+      dataQuery = dataQuery.where("so.enddate", "<=", body.trans_date_end);
     }
 
-    const countResult = await countQuery.count('* as total').first();
+    const countResult = await countQuery.count("* as total").first();
     const total = parseInt(countResult.total) || 0;
     const totalPages = Math.ceil(total / limit);
 
@@ -248,11 +360,13 @@ const getSalesOrders = async (body) => {
 
     return {
       items: rows.map(mapSalesOrder),
-      pagination: { page, limit, total, totalPages }
+      pagination: { page, limit, total, totalPages },
     };
-
   } catch (error) {
-    throw { message: error.message || 'Failed to fetch sales orders from database', statusCode: 500 };
+    throw {
+      message: error.message || "Failed to fetch sales orders from database",
+      statusCode: 500,
+    };
   }
 };
 
@@ -263,24 +377,30 @@ const getSalesOrderById = async (id) => {
   try {
     // 1. Cek berdasarkan netsuite_id dulu
     let row = await getBaseQuery()
-      .where('so.netsuite_id', id.toString())
-      .where('so.is_deleted', false)
+      .where("so.netsuite_id", id.toString())
+      .where("so.is_deleted", false)
       .first();
 
     // 2. Jika tidak ketemu, cek berdasarkan UUID (kolom id)
     if (!row) {
       // Regex untuk validasi format UUID (biar tidak error di Postgres jika input sembarang string)
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+      const isUuid =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+          id,
+        );
       if (isUuid) {
         row = await getBaseQuery()
-          .where('so.id', id)
-          .where('so.is_deleted', false)
+          .where("so.id", id)
+          .where("so.is_deleted", false)
           .first();
       }
     }
 
     if (!row) {
-      throw { message: `Sales order dengan ID '${id}' tidak ditemukan`, statusCode: 404 };
+      throw {
+        message: `Sales order dengan ID '${id}' tidak ditemukan`,
+        statusCode: 404,
+      };
     }
 
     const mappedRow = mapSalesOrder(row);
@@ -290,38 +410,39 @@ const getSalesOrderById = async (id) => {
     const rawIds = mappedRow.custbody_msi_bank_payment_so;
 
     let bankIds = [];
-    if (rawIds && String(rawIds).trim() !== '') {
+    if (rawIds && String(rawIds).trim() !== "") {
       bankIds = String(rawIds)
-        .split(',')
-        .map(s => parseInt(s.trim()))
-        .filter(n => !isNaN(n));
+        .split(",")
+        .map((s) => parseInt(s.trim()))
+        .filter((n) => !isNaN(n));
     }
 
-    mappedRow.custbody_msi_bank_payment_so = bankIds.length > 0 ? bankIds : null;
+    mappedRow.custbody_msi_bank_payment_so =
+      bankIds.length > 0 ? bankIds : null;
 
-    if (rawName && String(rawName).trim() !== '') {
+    if (rawName && String(rawName).trim() !== "") {
       mappedRow.custbody_msi_bank_payment_so_name = String(rawName)
-        .split(',')
-        .map(s => s.trim())
-        .filter(s => s !== '');
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => s !== "");
     } else {
       mappedRow.custbody_msi_bank_payment_so_name = null;
     }
 
     // Resolusi bank_payment_list selalu di-hit ke tabel banks jika ada ID-nya
     if (bankIds.length > 0) {
-      const banks = await dbNetsuite('banks')
-        .select(['netsuite_id', 'name'])
-        .whereIn('netsuite_id', bankIds);
+      const banks = await dbNetsuite("banks")
+        .select(["netsuite_id", "name"])
+        .whereIn("netsuite_id", bankIds);
 
       if (mappedRow.custbody_msi_bank_payment_so_name == null) {
-        mappedRow.custbody_msi_bank_payment_so_name = banks.map(b => b.name);
+        mappedRow.custbody_msi_bank_payment_so_name = banks.map((b) => b.name);
       }
 
-      mappedRow.bank_payment_names = banks.map(b => b.name).join(', ');
-      mappedRow.bank_payment_list = banks.map(b => ({
+      mappedRow.bank_payment_names = banks.map((b) => b.name).join(", ");
+      mappedRow.bank_payment_list = banks.map((b) => ({
         netsuite_id: b.netsuite_id,
-        name: b.name
+        name: b.name,
       }));
     } else {
       mappedRow.bank_payment_names = null;
@@ -351,12 +472,14 @@ const getSalesOrderById = async (id) => {
 
     return {
       items: [mappedRow],
-      pagination: { page: 1, limit: 1, total: 1, totalPages: 1 }
+      pagination: { page: 1, limit: 1, total: 1, totalPages: 1 },
     };
-
   } catch (error) {
     if (error.statusCode) throw error;
-    throw { message: error.message || 'Failed to fetch sales order by ID', statusCode: 500 };
+    throw {
+      message: error.message || "Failed to fetch sales order by ID",
+      statusCode: 500,
+    };
   }
 };
 
@@ -368,43 +491,55 @@ const syncSalesOrders = async (body) => {
     const tokenResponse = await authService.getToken();
     const token = tokenResponse.data.access_token;
 
-    const baseUrl = process.env.BRIDGE_BASE_URL || 'https://api-bridge-sb.motorsights.com';
+    const baseUrl =
+      process.env.BRIDGE_BASE_URL || "https://api-bridge-sb.motorsights.com";
     const url = `${baseUrl}/api/v1/bridge/sales-orders/get`;
 
     const filters = {};
     if (body.search) filters.search = body.search;
     if (body.customer_id) filters.customer_id = body.customer_id;
     if (body.status_code) filters.status_code = body.status_code;
-    if (body.startdate && String(body.startdate).trim() !== '' && String(body.startdate).trim() !== 'null' && String(body.startdate).trim() !== 'NaN') {
+    if (
+      body.startdate &&
+      String(body.startdate).trim() !== "" &&
+      String(body.startdate).trim() !== "null" &&
+      String(body.startdate).trim() !== "NaN"
+    ) {
       filters.startdate = body.startdate;
     }
-    if (body.enddate && String(body.enddate).trim() !== '' && String(body.enddate).trim() !== 'null' && String(body.enddate).trim() !== 'NaN') {
+    if (
+      body.enddate &&
+      String(body.enddate).trim() !== "" &&
+      String(body.enddate).trim() !== "null" &&
+      String(body.enddate).trim() !== "NaN"
+    ) {
       filters.enddate = body.enddate;
     }
 
     const requestData = {
       page: body.page - 1 || 0,
       page_size: body.limit || body.page_size || 10,
-      sort_by: body.sort_by || 'last_modified_netsuite',
-      sort_order: body.sort_order ? body.sort_order.toUpperCase() : 'DESC',
-      filters: body.filters || filters
+      sort_by: body.sort_by || "last_modified_netsuite",
+      sort_order: body.sort_order ? body.sort_order.toUpperCase() : "DESC",
+      filters: body.filters || filters,
     };
 
     const response = await axios.post(url, requestData, {
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      }
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
     });
 
     return response.data;
-
   } catch (error) {
     if (error.response) {
       throw {
-        message: error.response.data?.message || 'Failed to sync sales orders from bridge API',
+        message:
+          error.response.data?.message ||
+          "Failed to sync sales orders from bridge API",
         statusCode: error.response.status,
-        errors: error.response.data
+        errors: error.response.data,
       };
     }
     throw { message: error.message, statusCode: 500 };
@@ -418,14 +553,15 @@ const createSalesOrderToBridge = async (body) => {
   const tokenResponse = await authService.getToken();
   const token = tokenResponse.data.access_token;
 
-  const baseUrl = process.env.BRIDGE_BASE_URL || 'https://api-bridge-sb.motorsights.com';
+  const baseUrl =
+    process.env.BRIDGE_BASE_URL || "https://api-bridge-sb.motorsights.com";
   const url = `${baseUrl}/api/v1/bridge/sales-orders/create`;
 
   const response = await axios.post(url, body, {
     headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    }
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
   });
 
   return response.data;
@@ -438,24 +574,32 @@ const createSalesOrder = async (body, user, userId) => {
   const trx = await dbNetsuite.transaction();
   try {
     if (Array.isArray(body.custbody_msi_bank_payment_so)) {
-      body.custbody_msi_bank_payment_so = body.custbody_msi_bank_payment_so.join(',');
+      body.custbody_msi_bank_payment_so =
+        body.custbody_msi_bank_payment_so.join(",");
     }
     if (Array.isArray(body.custbody_msi_bank_payment_so_name)) {
-      body.custbody_msi_bank_payment_so_name = body.custbody_msi_bank_payment_so_name.join(',');
+      body.custbody_msi_bank_payment_so_name =
+        body.custbody_msi_bank_payment_so_name.join(",");
     }
 
     // 1. create data ke DB netsuite tabel sales_orders
     const soData = {
-      status_name: 'pending',
+      status_name: "pending",
       customform: body.customform,
       subsidiary: body.subsidiary,
       subsidiary_name: body.subsidiary_name,
       entity: body.customer_id ? body.customer_id : body.entity,
       customer_id: body.customer_id ? body.customer_id : body.entity,
       customer_name: body.customer_name,
-      tran_date: body.trandate ? dateStrConvertion(body.trandate, 'YYYY-MM-DD') : null,
-      startdate: body.startdate ? dateStrConvertion(body.startdate, 'YYYY-MM-DD') : null,
-      enddate: body.enddate ? dateStrConvertion(body.enddate, 'YYYY-MM-DD') : null,
+      tran_date: body.trandate
+        ? dateStrConvertion(body.trandate, "YYYY-MM-DD")
+        : null,
+      startdate: body.startdate
+        ? dateStrConvertion(body.startdate, "YYYY-MM-DD")
+        : null,
+      enddate: body.enddate
+        ? dateStrConvertion(body.enddate, "YYYY-MM-DD")
+        : null,
       orderstatus: body.orderstatus,
       otherrefnum: body.otherrefnum,
       memo: body.memo,
@@ -473,58 +617,73 @@ const createSalesOrder = async (body, user, userId) => {
       custbody_msi_bank_payment_so: body.custbody_msi_bank_payment_so,
       custbody_msi_bank_payment_so_name: body.custbody_msi_bank_payment_so_name,
       custbody_cseg_cn_cfi: body.custbody_cseg_cn_cfi,
-      custbody_msi_createdby_api: body.custbody_msi_createdby_api || user?.email,
+      custbody_msi_createdby_api:
+        body.custbody_msi_createdby_api || user?.email,
       items: JSON.stringify(body.items),
       created_at: new Date(),
-      created_by: userId
+      created_by: userId,
+      type_proccess: "CREATE",
+      status_proccess: "PROCESSING",
+      status_proccess_message: "Processing sales order creation in NetSuite",
     };
 
-    const [soInternal] = await trx('sales_orders').insert(soData).returning('id');
-    const soInternalId = typeof soInternal === 'object' ? soInternal.id : soInternal;
+    const [soInternal] = await trx("sales_orders")
+      .insert(soData)
+      .returning("id");
+    const soInternalId =
+      typeof soInternal === "object" ? soInternal.id : soInternal;
 
     // update payload ygakan dikirimkan ke netsuite untk custbody_msi_bank_payment_so diubah lg ke array
 
     // Hilangkan field _name sebelum dikirim ke queue bridge
     const {
-      subsidiary_name, customer_name, currency_name, terms_name,
-      department_name, class_name, location_name, custbody_msi_bank_payment_so_name,
+      subsidiary_name,
+      customer_name,
+      currency_name,
+      terms_name,
+      department_name,
+      class_name,
+      location_name,
+      custbody_msi_bank_payment_so_name,
       ...bodyWithoutNames
     } = body;
 
     // 2. create satu data ke outbox_events dan satu log awal ke outbox_event_logs
     const eventData = {
-      event_type: 'CREATE',
+      event_type: "CREATE",
       payload: JSON.stringify(bodyWithoutNames),
       aggregate_id: soInternalId,
-      aggregate_type: 'sales_order_create',
-      status: 'WAITING',
+      aggregate_type: "sales_order_create",
+      status: "WAITING",
       retry_count: 0,
       max_retry: 3,
       last_error: null,
       properties: JSON.stringify({ request: bodyWithoutNames }),
-      destination: 'netsuite',
-      created_by: user?.email || 'MSI',
-      updated_by: user?.email || 'MSI'
+      destination: "netsuite",
+      created_by: user?.email || "MSI",
+      updated_by: user?.email || "MSI",
     };
 
-    const [event] = await trx('outbox_events').insert(eventData).returning('id');
-    const eventId = typeof event === 'object' ? event.id : event;
+    const [event] = await trx("outbox_events")
+      .insert(eventData)
+      .returning("id");
+    const eventId = typeof event === "object" ? event.id : event;
 
-    await trx('outbox_event_logs').insert({
+    await trx("outbox_event_logs").insert({
       outbox_event_id: eventId,
       properties: JSON.stringify({
-        message: 'Sales order queued for processing',
-        status: 'WAITING'
+        message: "Sales order queued for processing",
+        status: "WAITING",
       }),
-      created_by: user?.email || 'MSI',
-      updated_by: user?.email || 'MSI'
+      created_by: user?.email || "MSI",
+      updated_by: user?.email || "MSI",
     });
 
     await trx.commit();
 
     // 3. buatkan queue untuk rabbit mq untuk memproses data tersebut
-    const { publishToRabbitMqQueueSingle } = require('../../config/rabbitmq');
-    const { EXCHANGES, QUEUE } = require('../../utils/constant');
+    const { publishToRabbitMqQueueSingle } = require("../../config/rabbitmq");
+    const { EXCHANGES, QUEUE } = require("../../utils/constant");
 
     await publishToRabbitMqQueueSingle(
       EXCHANGES.SALES_ORDER_CREATE,
@@ -532,28 +691,30 @@ const createSalesOrder = async (body, user, userId) => {
       {
         event_id: eventId,
         so_internal_id: soInternalId,
-        data: bodyWithoutNames
+        data: bodyWithoutNames,
       },
       {
         durable: true,
         arguments: {
-          'x-dead-letter-exchange': `${EXCHANGES.SALES_ORDER_CREATE}-retry`
-        }
-      }
+          "x-dead-letter-exchange": `${EXCHANGES.SALES_ORDER_CREATE}-retry`,
+        },
+      },
     );
 
     return {
       success: true,
-      message: 'Sales order is being processed',
+      message: "Sales order is being processed",
       data: {
         soId: soInternalId,
-        event_id: eventId
-      }
+        event_id: eventId,
+      },
     };
-
   } catch (error) {
     if (trx) await trx.rollback();
-    throw { message: error.message || 'Failed to initiate sales order creation', statusCode: 500 };
+    throw {
+      message: error.message || "Failed to initiate sales order creation",
+      statusCode: 500,
+    };
   }
 };
 
@@ -564,14 +725,15 @@ const updateSalesOrderToBridge = async (body) => {
   const tokenResponse = await authService.getToken();
   const token = tokenResponse.data.access_token;
 
-  const baseUrl = process.env.BRIDGE_BASE_URL || 'https://api-bridge-sb.motorsights.com';
+  const baseUrl =
+    process.env.BRIDGE_BASE_URL || "https://api-bridge-sb.motorsights.com";
   const url = `${baseUrl}/api/v1/bridge/sales-orders/update`;
 
   const response = await axios.post(url, body, {
     headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    }
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
   });
 
   return response.data;
@@ -584,25 +746,29 @@ const updateSalesOrder = async (body, user, userId) => {
   const trx = await dbNetsuite.transaction();
   try {
     if (Array.isArray(body.custbody_msi_bank_payment_so)) {
-      body.custbody_msi_bank_payment_so = body.custbody_msi_bank_payment_so.join(',');
+      body.custbody_msi_bank_payment_so =
+        body.custbody_msi_bank_payment_so.join(",");
     }
     if (Array.isArray(body.custbody_msi_bank_payment_so_name)) {
-      body.custbody_msi_bank_payment_so_name = body.custbody_msi_bank_payment_so_name.join(',');
+      body.custbody_msi_bank_payment_so_name =
+        body.custbody_msi_bank_payment_so_name.join(",");
     }
 
     const { id } = body;
-    if (!id) throw { message: 'ID is required for update', statusCode: 400 };
+    if (!id) throw { message: "ID is required for update", statusCode: 400 };
 
     // const record = await trx('sales_orders').where('id', localId).first();
-    const record = await trx('sales_orders')
+    const record = await trx("sales_orders")
       .where(function () {
-        this.where('netsuite_id', id)
-          .orWhereRaw('id::text = ?', [id]);
+        this.where("netsuite_id", id).orWhereRaw("id::text = ?", [id]);
       })
       .first();
 
     if (!record) {
-      throw { message: `Sales order dengan ID ${localId} tidak ditemukan secara lokal`, statusCode: 404 };
+      throw {
+        message: `Sales order dengan ID ${localId} tidak ditemukan secara lokal`,
+        statusCode: 404,
+      };
     }
 
     const localId = record.id;
@@ -617,9 +783,15 @@ const updateSalesOrder = async (body, user, userId) => {
       entity: body.customer_id ? body.customer_id : body.entity,
       customer_id: body.customer_id ? body.customer_id : body.entity,
       customer_name: body.customer_name,
-      tran_date: body.trandate ? dateStrConvertion(body.trandate, 'YYYY-MM-DD') : undefined,
-      startdate: body.startdate ? dateStrConvertion(body.startdate, 'YYYY-MM-DD') : undefined,
-      enddate: body.enddate ? dateStrConvertion(body.enddate, 'YYYY-MM-DD') : undefined,
+      tran_date: body.trandate
+        ? dateStrConvertion(body.trandate, "YYYY-MM-DD")
+        : undefined,
+      startdate: body.startdate
+        ? dateStrConvertion(body.startdate, "YYYY-MM-DD")
+        : undefined,
+      enddate: body.enddate
+        ? dateStrConvertion(body.enddate, "YYYY-MM-DD")
+        : undefined,
       orderstatus: body.orderstatus,
       otherrefnum: body.otherrefnum,
       memo: body.memo,
@@ -637,59 +809,75 @@ const updateSalesOrder = async (body, user, userId) => {
       custbody_msi_bank_payment_so: body.custbody_msi_bank_payment_so,
       custbody_msi_bank_payment_so_name: body.custbody_msi_bank_payment_so_name,
       custbody_cseg_cn_cfi: body.custbody_cseg_cn_cfi,
-      custbody_msi_createdby_api: body.custbody_msi_createdby_api || user?.email,
+      custbody_msi_createdby_api:
+        body.custbody_msi_createdby_api || user?.email,
       items: body.items ? JSON.stringify(body.items) : undefined,
       updated_at: new Date(),
-      updated_by: userId
+      updated_by: userId,
+      type_proccess: "UPDATE",
+      status_proccess: "PROCESSING",
+      status_proccess_message: "Processing sales order update in NetSuite",
     };
 
     // Remove undefined fields
-    Object.keys(updateData).forEach(key => updateData[key] === undefined && delete updateData[key]);
+    Object.keys(updateData).forEach(
+      (key) => updateData[key] === undefined && delete updateData[key],
+    );
 
-    await trx('sales_orders').where('id', localId).update(updateData);
+    await trx("sales_orders").where("id", localId).update(updateData);
 
     // Hilangkan field _name sebelum dikirim ke queue bridge
     const {
-      subsidiary_name, customer_name, currency_name, terms_name,
-      department_name, class_name, location_name, custbody_msi_bank_payment_so_name,
+      subsidiary_name,
+      customer_name,
+      currency_name,
+      terms_name,
+      department_name,
+      class_name,
+      location_name,
+      custbody_msi_bank_payment_so_name,
       ...bodyWithoutNames
     } = body;
 
     // 2. Insert data ke tabel outbox_events dan outbox_event_logs
     const eventData = {
-      event_type: is_update ? 'UPDATE' : 'CREATE',
+      event_type: is_update ? "UPDATE" : "CREATE",
       payload: JSON.stringify(bodyWithoutNames),
       aggregate_id: localId,
-      aggregate_type: is_update ? 'sales_order_update' : 'sales_order_create',
-      status: 'WAITING',
+      aggregate_type: is_update ? "sales_order_update" : "sales_order_create",
+      status: "WAITING",
       retry_count: 0,
       max_retry: 3,
       last_error: null,
       properties: JSON.stringify({ request: bodyWithoutNames }),
-      destination: 'netsuite',
-      created_by: user?.email || 'MSI',
-      updated_by: user?.email || 'MSI'
+      destination: "netsuite",
+      created_by: user?.email || "MSI",
+      updated_by: user?.email || "MSI",
     };
 
-    const [event] = await trx('outbox_events').insert(eventData).returning('id');
-    const eventId = typeof event === 'object' ? event.id : event;
+    const [event] = await trx("outbox_events")
+      .insert(eventData)
+      .returning("id");
+    const eventId = typeof event === "object" ? event.id : event;
 
-    await trx('outbox_event_logs').insert({
+    await trx("outbox_event_logs").insert({
       outbox_event_id: eventId,
       properties: JSON.stringify({
-        message: is_update ? 'Sales order update queued for processing' : 'Sales order create queued for processing',
-        status: 'WAITING'
+        message: is_update
+          ? "Sales order update queued for processing"
+          : "Sales order create queued for processing",
+        status: "WAITING",
       }),
-      created_by: user?.email || 'MSI',
-      updated_by: user?.email || 'MSI'
+      created_by: user?.email || "MSI",
+      updated_by: user?.email || "MSI",
     });
 
     await trx.commit();
 
     if (is_update) {
       // 3. buatkan queue untuk rabbit mq untuk memproses data tersebut
-      const { publishToRabbitMqQueueSingle } = require('../../config/rabbitmq');
-      const { EXCHANGES, QUEUE } = require('../../utils/constant');
+      const { publishToRabbitMqQueueSingle } = require("../../config/rabbitmq");
+      const { EXCHANGES, QUEUE } = require("../../utils/constant");
 
       // Ganti body.id dengan netsuiteId sebelum dikirim ke queue update
       const bodyWithNetsuiteId = { ...bodyWithoutNames, id: netsuiteId };
@@ -700,19 +888,19 @@ const updateSalesOrder = async (body, user, userId) => {
         {
           event_id: eventId,
           so_internal_id: localId,
-          data: bodyWithNetsuiteId
+          data: bodyWithNetsuiteId,
         },
         {
           durable: true,
           arguments: {
-            'x-dead-letter-exchange': `${EXCHANGES.SALES_ORDER_UPDATE}-retry`
-          }
-        }
+            "x-dead-letter-exchange": `${EXCHANGES.SALES_ORDER_UPDATE}-retry`,
+          },
+        },
       );
     } else {
       // 3. buatkan queue untuk rabbit mq untuk memproses data tersebut
-      const { publishToRabbitMqQueueSingle } = require('../../config/rabbitmq');
-      const { EXCHANGES, QUEUE } = require('../../utils/constant');
+      const { publishToRabbitMqQueueSingle } = require("../../config/rabbitmq");
+      const { EXCHANGES, QUEUE } = require("../../utils/constant");
 
       // Hilangkan payload id sebelum dikirim ke queue create (seperti unset di PHP)
       const { id: _removedId, ...bodyWithoutId } = bodyWithoutNames;
@@ -723,89 +911,97 @@ const updateSalesOrder = async (body, user, userId) => {
         {
           event_id: eventId,
           so_internal_id: localId,
-          data: bodyWithoutId
+          data: bodyWithoutId,
         },
         {
           durable: true,
           arguments: {
-            'x-dead-letter-exchange': `${EXCHANGES.SALES_ORDER_CREATE}-retry`
-          }
-        }
+            "x-dead-letter-exchange": `${EXCHANGES.SALES_ORDER_CREATE}-retry`,
+          },
+        },
       );
     }
 
     return {
       success: true,
-      message: 'Sales order update is being processed',
+      message: "Sales order update is being processed",
       data: {
         soId: localId,
-        event_id: eventId
-      }
+        event_id: eventId,
+      },
     };
-
   } catch (error) {
     if (trx) await trx.rollback();
-    throw { message: error.message || 'Failed to initiate sales order update', statusCode: error.statusCode || 500 };
+    throw {
+      message: error.message || "Failed to initiate sales order update",
+      statusCode: error.statusCode || 500,
+    };
   }
 };
 
 // --- Outbox Helper Methods ---
 
 const getEventStatus = async (id) => {
-  const event = await dbNetsuite('outbox_events')
-    .where('id', id)
-    .select('status')
+  const event = await dbNetsuite("outbox_events")
+    .where("id", id)
+    .select("status")
     .first();
   return event ? event.status : null;
 };
 
 const logEvent = async (eventId, type, message, data) => {
-  const isError = type === 'failed' || type === 'sync_failed' || type === 'retry';
+  const isError =
+    type === "failed" || type === "sync_failed" || type === "retry";
 
   const responseData = {};
   if (isError) {
     responseData.error = {
       message: message || (data && data.message) || String(data),
-      code: data && data.code ? data.code : undefined
+      code: data && data.code ? data.code : undefined,
     };
   } else {
     responseData.message = message;
     if (data) responseData.data = data;
   }
 
-  await dbNetsuite('outbox_event_logs').insert({
+  await dbNetsuite("outbox_event_logs").insert({
     outbox_event_id: eventId,
     http_status: data && data.statusCode ? String(data.statusCode) : null,
-    error: isError ? (message || (data && data.message) || String(data)) : null,
+    error: isError ? message || (data && data.message) || String(data) : null,
     properties: JSON.stringify({ response: responseData }),
     created_at: new Date(),
-    updated_at: new Date()
+    updated_at: new Date(),
   });
 };
 
-const updateEventStatus = async (id, status, lastError = null, properties = null) => {
+const updateEventStatus = async (
+  id,
+  status,
+  lastError = null,
+  properties = null,
+) => {
   const updateData = {
     status,
-    updated_at: new Date()
+    updated_at: new Date(),
   };
 
   if (lastError) {
-    updateData.last_error = typeof lastError === 'string' ? lastError : JSON.stringify(lastError);
+    updateData.last_error =
+      typeof lastError === "string" ? lastError : JSON.stringify(lastError);
   }
 
   if (properties) {
-    updateData.properties = typeof properties === 'string' ? properties : JSON.stringify(properties);
+    updateData.properties =
+      typeof properties === "string" ? properties : JSON.stringify(properties);
   }
 
-  await dbNetsuite('outbox_events')
-    .where('id', id)
-    .update(updateData);
+  await dbNetsuite("outbox_events").where("id", id).update(updateData);
 };
 
 const canAutoRetry = async (id) => {
-  const event = await dbNetsuite('outbox_events')
-    .where('id', id)
-    .select(['retry_count', 'max_retry'])
+  const event = await dbNetsuite("outbox_events")
+    .where("id", id)
+    .select(["retry_count", "max_retry"])
     .first();
 
   if (!event) return false;
@@ -813,26 +1009,24 @@ const canAutoRetry = async (id) => {
 };
 
 const incrementRetryCount = async (id, lastError) => {
-  const [updated] = await dbNetsuite('outbox_events')
-    .where('id', id)
+  const [updated] = await dbNetsuite("outbox_events")
+    .where("id", id)
     .update({
-      retry_count: dbNetsuite.raw('retry_count + 1'),
+      retry_count: dbNetsuite.raw("retry_count + 1"),
       last_error: lastError || null,
-      status: 'PROCESSING',
-      updated_at: new Date()
+      status: "PROCESSING",
+      updated_at: new Date(),
     })
-    .returning(['retry_count', 'max_retry']);
+    .returning(["retry_count", "max_retry"]);
 
   return updated;
 };
 
 const updateLocalSalesOrderStatus = async (id, status) => {
-  await dbNetsuite('sales_orders')
-    .where('id', id)
-    .update({
-      status_name: status,
-      updated_at: new Date()
-    });
+  await dbNetsuite("sales_orders").where("id", id).update({
+    status_name: status,
+    updated_at: new Date(),
+  });
 };
 
 const syncSalesOrderByIdInternalId = async (id, internal_id) => {
@@ -840,24 +1034,30 @@ const syncSalesOrderByIdInternalId = async (id, internal_id) => {
     const tokenResponse = await authService.getToken();
     const token = tokenResponse.data.access_token;
 
-    const baseUrl = process.env.BRIDGE_BASE_URL || 'https://api-bridge-sb.motorsights.com';
+    const baseUrl =
+      process.env.BRIDGE_BASE_URL || "https://api-bridge-sb.motorsights.com";
     const url = `${baseUrl}/api/v1/bridge/sales-orders/sync/${id}/${internal_id}`;
 
-    const response = await axios.post(url, {}, {
-      headers: {
-        'Authorization': `Bearer ${token}`
+    const response = await axios.post(
+      url,
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        timeout: 1500000,
       },
-      timeout: 1500000
-    });
+    );
 
     return response.data;
-
   } catch (error) {
     if (error.response) {
       throw {
-        message: error.response.data?.message || 'Failed to sync sales order by ID from bridge API',
+        message:
+          error.response.data?.message ||
+          "Failed to sync sales order by ID from bridge API",
         statusCode: error.response.status,
-        errors: error.response.data
+        errors: error.response.data,
       };
     }
     throw { message: error.message, statusCode: 500 };
@@ -873,23 +1073,25 @@ const syncSalesOrderById = async (id) => {
     const tokenResponse = await authService.getToken();
     const token = tokenResponse.data.access_token;
 
-    const baseUrl = process.env.BRIDGE_BASE_URL || 'https://api-bridge-sb.motorsights.com';
+    const baseUrl =
+      process.env.BRIDGE_BASE_URL || "https://api-bridge-sb.motorsights.com";
     const url = `${baseUrl}/api/v1/bridge/sales-orders/sync/${id}`;
 
     const response = await axios.get(url, {
       headers: {
-        'Authorization': `Bearer ${token}`
-      }
+        Authorization: `Bearer ${token}`,
+      },
     });
 
     return response.data;
-
   } catch (error) {
     if (error.response) {
       throw {
-        message: error.response.data?.message || 'Failed to sync sales order by ID from bridge API',
+        message:
+          error.response.data?.message ||
+          "Failed to sync sales order by ID from bridge API",
         statusCode: error.response.status,
-        errors: error.response.data
+        errors: error.response.data,
       };
     }
     throw { message: error.message, statusCode: 500 };
@@ -897,47 +1099,57 @@ const syncSalesOrderById = async (id) => {
 };
 
 const saveFileRecord = async (fileData) => {
-  const [record] = await pgCore('sales_orders_files').insert(fileData).returning('*');
+  const [record] = await pgCore("sales_orders_files")
+    .insert(fileData)
+    .returning("*");
   return record;
 };
 
 const updateFileRecord = async (oldPath, newPath, newUrl) => {
-  const [record] = await pgCore('sales_orders_files')
-    .where('storage_path', oldPath)
+  const [record] = await pgCore("sales_orders_files")
+    .where("storage_path", oldPath)
     .update({
       storage_path: newPath,
-      share_url: newUrl
+      share_url: newUrl,
     })
-    .returning('*');
+    .returning("*");
   return record;
 };
 
 const finalizeUploadedFilesForSO = async (tempSoId, realSoId) => {
   try {
-    const nextcloud = require('../../utils/nextcloud');
-    const path = require('path');
+    const nextcloud = require("../../utils/nextcloud");
+    const path = require("path");
 
-    const files = await pgCore('sales_orders_files')
-      .where('so_id', tempSoId);
+    const files = await pgCore("sales_orders_files").where("so_id", tempSoId);
 
     if (!files || files.length === 0) {
-      console.info(`[finalizeUploadedFilesForSO] No files found for temporary SO ID: ${tempSoId}`);
+      console.info(
+        `[finalizeUploadedFilesForSO] No files found for temporary SO ID: ${tempSoId}`,
+      );
       return;
     }
 
     let folderName = realSoId;
     try {
-      const soRecord = await dbNetsuite('sales_orders')
-        .where('netsuite_id', realSoId.toString())
+      const soRecord = await dbNetsuite("sales_orders")
+        .where("netsuite_id", realSoId.toString())
         .first();
       if (soRecord && soRecord.tranid) {
         folderName = soRecord.tranid;
-        console.info(`[finalizeUploadedFilesForSO] Found tranid: ${folderName} for so_id: ${realSoId}`);
+        console.info(
+          `[finalizeUploadedFilesForSO] Found tranid: ${folderName} for so_id: ${realSoId}`,
+        );
       } else {
-        console.warn(`[finalizeUploadedFilesForSO] No sales order record or tranid found for so_id: ${realSoId}, falling back to so_id for folder name`);
+        console.warn(
+          `[finalizeUploadedFilesForSO] No sales order record or tranid found for so_id: ${realSoId}, falling back to so_id for folder name`,
+        );
       }
     } catch (dbErr) {
-      console.error(`[finalizeUploadedFilesForSO] Error retrieving tranid from DB Netsuite:`, dbErr.message);
+      console.error(
+        `[finalizeUploadedFilesForSO] Error retrieving tranid from DB Netsuite:`,
+        dbErr.message,
+      );
     }
 
     const year = new Date().getFullYear();
@@ -950,7 +1162,9 @@ const finalizeUploadedFilesForSO = async (tempSoId, realSoId) => {
       const fileName = path.basename(oldStoragePath);
       const newStoragePath = `${finalDir}/${fileName}`;
 
-      console.info(`[finalizeUploadedFilesForSO] Moving file from ${oldStoragePath} to ${newStoragePath}`);
+      console.info(
+        `[finalizeUploadedFilesForSO] Moving file from ${oldStoragePath} to ${newStoragePath}`,
+      );
 
       try {
         await nextcloud.client.moveFile(oldStoragePath, newStoragePath);
@@ -959,52 +1173,57 @@ const finalizeUploadedFilesForSO = async (tempSoId, realSoId) => {
         try {
           newShareUrl = await nextcloud.generateShareLink(newStoragePath);
         } catch (shareErr) {
-          console.warn(`[finalizeUploadedFilesForSO] Failed to generate new share link for ${newStoragePath}:`, shareErr.message);
+          console.warn(
+            `[finalizeUploadedFilesForSO] Failed to generate new share link for ${newStoragePath}:`,
+            shareErr.message,
+          );
         }
 
-        await pgCore('sales_orders_files')
-          .where('id', file.id)
-          .update({
-            so_id: realSoId.toString(),
-            storage_path: newStoragePath,
-            share_url: newShareUrl
-          });
+        await pgCore("sales_orders_files").where("id", file.id).update({
+          so_id: realSoId.toString(),
+          storage_path: newStoragePath,
+          share_url: newShareUrl,
+        });
 
-        console.info(`[finalizeUploadedFilesForSO] File record updated successfully for file ID: ${file.id}`);
+        console.info(
+          `[finalizeUploadedFilesForSO] File record updated successfully for file ID: ${file.id}`,
+        );
       } catch (moveErr) {
-        console.error(`[finalizeUploadedFilesForSO] Failed to move file ${oldStoragePath}:`, moveErr.message);
+        console.error(
+          `[finalizeUploadedFilesForSO] Failed to move file ${oldStoragePath}:`,
+          moveErr.message,
+        );
       }
     }
   } catch (error) {
-    console.error(`[finalizeUploadedFilesForSO] Error finalizing files for SO ${realSoId}:`, error.message);
+    console.error(
+      `[finalizeUploadedFilesForSO] Error finalizing files for SO ${realSoId}:`,
+      error.message,
+    );
   }
 };
 
 const getFileRecordById = async (id) => {
-  const record = await pgCore('sales_orders_files')
-    .where('id', id)
-    .first();
+  const record = await pgCore("sales_orders_files").where("id", id).first();
   return record;
 };
 
 const deleteFileRecord = async (id) => {
-  const count = await pgCore('sales_orders_files')
-    .where('id', id)
-    .delete();
+  const count = await pgCore("sales_orders_files").where("id", id).delete();
   return count;
 };
 
 const updateFileRecordFields = async (id, updateData) => {
-  const [record] = await pgCore('sales_orders_files')
-    .where('id', id)
+  const [record] = await pgCore("sales_orders_files")
+    .where("id", id)
     .update(updateData)
-    .returning('*');
+    .returning("*");
   return record;
 };
 
 const getFileRecordByShareUrl = async (shareUrl) => {
-  const record = await pgCore('sales_orders_files')
-    .where('share_url', shareUrl)
+  const record = await pgCore("sales_orders_files")
+    .where("share_url", shareUrl)
     .first();
   return record;
 };
@@ -1031,5 +1250,5 @@ module.exports = {
   getFileRecordById,
   deleteFileRecord,
   updateFileRecordFields,
-  getFileRecordByShareUrl
+  getFileRecordByShareUrl,
 };

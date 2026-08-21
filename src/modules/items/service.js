@@ -345,6 +345,32 @@ const getItemReceipts = async (body) => {
       query = query.where("source_type", body.source_type);
     }
 
+    // Handle classes filter (parent and children)
+    let classIds = [];
+    if (body.classes) {
+      const parentIdStr = body.classes.toString();
+      classIds.push(parentIdStr);
+
+      // Step 2 & 3: Cek ke tabel class untuk child yang memiliki parent_id tersebut
+      const children = await dbNetsuite("class")
+        .select("netsuite_id")
+        .where("parent_id", parentIdStr)
+        .andWhere("is_delete", false)
+        .whereNull("deleted_at");
+
+      // Step 4 & 5: Masukan daftar netsuite_id tersebut
+      if (children && children.length > 0) {
+        children.forEach((child) => {
+          if (child.netsuite_id) classIds.push(child.netsuite_id.toString());
+        });
+      }
+    }
+
+    // Step 6: Apply class filter
+    if (classIds.length > 0) {
+      query = query.whereIn("class", classIds);
+    }
+
     const countResult = await query.clone().count("* as total").first();
     const total = parseInt(countResult.total) || 0;
     const totalPages = Math.ceil(total / limit);
