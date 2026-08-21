@@ -1440,6 +1440,10 @@ const getPurchaseOrderById = async (id) => {
           "taxcodes as t_line",
           dbNetsuite.raw("(line->>'taxcode') = t_line.taxcode_id::text"),
         )
+        .leftJoin(
+          "project_segmentations as t_project_segmentations",
+          dbNetsuite.raw("(line->>'cseg_msi_pro_segmen') = t_project_segmentations.netsuite_id::text"),
+        )
 
         .select([
           "po.id",
@@ -1551,6 +1555,8 @@ const getPurchaseOrderById = async (id) => {
                 'location_display', l_line.name,
                 'taxcode', line->>'taxcode',
                 'taxcode_display', t_line.taxcode_name,
+                'cseg_msi_pro_segmen', line->>'cseg_msi_pro_segmen',
+                'cseg_msi_pro_segmen_display', t_project_segmentations.name,
                 'taxrate1', line->>'taxrate1',
                 'tax1amt', line->>'tax1amt',
                 'custcol_me_landed_cost', line->>'custcol_me_landed_cost',
