@@ -67,6 +67,7 @@ const itemsSchemas = {
       status: { type: "string", nullable: true, example: "success" },
       vendor_id: { type: "string", nullable: true, example: "12345" },
       location: { type: "string", nullable: true, example: "10" },
+      classes: { type: "string", nullable: true, example: "2" },
       source_type: {
         type: "string",
         nullable: true,
