@@ -171,7 +171,6 @@ const getTransferOrderById = async (id) => {
           "t.type_proccess",
           "t.status_proccess",
           "t.status_proccess_message",
-          "t.url_proccess",
           "t.custbody_msi_createdby_api",
           dbNetsuite.raw(
             "CASE WHEN NULLIF(t.custbody_msi_createdby_api, '') IS NULL THEN COALESCE(NULLIF(created_emp.employee_name, ''), '') ELSE t.custbody_msi_createdby_api END AS created_by_name",
