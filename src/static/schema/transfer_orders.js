@@ -79,6 +79,8 @@ const transferOrdersSchema = {
       status_proccess: { type: 'string', nullable: true, example: 'PROCESSING' },
       status_proccess_message: { type: 'string', nullable: true, example: 'Processing transfer order creation in NetSuite' },
       custbody_msi_createdby_api: { type: 'string', example: 'dharmaridwan@motorsights.net' },
+      created_by_name: { type: 'string', nullable: true, example: 'dharma ridwan' },
+      updated_by_name: { type: 'string', nullable: true, example: 'abdul harris' },
       created_at: { type: 'string', example: '2026-08-24T07:44:27.781Z' },
       updated_at: { type: 'string', nullable: true, example: '2026-08-24T07:44:27.781Z' }
     }

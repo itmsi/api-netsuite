@@ -88,6 +88,14 @@ const getTransferOrders = async (body) => {
 
     const items = await query
       .clone()
+      .leftJoin(
+        "gate_sso_employees as created_emp",
+        dbNetsuite.raw("t.created_by::text = created_emp.employee_id::text"),
+      )
+      .leftJoin(
+        "gate_sso_employees as updated_emp",
+        dbNetsuite.raw("t.updated_by::text = updated_emp.employee_id::text"),
+      )
       .select([
         "t.id",
         "t.netsuite_id",
@@ -103,6 +111,10 @@ const getTransferOrders = async (body) => {
         "t.datecreated",
         "t.last_modified_netsuite",
         "t.custbody_msi_createdby_api",
+        dbNetsuite.raw(
+          "CASE WHEN NULLIF(t.custbody_msi_createdby_api, '') IS NULL THEN COALESCE(NULLIF(created_emp.employee_name, ''), '') ELSE t.custbody_msi_createdby_api END AS created_by_name",
+        ),
+        "updated_emp.employee_name as updated_by_name",
         "t.status_proccess",
         "t.status_proccess_message",
         "t.created_at",
@@ -130,35 +142,46 @@ const getTransferOrders = async (body) => {
 const getTransferOrderById = async (id) => {
   try {
     const baseQuery = () =>
-      dbNetsuite("transfer_orders as t").where("t.is_delete", false).select([
-        "t.id",
-        "t.netsuite_id",
-        "t.tranid",
-        "t.status_code",
-        "t.status_name",
-        "t.from_location_id",
-        "t.from_location_name",
-        "t.to_location_id",
-        "t.to_location_name",
-        "t.memo",
-        "t.tran_date",
-        "t.datecreated",
-        "t.last_modified_netsuite",
-        "t.items",
-        "t.data",
-        "t.files",
-        "t.raw_request",
-        "t.raw_response",
-        "t.item_receipt_id",
-        "t.created_from_to",
-        "t.type_proccess",
-        "t.status_proccess",
-        "t.status_proccess_message",
-        "t.url_proccess",
-        "t.custbody_msi_createdby_api",
-        "t.created_at",
-        "t.updated_at",
-      ]);
+      dbNetsuite("transfer_orders as t")
+        .where("t.is_delete", false)
+        .leftJoin(
+          "gate_sso_employees as created_emp",
+          dbNetsuite.raw("t.created_by::text = created_emp.employee_id::text"),
+        )
+        .leftJoin(
+          "gate_sso_employees as updated_emp",
+          dbNetsuite.raw("t.updated_by::text = updated_emp.employee_id::text"),
+        )
+        .select([
+          "t.id",
+          "t.netsuite_id",
+          "t.tranid",
+          "t.status_code",
+          "t.status_name",
+          "t.from_location_id",
+          "t.from_location_name",
+          "t.to_location_id",
+          "t.to_location_name",
+          "t.memo",
+          "t.tran_date",
+          "t.datecreated",
+          "t.last_modified_netsuite",
+          "t.item_receipt_id",
+          "t.created_from_to",
+          "t.type_proccess",
+          "t.status_proccess",
+          "t.status_proccess_message",
+          "t.url_proccess",
+          "t.custbody_msi_createdby_api",
+          dbNetsuite.raw(
+            "CASE WHEN NULLIF(t.custbody_msi_createdby_api, '') IS NULL THEN COALESCE(NULLIF(created_emp.employee_name, ''), '') ELSE t.custbody_msi_createdby_api END AS created_by_name",
+          ),
+          "updated_emp.employee_name as updated_by_name",
+          "t.created_at",
+          "t.updated_at",
+          "t.items",
+          "t.files",
+        ]);
 
     // Cari dulu berdasarkan netsuite_id, jika tidak ketemu cari berdasarkan id (UUID)
     let record = await baseQuery().where("t.netsuite_id", id).first();
@@ -175,7 +198,7 @@ const getTransferOrderById = async (id) => {
     }
 
     record.items = parseJsonColumn(record.items, []);
-    record.data = parseJsonColumn(record.data, {});
+    // record.data = parseJsonColumn(record.data, {});
     record.files = parseJsonColumn(record.files, []);
 
     return {
