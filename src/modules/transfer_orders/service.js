@@ -14,6 +14,26 @@ const dbNetsuite = knex({
   },
 });
 
+const isUuid = (value) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    String(value),
+  );
+
+/**
+ * Parse kolom jsonb yang bisa berbentuk string ataupun sudah object/array
+ */
+const parseJsonColumn = (value, fallback) => {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === "string") {
+    try {
+      return JSON.parse(value);
+    } catch (e) {
+      return fallback;
+    }
+  }
+  return value;
+};
+
 /**
  * Get transfer orders dari DB Netsuite (bridge_sanbox.transfer_orders)
  */
@@ -25,14 +45,14 @@ const getTransferOrders = async (body) => {
     const offset = (page - 1) * limit;
 
     const validSortColumns = [
-      "to_id",
-      "trandate",
-      "status",
-      "subsidiary",
-      "location",
-      "transferlocation",
-      "department",
-      "class",
+      "netsuite_id",
+      "tranid",
+      "tran_date",
+      "status_code",
+      "status_name",
+      "from_location_id",
+      "to_location_id",
+      "last_modified_netsuite",
       "created_at",
       "updated_at",
     ];
@@ -40,30 +60,26 @@ const getTransferOrders = async (body) => {
       ? body.sort_by
       : "created_at";
 
-    let query = dbNetsuite("transfer_orders as to").where(
-      "to.is_delete",
-      false,
-    );
+    let query = dbNetsuite("transfer_orders as t").where("t.is_delete", false);
 
     if (body.search) {
       query = query.where(function () {
-        this.whereILike("to.to_id", `%${body.search}%`).orWhereILike(
-          "to.memo",
-          `%${body.search}%`,
-        );
+        this.whereILike("t.tranid", `%${body.search}%`)
+          .orWhereILike("t.netsuite_id", `%${body.search}%`)
+          .orWhereILike("t.memo", `%${body.search}%`);
       });
     }
-    if (body.subsidiary) {
-      query = query.where("to.subsidiary", body.subsidiary);
-    }
     if (body.location) {
-      query = query.where("to.location", body.location);
+      query = query.where("t.from_location_id", body.location);
     }
     if (body.transferlocation) {
-      query = query.where("to.transferlocation", body.transferlocation);
+      query = query.where("t.to_location_id", body.transferlocation);
     }
-    if (body.to_status) {
-      query = query.where("to.to_status", body.to_status);
+    if (body.status_name) {
+      query = query.where("t.status_name", body.status_name);
+    }
+    if (body.status_code) {
+      query = query.where("t.status_code", body.status_code);
     }
 
     const countResult = await query.clone().count("* as total").first();
@@ -72,48 +88,27 @@ const getTransferOrders = async (body) => {
 
     const items = await query
       .clone()
-      .leftJoin("subsidiarys as s", "to.subsidiary", "s.subsidiary_id")
-      .leftJoin(
-        "locations as l",
-        dbNetsuite.raw("to.location = l.netsuite_id::integer"),
-      )
-      .leftJoin(
-        "locations as tl",
-        dbNetsuite.raw("to.transferlocation = tl.netsuite_id::integer"),
-      )
-      .leftJoin(
-        "departments as d",
-        dbNetsuite.raw("to.department::text = d.netsuite_id::text"),
-      )
-      .leftJoin(
-        "class as c",
-        dbNetsuite.raw("to.class::text = c.netsuite_id::text"),
-      )
       .select([
-        "to.id",
-        "to.to_id",
-        "to.to_status",
-        "to.customform",
-        "to.subsidiary",
-        "s.subsidiary_name as subsidiary_display",
-        "to.location",
-        "l.name as location_display",
-        "to.transferlocation",
-        "tl.name as transferlocation_display",
-        "to.trandate",
-        "to.memo",
-        "to.department",
-        "d.name as department_display",
-        "to.class",
-        "c.name as class_display",
-        "to.status",
-        "to.incoterm",
-        "to.employee",
-        "to.custbody_msi_createdby_api",
-        "to.created_at",
-        "to.updated_at",
+        "t.id",
+        "t.netsuite_id",
+        "t.tranid",
+        "t.status_code",
+        "t.status_name",
+        "t.from_location_id",
+        "t.from_location_name",
+        "t.to_location_id",
+        "t.to_location_name",
+        "t.memo",
+        "t.tran_date",
+        "t.datecreated",
+        "t.last_modified_netsuite",
+        "t.custbody_msi_createdby_api",
+        "t.status_proccess",
+        "t.status_proccess_message",
+        "t.created_at",
+        "t.updated_at",
       ])
-      .orderBy(`to.${orderCol}`, sortOrder)
+      .orderBy(`t.${orderCol}`, sortOrder)
       .limit(limit)
       .offset(offset);
 
@@ -130,67 +125,46 @@ const getTransferOrders = async (body) => {
 };
 
 /**
- * Get single transfer order by netsuite_id (to_id) atau UUID id dari DB lokal
+ * Get single transfer order by netsuite_id atau UUID id dari DB lokal
  */
 const getTransferOrderById = async (id) => {
   try {
     const baseQuery = () =>
-      dbNetsuite("transfer_orders as to")
-        .where("to.is_delete", false)
-        .leftJoin("subsidiarys as s", "to.subsidiary", "s.subsidiary_id")
-        .leftJoin(
-          "locations as l",
-          dbNetsuite.raw("to.location = l.netsuite_id::integer"),
-        )
-        .leftJoin(
-          "locations as tl",
-          dbNetsuite.raw("to.transferlocation = tl.netsuite_id::integer"),
-        )
-        .leftJoin(
-          "departments as d",
-          dbNetsuite.raw("to.department::text = d.netsuite_id::text"),
-        )
-        .leftJoin(
-          "class as c",
-          dbNetsuite.raw("to.class::text = c.netsuite_id::text"),
-        )
-        .leftJoin(
-          "customforms as cf",
-          dbNetsuite.raw("to.customform::integer = cf.customform_id"),
-        )
-        .select([
-          "to.id",
-          "to.to_id",
-          "to.to_status",
-          "to.customform",
-          "cf.customform_name as customform_display",
-          "to.subsidiary",
-          "s.subsidiary_name as subsidiary_display",
-          "to.location",
-          "l.name as location_display",
-          "to.transferlocation",
-          "tl.name as transferlocation_display",
-          "to.trandate",
-          "to.memo",
-          "to.department",
-          "d.name as department_display",
-          "to.class",
-          "c.name as class_display",
-          "to.status",
-          "to.incoterm",
-          "to.employee",
-          "to.custbody_msi_createdby_api",
-          "to.lines",
-          "to.files",
-          "to.created_at",
-          "to.updated_at",
-        ]);
+      dbNetsuite("transfer_orders as t").where("t.is_delete", false).select([
+        "t.id",
+        "t.netsuite_id",
+        "t.tranid",
+        "t.status_code",
+        "t.status_name",
+        "t.from_location_id",
+        "t.from_location_name",
+        "t.to_location_id",
+        "t.to_location_name",
+        "t.memo",
+        "t.tran_date",
+        "t.datecreated",
+        "t.last_modified_netsuite",
+        "t.items",
+        "t.data",
+        "t.files",
+        "t.raw_request",
+        "t.raw_response",
+        "t.item_receipt_id",
+        "t.created_from_to",
+        "t.type_proccess",
+        "t.status_proccess",
+        "t.status_proccess_message",
+        "t.url_proccess",
+        "t.custbody_msi_createdby_api",
+        "t.created_at",
+        "t.updated_at",
+      ]);
 
-    // Cari dulu berdasarkan to_id (netsuite internal ID), jika tidak ketemu cari berdasarkan id (UUID)
-    let record = await baseQuery().where("to.to_id", id).first();
+    // Cari dulu berdasarkan netsuite_id, jika tidak ketemu cari berdasarkan id (UUID)
+    let record = await baseQuery().where("t.netsuite_id", id).first();
 
     if (!record) {
-      record = await baseQuery().where("to.id", id).first();
+      record = await baseQuery().where("t.id", id).first();
     }
 
     if (!record) {
@@ -200,13 +174,9 @@ const getTransferOrderById = async (id) => {
       };
     }
 
-    if (record.lines) {
-      const lines =
-        typeof record.lines === "string"
-          ? JSON.parse(record.lines)
-          : record.lines;
-      record.lines = Array.isArray(lines) ? lines : [];
-    }
+    record.items = parseJsonColumn(record.items, []);
+    record.data = parseJsonColumn(record.data, {});
+    record.files = parseJsonColumn(record.files, []);
 
     return {
       success: true,
@@ -223,40 +193,17 @@ const getTransferOrderById = async (id) => {
 };
 
 /**
- * Sync single transfer order by ID dari bridge API
- * Hit: POST {BRIDGE_BASE_URL}/api/v1/bridge/transfer-orders/sync/{to_id}
- * `id` bisa berupa UUID lokal atau netsuite_id (to_id); akan di-resolve dulu ke to_id.
+ * Hits the actual bridge API to sync a transfer order given its NetSuite internal ID
+ * Hit: POST {BRIDGE_BASE_URL}/api/v1/bridge/transfer-orders/sync/{netsuite_id}
  */
-const syncTransferOrderById = async (id) => {
+const syncTransferOrderToBridge = async (netsuiteId) => {
   try {
-    const record = await dbNetsuite("transfer_orders as to")
-      .where(function () {
-        this.where("to.to_id", id).orWhereRaw("to.id::text = ?", [
-          id.toString(),
-        ]);
-      })
-      .first();
-
-    if (!record) {
-      throw {
-        message: `Transfer order dengan id '${id}' tidak ditemukan secara lokal`,
-        statusCode: 404,
-      };
-    }
-
-    if (!record.to_id) {
-      throw {
-        message: `Transfer order dengan id '${id}' belum memiliki netsuite ID, tidak bisa di-sync`,
-        statusCode: 400,
-      };
-    }
-
     const tokenResponse = await authService.getToken();
     const token = tokenResponse.data.access_token;
 
     const baseUrl =
       process.env.BRIDGE_BASE_URL || "https://api-bridge-sb.motorsights.com";
-    const url = `${baseUrl}/api/v1/bridge/transfer-orders/sync/${record.to_id}`;
+    const url = `${baseUrl}/api/v1/bridge/transfer-orders/sync/${netsuiteId}`;
 
     const response = await axios.post(
       url,
@@ -271,18 +218,46 @@ const syncTransferOrderById = async (id) => {
 
     return response.data;
   } catch (error) {
-    if (error.statusCode) throw error;
     if (error.response) {
       throw {
         message:
           error.response.data?.message ||
-          "Failed to sync transfer order by ID from bridge API",
+          `Failed to sync transfer order netsuite_id ${netsuiteId} from bridge API`,
         statusCode: error.response.status,
         errors: error.response.data,
       };
     }
     throw { message: error.message, statusCode: 500 };
   }
+};
+
+/**
+ * Sync single transfer order by ID (bisa UUID lokal atau netsuite_id) dari bridge API.
+ * `id` di-resolve dulu ke netsuite_id sebelum hit bridge.
+ */
+const syncTransferOrderById = async (id) => {
+  const record = await dbNetsuite("transfer_orders as t")
+    .where(function () {
+      this.where("t.netsuite_id", id);
+      if (isUuid(id)) this.orWhere("t.id", id);
+    })
+    .first();
+
+  if (!record) {
+    throw {
+      message: `Transfer order dengan id '${id}' tidak ditemukan secara lokal`,
+      statusCode: 404,
+    };
+  }
+
+  if (!record.netsuite_id) {
+    throw {
+      message: `Transfer order dengan id '${id}' belum memiliki netsuite ID, tidak bisa di-sync`,
+      statusCode: 400,
+    };
+  }
+
+  return syncTransferOrderToBridge(record.netsuite_id);
 };
 
 /**
@@ -293,25 +268,31 @@ const createTransferOrder = async (body, user, userId) => {
   try {
     // 1. create data ke DB netsuite tabel transfer_orders
     const toData = {
-      to_number: null,
-      to_status: "pending",
-      customform: body.customform,
-      subsidiary: body.subsidiary,
-      location: body.location,
-      transferlocation: body.transferlocation,
-      trandate: body.trandate,
+      tranid: null,
+      status_name: "pending",
+      from_location_id: body.location,
+      to_location_id: body.transferlocation,
       memo: body.memo,
-      department: body.department,
-      class: body.class,
-      status: body.status,
-      incoterm: body.incoterm,
-      employee: body.employee,
+      tran_date: body.trandate,
+      items: JSON.stringify(body.items || []),
+      data: JSON.stringify({
+        customform: body.customform,
+        subsidiary: body.subsidiary,
+        department: body.department,
+        class: body.class,
+        status: body.status,
+        incoterm: body.incoterm,
+        employee: body.employee,
+      }),
+      files: body.files ? JSON.stringify(body.files) : null,
+      raw_request: JSON.stringify(body),
       custbody_msi_createdby_api:
         body.custbody_msi_createdby_api || user?.email,
-      lines: JSON.stringify(body.items),
-      files: body.files ? JSON.stringify(body.files) : null,
       created_by: userId,
       created_at: new Date(),
+      type_proccess: "CREATE",
+      status_proccess: "PROCESSING",
+      status_proccess_message: "Processing transfer order creation in NetSuite",
     };
 
     const [toInternal] = await trx("transfer_orders")
@@ -426,7 +407,8 @@ const updateTransferOrder = async (body, user, userId) => {
 
     const record = await trx("transfer_orders")
       .where(function () {
-        this.where("to_id", id).orWhereRaw("id::text = ?", [id]);
+        this.where("netsuite_id", id);
+        if (isUuid(id)) this.orWhere("id", id);
       })
       .first();
 
@@ -438,28 +420,34 @@ const updateTransferOrder = async (body, user, userId) => {
     }
 
     const localId = record.id;
-    const netsuiteId = record.to_id;
-    const is_update = record.to_id ? true : false;
+    const netsuiteId = record.netsuite_id;
+    const is_update = record.netsuite_id ? true : false;
 
     // 1. Update data di DB lokal dulu
     const updateData = {
-      customform: body.customform,
-      subsidiary: body.subsidiary,
-      location: body.location,
-      transferlocation: body.transferlocation,
-      trandate: body.trandate,
+      from_location_id: body.location,
+      to_location_id: body.transferlocation,
       memo: body.memo,
-      department: body.department,
-      class: body.class,
-      status: body.status,
-      incoterm: body.incoterm,
-      employee: body.employee,
+      tran_date: body.trandate,
+      items: JSON.stringify(body.items || []),
+      data: JSON.stringify({
+        customform: body.customform,
+        subsidiary: body.subsidiary,
+        department: body.department,
+        class: body.class,
+        status: body.status,
+        incoterm: body.incoterm,
+        employee: body.employee,
+      }),
+      files: body.files ? JSON.stringify(body.files) : null,
+      raw_request: JSON.stringify(body),
       custbody_msi_createdby_api:
         body.custbody_msi_createdby_api || user?.email,
-      lines: JSON.stringify(body.items),
-      files: body.files ? JSON.stringify(body.files) : null,
       updated_at: new Date(),
       updated_by: userId,
+      type_proccess: "UPDATE",
+      status_proccess: "PROCESSING",
+      status_proccess_message: "Processing transfer order update in NetSuite",
     };
 
     await trx("transfer_orders").where("id", localId).update(updateData);
@@ -590,11 +578,27 @@ const updateTransferOrderToBridge = async (body) => {
   return response.data;
 };
 
+/**
+ * Simpan netsuite_id ke record lokal setelah bridge berhasil membuat transfer order.
+ * Menghapus duplikat pasif yang mungkin dibuat oleh bridge (mirip pattern PO/quotation).
+ */
+const updateLocalTOId = async (id, netsuiteId) => {
+  await dbNetsuite("transfer_orders")
+    .where("netsuite_id", netsuiteId)
+    .whereNot("id", id)
+    .del();
+
+  await dbNetsuite("transfer_orders").where("id", id).update({
+    netsuite_id: netsuiteId,
+    updated_at: new Date(),
+  });
+};
+
 const updateLocalTOStatus = async (id, status) => {
   const updateData = { updated_at: new Date() };
 
   if (status) {
-    updateData.to_status = status;
+    updateData.status_name = status;
   }
 
   await dbNetsuite("transfer_orders").where("id", id).update(updateData);
@@ -697,10 +701,12 @@ module.exports = {
   getTransferOrders,
   getTransferOrderById,
   syncTransferOrderById,
+  syncTransferOrderToBridge,
   createTransferOrder,
   createTransferOrderToBridge,
   updateTransferOrder,
   updateTransferOrderToBridge,
+  updateLocalTOId,
   updateLocalTOStatus,
   updateEventStatus,
   incrementRetryCount,

@@ -164,14 +164,14 @@ const transferOrdersPaths = {
     post: {
       tags: ['Transfer Orders'],
       summary: 'Sync single transfer order by ID',
-      description: 'Sync single transfer order dari bridge API `POST /api/v1/bridge/transfer-orders/sync/{id}`. Parameter `id` bisa berupa UUID lokal atau NetSuite internal ID (to_id); akan di-resolve dulu ke NetSuite ID sebelum hit bridge API.',
+      description: 'Sync single transfer order dari bridge API `POST /api/v1/bridge/transfer-orders/sync/{id}`. Parameter `id` bisa berupa UUID lokal atau NetSuite internal ID (netsuite_id); akan di-resolve dulu ke NetSuite ID sebelum hit bridge API.',
       security: [{ bearerAuth: [] }],
       parameters: [
         {
           name: 'id',
           in: 'path',
           required: true,
-          description: 'UUID lokal atau NetSuite internal ID (to_id) dari transfer order',
+          description: 'UUID lokal atau NetSuite internal ID (netsuite_id) dari transfer order',
           schema: { type: 'string', example: '52362' }
         }
       ],
@@ -212,14 +212,14 @@ const transferOrdersPaths = {
     get: {
       tags: ['Transfer Orders'],
       summary: 'Get transfer order by ID dari DB lokal',
-      description: 'Fetch single transfer order dari database lokal (bridge_sanbox.transfer_orders) berdasarkan NetSuite internal ID (to_id) atau UUID lokal (id).',
+      description: 'Fetch single transfer order dari database lokal (bridge_sanbox.transfer_orders) berdasarkan NetSuite internal ID (netsuite_id) atau UUID lokal (id).',
       security: [{ bearerAuth: [] }],
       parameters: [
         {
           name: 'id',
           in: 'path',
           required: true,
-          description: 'NetSuite internal ID (to_id) atau UUID lokal (id) dari transfer order',
+          description: 'NetSuite internal ID (netsuite_id) atau UUID lokal (id) dari transfer order',
           schema: { type: 'string', example: '52362' }
         }
       ],

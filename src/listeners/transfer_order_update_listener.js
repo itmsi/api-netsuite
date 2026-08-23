@@ -35,7 +35,9 @@ const methodExecution = async (payload, channel, msg) => {
       "Starting update request to bridge API",
       data,
     );
-    const result = await transferOrderService.updateTransferOrderToBridge(data);
+    const dataWithInternalId = { ...data, internalid: to_internal_id };
+    const result =
+      await transferOrderService.updateTransferOrderToBridge(dataWithInternalId);
 
     if (result && (result.success || result.toId || result.to_id)) {
       // Update outbox event status
@@ -46,6 +48,31 @@ const methodExecution = async (payload, channel, msg) => {
         "Transfer order updated successfully in NetSuite",
         result,
       );
+
+      const netsuiteId = result.toId || result.to_id || result.data?.id || data.id;
+      if (netsuiteId) {
+        console.info(`[Worker] Triggering sync for TO ID after update: ${netsuiteId}`);
+        try {
+          await transferOrderService.syncTransferOrderToBridge(netsuiteId);
+          await transferOrderService.logEvent(
+            event_id,
+            "transfer_order_synced",
+            "Transfer order data synced after update",
+            { to_id: netsuiteId },
+          );
+        } catch (syncError) {
+          console.error(
+            `[Worker] Sync failed for TO ID ${netsuiteId}:`,
+            syncError.message,
+          );
+          await transferOrderService.logEvent(
+            event_id,
+            "sync_failed",
+            syncError.message,
+            syncError,
+          );
+        }
+      }
 
       channel.ack(msg);
     } else {

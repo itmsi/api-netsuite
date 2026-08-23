@@ -42,6 +42,12 @@ const methodExecution = async (payload, channel, msg) => {
       await transferOrderService.createTransferOrderToBridge(dataWithInternalId);
 
     if (result && (result.success || result.toId || result.to_id)) {
+      const netsuiteId = result.toId || result.to_id || result.data?.id;
+
+      if (netsuiteId) {
+        await transferOrderService.updateLocalTOId(to_internal_id, netsuiteId);
+      }
+
       // Update outbox event status
       await transferOrderService.updateEventStatus(event_id, "SUCCESS", result);
 
@@ -52,6 +58,31 @@ const methodExecution = async (payload, channel, msg) => {
         "Transfer order created successfully",
         result,
       );
+
+      // Trigger sync agar bridge melengkapi data lokal (tranid, status, dsb)
+      if (netsuiteId) {
+        console.info(`[Worker] Triggering sync for TO ID: ${netsuiteId}`);
+        try {
+          await transferOrderService.syncTransferOrderToBridge(netsuiteId);
+          await transferOrderService.logEvent(
+            event_id,
+            "transfer_order_synced",
+            "Transfer order synced successfully",
+            { to_id: netsuiteId },
+          );
+        } catch (syncError) {
+          console.error(
+            `[Worker] Sync failed for TO ID ${netsuiteId}:`,
+            syncError.message,
+          );
+          await transferOrderService.logEvent(
+            event_id,
+            "sync_failed",
+            syncError.message,
+            syncError,
+          );
+        }
+      }
     } else {
       throw new Error(result.message || "Bridge API returned failure");
     }

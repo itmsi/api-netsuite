@@ -30,7 +30,7 @@ const getList = async (req, res) => {
 };
 
 /**
- * Get transfer order by ID (id lokal UUID atau netsuite_id/to_id)
+ * Get transfer order by ID (id lokal UUID atau netsuite_id)
  */
 const getById = async (req, res) => {
   try {
@@ -59,7 +59,7 @@ const getById = async (req, res) => {
 };
 
 /**
- * Sync transfer order by ID (id lokal UUID atau netsuite_id/to_id) dari bridge API
+ * Sync transfer order by ID (id lokal UUID atau netsuite_id) dari bridge API
  */
 const syncById = async (req, res) => {
   try {
