@@ -188,16 +188,45 @@ const getItemReceiptById = async (req, res) => {
 };
 
 /**
- * Create item receipt via bridge API
+ * Create item receipt/fulfillment (multipart/form-data, dengan lampiran file opsional)
+ * via bridge API secara asynchronous menggunakan queue + listener.
  */
-const createReceipts = async (req, res) => {
+const createFulfillmentReceipts = async (req, res) => {
   try {
-    const result = await service.createItemReceipt(req.body);
+    const { function_type, transaction_type, transaction_id, items } =
+      req.body;
+
+    let parsedItems = items;
+    if (typeof items === "string") {
+      try {
+        parsedItems = JSON.parse(items);
+      } catch (e) {
+        return res.status(400).json({
+          success: false,
+          message: "Format items tidak valid, harus berupa JSON array",
+        });
+      }
+    }
+
+    const result = await service.createFulfillmentReceipts(
+      {
+        function_type,
+        transaction_type,
+        transaction_id,
+        items: parsedItems,
+        file: req.file,
+      },
+      req.user,
+    );
+
     return baseResponse(res, {
       data: {
         success: true,
         data: result,
-        message: "Item receipt berhasil dibuat",
+        message:
+          function_type === "receipts"
+            ? "Item receipt sedang diproses"
+            : "Item fulfillment sedang diproses",
       },
     });
   } catch (error) {
@@ -217,5 +246,5 @@ module.exports = {
   getItemLocation,
   getItemReceipts,
   getItemReceiptById,
-  createReceipts,
+  createFulfillmentReceipts,
 };

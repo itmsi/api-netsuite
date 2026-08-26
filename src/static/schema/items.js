@@ -291,37 +291,68 @@ const itemsSchemas = {
       message: { type: "string", example: "Data receipt berhasil diambil" },
     },
   },
-  CreateReceiptRequest: {
+  CreateFulfillmentReceiptsRequest: {
     type: "object",
-    required: ["transaction_type", "transaction_id", "items"],
+    required: ["function_type", "transaction_type", "transaction_id", "items"],
     properties: {
+      function_type: {
+        type: "string",
+        enum: ["receipts", "fulfillment"],
+        example: "receipts",
+        description: "Menentukan proses yang dijalankan: item receipt atau item fulfillment",
+      },
       transaction_type: {
         type: "string",
-        enum: ["purchase_order", "transfer_order", "customer_return"],
-        example: "purchase_order/transfer_order/customer_return",
+        enum: [
+          "sales_order",
+          "transfer_order",
+          "vendor_return",
+          "purchase_order",
+          "customer_return",
+        ],
+        example: "purchase_order",
       },
-      transaction_id: { type: "string", example: "46555" },
+      transaction_id: {
+        type: "string",
+        description: "Netsuite ID dari transaksi terkait",
+        example: "46555",
+      },
       items: {
-        type: "array",
-        items: {
-          type: "object",
-          properties: {
-            line: { type: "integer", example: 1 },
-            quantity: { type: "number", example: 1 },
-          },
-        },
+        type: "string",
+        description: "JSON string array of { line, quantity }",
+        example: '[{"line":1,"quantity":1}]',
+      },
+      file: {
+        type: "string",
+        format: "binary",
+        description: "Lampiran file (opsional, single file)",
       },
     },
   },
-  CreateReceiptResponse: {
+  CreateFulfillmentReceiptsResponse: {
     type: "object",
     properties: {
       success: { type: "boolean", example: true },
       data: {
         type: "object",
-        description: "Response dari bridge API atas pembuatan item receipt",
+        properties: {
+          function_type: { type: "string", example: "receipts" },
+          transaction_type: { type: "string", example: "purchase_order" },
+          transaction_id: { type: "string", example: "46555" },
+          file: {
+            type: "object",
+            nullable: true,
+            properties: {
+              fileName: { type: "string", example: "invoice.pdf" },
+              fileUrl: {
+                type: "string",
+                example: "https://cloud.inlinegroupdc.com/s/xxxx",
+              },
+            },
+          },
+        },
       },
-      message: { type: "string", example: "Item receipt berhasil dibuat" },
+      message: { type: "string", example: "Item receipt sedang diproses" },
     },
   },
 };

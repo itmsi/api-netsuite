@@ -577,6 +577,8 @@ const createItemReceipt = async (body) => {
       transaction_type: body.transaction_type,
       transaction_id: body.transaction_id,
       items: body.items,
+      note: body.note,
+      noteTitle: body.noteTitle,
     };
 
     const response = await axios.post(url, requestData, {
@@ -600,6 +602,178 @@ const createItemReceipt = async (body) => {
   }
 };
 
+/**
+ * Create item fulfillment — hit bridge API
+ * Hit: POST {BRIDGE_BASE_URL}/api/v1/bridge/items/item-fulfillment
+ */
+const createItemFulfillment = async (body) => {
+  try {
+    const tokenResponse = await authService.getToken();
+    const token = tokenResponse.data.access_token;
+
+    const baseUrl =
+      process.env.BRIDGE_BASE_URL || "https://api-bridge-sb.motorsights.com";
+    const url = `${baseUrl}/api/v1/bridge/items/item-fulfillment`;
+
+    const requestData = {
+      transaction_type: body.transaction_type,
+      transaction_id: body.transaction_id,
+      ship_status: body.ship_status,
+      items: body.items,
+      note: body.note,
+      noteTitle: body.noteTitle,
+    };
+
+    const response = await axios.post(url, requestData, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw {
+        message:
+          error.response.data?.message || "Failed to create item fulfillment",
+        statusCode: error.response.status,
+        errors: error.response.data,
+      };
+    }
+    throw { message: error.message, statusCode: 500 };
+  }
+};
+
+const VALID_FUNCTION_TYPES = ["receipts", "fulfillment"];
+const VALID_TRANSACTION_TYPES = [
+  "sales_order",
+  "transfer_order",
+  "vendor_return",
+  "purchase_order",
+  "customer_return",
+];
+
+/**
+ * Upload file lampiran (jika ada) ke Nextcloud, lalu queue pembuatan item
+ * receipt/fulfillment via bridge API. Netsuite ID hasil bridge API baru
+ * didapat di worker (listener), yang kemudian queue proses attach file.
+ */
+const createFulfillmentReceipts = async (body, user) => {
+  try {
+    const {
+      function_type,
+      transaction_type,
+      transaction_id,
+      items,
+      file,
+    } = body;
+
+    if (!VALID_FUNCTION_TYPES.includes(function_type)) {
+      throw {
+        message: `function_type harus salah satu dari: ${VALID_FUNCTION_TYPES.join(", ")}`,
+        statusCode: 400,
+      };
+    }
+
+    if (!VALID_TRANSACTION_TYPES.includes(transaction_type)) {
+      throw {
+        message: `transaction_type harus salah satu dari: ${VALID_TRANSACTION_TYPES.join(", ")}`,
+        statusCode: 400,
+      };
+    }
+
+    if (!transaction_id) {
+      throw { message: "transaction_id tidak boleh kosong", statusCode: 400 };
+    }
+
+    if (!Array.isArray(items) || items.length === 0) {
+      throw { message: "items tidak boleh kosong", statusCode: 400 };
+    }
+
+    const userEmail = user?.email || null;
+
+    let uploadedFile = null;
+    if (file) {
+      const path = require("path");
+      const nextcloud = require("../../utils/nextcloud");
+
+      const extension = path.extname(file.originalname);
+      const baseName = path.basename(file.originalname, extension);
+      const normalizedBaseName = baseName.toLowerCase().replace(/\s+/g, "_");
+      const fileNameOriginal = `${Date.now()}_${normalizedBaseName}${extension}`;
+
+      const year = new Date().getFullYear();
+      const uploadDir = `/NetSuite/Items/${transaction_type}/${year}`;
+      const filePath = `${uploadDir}/${fileNameOriginal}`;
+
+      await nextcloud.ensureDirectoryExists(uploadDir);
+      await nextcloud.client.putFileContents(filePath, file.buffer);
+      const shareUrl = await nextcloud.generateShareLink(filePath);
+
+      uploadedFile = {
+        fileName: file.originalname,
+        fileNameOriginal,
+        storagePath: filePath,
+        fileUrl: shareUrl,
+      };
+    }
+
+    const { publishToRabbitMqQueueSingle } = require("../../config/rabbitmq");
+    const { EXCHANGES, QUEUE } = require("../../utils/constant");
+
+    const isReceipts = function_type === "receipts";
+    const exchangeName = isReceipts
+      ? EXCHANGES.ITEM_RECEIPT_CREATE
+      : EXCHANGES.ITEM_FULFILLMENT_CREATE;
+    const queueName = isReceipts
+      ? QUEUE.ITEM_RECEIPT_CREATE
+      : QUEUE.ITEM_FULFILLMENT_CREATE;
+
+    await publishToRabbitMqQueueSingle(
+      exchangeName,
+      queueName,
+      {
+        function_type,
+        transaction_type,
+        transaction_id,
+        items,
+        note: "created by login email",
+        noteTitle: userEmail,
+        file: uploadedFile,
+        userEmail,
+      },
+      {
+        durable: true,
+        arguments: {
+          "x-dead-letter-exchange": `${exchangeName}-retry`,
+        },
+      },
+    );
+
+    return {
+      function_type,
+      transaction_type,
+      transaction_id,
+      file: uploadedFile
+        ? { fileName: uploadedFile.fileName, fileUrl: uploadedFile.fileUrl }
+        : null,
+    };
+  } catch (error) {
+    if (error.statusCode) throw error;
+    if (error.response) {
+      throw {
+        message:
+          error.response.data?.message ||
+          "Failed to queue item receipt/fulfillment",
+        statusCode: error.response.status,
+        errors: error.response.data,
+      };
+    }
+    throw { message: error.message, statusCode: 500 };
+  }
+};
+
 module.exports = {
   getItemsList,
   syncItemsList,
@@ -610,4 +784,6 @@ module.exports = {
   getItemReceipts,
   getItemReceiptById,
   createItemReceipt,
+  createItemFulfillment,
+  createFulfillmentReceipts,
 };

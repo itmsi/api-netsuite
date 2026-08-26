@@ -328,27 +328,43 @@ const itemsPaths = {
       },
     },
   },
-  "/items/create-receipts": {
+  "/items/create-fulfillment-receipts": {
     post: {
       tags: ["Items"],
-      summary: "Create item receipt via bridge API",
+      summary: "Create item receipt/fulfillment via bridge API (async, dengan lampiran file)",
       description:
-        "Hit bridge API `POST /api/v1/bridge/items/item-receipt` untuk membuat item receipt dari purchase order, transfer order, atau customer return.",
+        "Membuat item receipt atau item fulfillment secara asynchronous via bridge API (`POST /api/v1/bridge/items/item-receipt` atau `POST /api/v1/bridge/items/item-fulfillment`), tergantung `function_type`. " +
+        "Request berupa `multipart/form-data` dengan lampiran file opsional (single file). " +
+        "Proses dijalankan lewat queue + listener: (1) request diterima dan langsung di-queue, (2) worker hit bridge API dan mengambil netsuite_id dari response " +
+        "(`goods_receipts[0].id` untuk receipts, `fulfillment_id` untuk fulfillment), (3) jika ada file lampiran, worker meng-queue proses attach file (mirip modul attach_file) " +
+        "dengan `type` berupa `{transaction_type}_{function_type}` (contoh: `transfer_order_fulfillment`, `purchase_order_receipts`).",
       security: [{ bearerAuth: [] }],
       requestBody: {
         required: true,
         content: {
-          "application/json": {
-            schema: { $ref: "#/components/schemas/CreateReceiptRequest" },
+          "multipart/form-data": {
+            schema: {
+              $ref: "#/components/schemas/CreateFulfillmentReceiptsRequest",
+            },
           },
         },
       },
       responses: {
         200: {
-          description: "Success",
+          description: "Success - request diterima dan sedang diproses",
           content: {
             "application/json": {
-              schema: { $ref: "#/components/schemas/CreateReceiptResponse" },
+              schema: {
+                $ref: "#/components/schemas/CreateFulfillmentReceiptsResponse",
+              },
+            },
+          },
+        },
+        400: {
+          description: "Bad Request - payload tidak valid",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
             },
           },
         },

@@ -37,12 +37,12 @@ const transferOrdersSchema = {
         description: "Cari di tranid, netsuite_id, atau memo",
         example: "Transfer order memo",
       },
-      location: {
+      from_location_id: {
         type: "integer",
         description: "Filter by from_location_id",
         example: 1,
       },
-      transferlocation: {
+      to_location_id: {
         type: "integer",
         description: "Filter by to_location_id",
         example: 4,

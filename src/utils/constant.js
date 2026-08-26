@@ -353,6 +353,9 @@ module.exports = {
     TRANSFER_ORDER_CREATE: "transfer-order-create-v5",
     TRANSFER_ORDER_UPDATE: "transfer-order-update-v5",
     SYNC_ORCHESTRATOR: "sync-orchestrator",
+    ITEM_RECEIPT_CREATE: "item-receipt-create-v5",
+    ITEM_FULFILLMENT_CREATE: "item-fulfillment-create-v5",
+    ITEM_ATTACH_FILE: "item-attach-file-create-v5",
   },
   ACTION_TRX: {
     INSERT: "insert",
@@ -383,6 +386,9 @@ module.exports = {
     TRANSFER_ORDER_CREATE: "transfer-order-creation-v5",
     TRANSFER_ORDER_UPDATE: "transfer-order-update-v5",
     SYNC_ORCHESTRATOR: "sync-orchestrator",
+    ITEM_RECEIPT_CREATE: "item-receipt-creation-v5",
+    ITEM_FULFILLMENT_CREATE: "item-fulfillment-creation-v5",
+    ITEM_ATTACH_FILE: "item-attach-file-creation-v5",
   },
   ENUM: {
     Y: "Y",

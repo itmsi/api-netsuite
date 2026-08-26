@@ -2,6 +2,12 @@ const express = require("express");
 const router = express.Router();
 const controller = require("./controller");
 const { verifyToken } = require("../../middlewares");
+const multer = require("multer");
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: parseInt(process.env.UPLOAD_MAX_SIZE || "52428800") },
+});
 
 /**
  * @route   POST /api/netsuite/items/get-list
@@ -46,10 +52,16 @@ router.get("/get-receipts/:id", verifyToken, controller.getItemReceiptById);
 router.get("/sync/:id", verifyToken, controller.syncById);
 
 /**
- * @route   POST /api/netsuite/items/create-receipts
- * @desc    Create item receipt via bridge API
+ * @route   POST /api/netsuite/items/create-fulfillment-receipts
+ * @desc    Create item receipt/fulfillment (multipart/form-data, dengan lampiran
+ *          file opsional) via bridge API secara asynchronous (queue + listener)
  * @access  Private
  */
-router.post("/create-receipts", verifyToken, controller.createReceipts);
+router.post(
+  "/create-fulfillment-receipts",
+  verifyToken,
+  upload.single("file"),
+  controller.createFulfillmentReceipts,
+);
 
 module.exports = router;

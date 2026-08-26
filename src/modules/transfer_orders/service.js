@@ -69,11 +69,11 @@ const getTransferOrders = async (body) => {
           .orWhereILike("t.memo", `%${body.search}%`);
       });
     }
-    if (body.location) {
-      query = query.where("t.from_location_id", body.location);
+    if (body.from_location_id) {
+      query = query.where("t.from_location_id", body.from_location_id);
     }
-    if (body.transferlocation) {
-      query = query.where("t.to_location_id", body.transferlocation);
+    if (body.to_location_id) {
+      query = query.where("t.to_location_id", body.to_location_id);
     }
     if (body.status_name && body.status_name.length) {
       const statusNames = Array.isArray(body.status_name)
