@@ -75,11 +75,43 @@ const getTransferOrders = async (body) => {
     if (body.transferlocation) {
       query = query.where("t.to_location_id", body.transferlocation);
     }
-    if (body.status_name) {
-      query = query.where("t.status_name", body.status_name);
+    if (body.status_name && body.status_name.length) {
+      const statusNames = Array.isArray(body.status_name)
+        ? body.status_name
+        : [body.status_name];
+      query = query.whereIn("t.status_name", statusNames);
     }
-    if (body.status_code) {
-      query = query.where("t.status_code", body.status_code);
+    if (body.status_code && body.status_code.length) {
+      const statusCodes = Array.isArray(body.status_code)
+        ? body.status_code
+        : [body.status_code];
+      query = query.whereIn("t.status_code", statusCodes);
+    }
+
+    // Handle classes filter (parent and children)
+    let classIds = [];
+    if (body.classes) {
+      const parentIdStr = body.classes.toString();
+      classIds.push(parentIdStr);
+
+      // Step 2 & 3: Cek ke tabel class untuk child yang memiliki parent_id tersebut
+      const children = await dbNetsuite("class")
+        .select("netsuite_id")
+        .where("parent_id", parentIdStr)
+        .andWhere("is_delete", false)
+        .whereNull("deleted_at");
+
+      // Step 4 & 5: Masukan daftar netsuite_id tersebut
+      if (children && children.length > 0) {
+        children.forEach((child) => {
+          if (child.netsuite_id) classIds.push(child.netsuite_id.toString());
+        });
+      }
+    }
+
+    // Step 6: Apply class filter
+    if (classIds.length > 0) {
+      query = query.whereIn("t.class", classIds);
     }
 
     const countResult = await query.clone().count("* as total").first();
