@@ -81,6 +81,7 @@ const getItemsList = async (body) => {
         "type as itemType",
         "display_name as displayName",
         "last_modified_netsuite as lastModifiedDate",
+        "price_levels as priceLevels",
         "data",
       ])
       .orderBy(orderCol, sortOrder)
@@ -94,6 +95,7 @@ const getItemsList = async (body) => {
       itemType: row.itemType,
       displayName: row.displayName || "",
       lastModifiedDate: row.lastModifiedDate,
+      priceLevels: row.priceLevels,
       locations: row.data && row.data.locations ? row.data.locations : [],
     }));
 
@@ -180,11 +182,15 @@ const syncItemById = async (id) => {
       process.env.BRIDGE_BASE_URL || "https://api-bridge-sb.motorsights.com";
     const url = `${baseUrl}/api/v1/bridge/items/sync/netsuite/${id}`;
 
-    const response = await axios.post(url, {}, {
-      headers: {
-        Authorization: `Bearer ${token}`,
+    const response = await axios.post(
+      url,
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       },
-    });
+    );
 
     return response.data;
   } catch (error) {
