@@ -43,7 +43,17 @@ const getById = async (req, res) => {
         .json({ success: false, message: "Parameter id tidak boleh kosong" });
     }
 
-    const result = await service.getTransferOrderById(id);
+    let result;
+    try {
+      result = await service.getTransferOrderById(id);
+    } catch (error) {
+      if (error.statusCode !== 404) throw error;
+
+      // Data tidak ditemukan di DB lokal, sync dulu ke netsuite lalu cek ulang
+      await service.syncTransferOrderToBridge(id);
+      result = await service.getTransferOrderById(id);
+    }
+
     const to = result.data;
 
     return res.status(200).json({

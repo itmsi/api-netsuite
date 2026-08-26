@@ -217,7 +217,7 @@ const getTransferOrderById = async (id) => {
     // Cari dulu berdasarkan netsuite_id, jika tidak ketemu cari berdasarkan id (UUID)
     let record = await baseQuery().where("t.netsuite_id", id).first();
 
-    if (!record) {
+    if (!record && isUuid(id)) {
       record = await baseQuery().where("t.id", id).first();
     }
 
@@ -337,6 +337,10 @@ const createTransferOrder = async (body, user, userId) => {
         status: body.status,
         incoterm: body.incoterm,
         employee: body.employee,
+        firmed: body.firmed,
+        useitemcostastransfercost: body.useitemcostastransfercost,
+        custbody_me_logistic_vendor: body.custbody_me_logistic_vendor,
+        custbody_me_inv_customer: body.custbody_me_inv_customer,
       }),
       files: body.files ? JSON.stringify(body.files) : null,
       raw_request: JSON.stringify(body),
@@ -492,6 +496,10 @@ const updateTransferOrder = async (body, user, userId) => {
         status: body.status,
         incoterm: body.incoterm,
         employee: body.employee,
+        firmed: body.firmed,
+        useitemcostastransfercost: body.useitemcostastransfercost,
+        custbody_me_logistic_vendor: body.custbody_me_logistic_vendor,
+        custbody_me_inv_customer: body.custbody_me_inv_customer,
       }),
       files: body.files ? JSON.stringify(body.files) : null,
       raw_request: JSON.stringify(body),

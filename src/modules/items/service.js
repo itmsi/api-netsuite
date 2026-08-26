@@ -554,6 +554,46 @@ const getItemReceiptById = async (id) => {
   }
 };
 
+/**
+ * Create item receipt — hit bridge API
+ * Hit: POST {BRIDGE_BASE_URL}/api/v1/bridge/items/item-receipt
+ */
+const createItemReceipt = async (body) => {
+  try {
+    const tokenResponse = await authService.getToken();
+    const token = tokenResponse.data.access_token;
+
+    const baseUrl =
+      process.env.BRIDGE_BASE_URL || "https://api-bridge-sb.motorsights.com";
+    const url = `${baseUrl}/api/v1/bridge/items/item-receipt`;
+
+    const requestData = {
+      transaction_type: body.transaction_type,
+      transaction_id: body.transaction_id,
+      items: body.items,
+    };
+
+    const response = await axios.post(url, requestData, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw {
+        message:
+          error.response.data?.message || "Failed to create item receipt",
+        statusCode: error.response.status,
+        errors: error.response.data,
+      };
+    }
+    throw { message: error.message, statusCode: 500 };
+  }
+};
+
 module.exports = {
   getItemsList,
   syncItemsList,
@@ -563,4 +603,5 @@ module.exports = {
   getItemLocation,
   getItemReceipts,
   getItemReceiptById,
+  createItemReceipt,
 };

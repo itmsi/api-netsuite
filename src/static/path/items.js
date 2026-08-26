@@ -328,6 +328,49 @@ const itemsPaths = {
       },
     },
   },
+  "/items/create-receipts": {
+    post: {
+      tags: ["Items"],
+      summary: "Create item receipt via bridge API",
+      description:
+        "Hit bridge API `POST /api/v1/bridge/items/item-receipt` untuk membuat item receipt dari purchase order, transfer order, atau customer return.",
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/CreateReceiptRequest" },
+          },
+        },
+      },
+      responses: {
+        200: {
+          description: "Success",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/CreateReceiptResponse" },
+            },
+          },
+        },
+        401: {
+          description: "Unauthorized",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+            },
+          },
+        },
+        500: {
+          description: "Internal Server Error",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+            },
+          },
+        },
+      },
+    },
+  },
 };
 
 module.exports = itemsPaths;

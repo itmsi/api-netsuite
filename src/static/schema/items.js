@@ -291,6 +291,39 @@ const itemsSchemas = {
       message: { type: "string", example: "Data receipt berhasil diambil" },
     },
   },
+  CreateReceiptRequest: {
+    type: "object",
+    required: ["transaction_type", "transaction_id", "items"],
+    properties: {
+      transaction_type: {
+        type: "string",
+        enum: ["purchase_order", "transfer_order", "customer_return"],
+        example: "purchase_order/transfer_order/customer_return",
+      },
+      transaction_id: { type: "string", example: "46555" },
+      items: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            line: { type: "integer", example: 1 },
+            quantity: { type: "number", example: 1 },
+          },
+        },
+      },
+    },
+  },
+  CreateReceiptResponse: {
+    type: "object",
+    properties: {
+      success: { type: "boolean", example: true },
+      data: {
+        type: "object",
+        description: "Response dari bridge API atas pembuatan item receipt",
+      },
+      message: { type: "string", example: "Item receipt berhasil dibuat" },
+    },
+  },
 };
 
 module.exports = itemsSchemas;

@@ -187,6 +187,29 @@ const getItemReceiptById = async (req, res) => {
   }
 };
 
+/**
+ * Create item receipt via bridge API
+ */
+const createReceipts = async (req, res) => {
+  try {
+    const result = await service.createItemReceipt(req.body);
+    return baseResponse(res, {
+      data: {
+        success: true,
+        data: result,
+        message: "Item receipt berhasil dibuat",
+      },
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+      errors: error.errors || error,
+    });
+  }
+};
+
 module.exports = {
   getList,
   sync,
@@ -194,4 +217,5 @@ module.exports = {
   getItemLocation,
   getItemReceipts,
   getItemReceiptById,
+  createReceipts,
 };

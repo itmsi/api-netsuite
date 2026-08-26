@@ -45,4 +45,11 @@ router.get("/get-receipts/:id", verifyToken, controller.getItemReceiptById);
  */
 router.get("/sync/:id", verifyToken, controller.syncById);
 
+/**
+ * @route   POST /api/netsuite/items/create-receipts
+ * @desc    Create item receipt via bridge API
+ * @access  Private
+ */
+router.post("/create-receipts", verifyToken, controller.createReceipts);
+
 module.exports = router;
