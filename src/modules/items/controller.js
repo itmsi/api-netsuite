@@ -188,6 +188,60 @@ const getItemReceiptById = async (req, res) => {
 };
 
 /**
+ * Get fulfillments from local fulfillments table
+ */
+const getItemFulfillments = async (req, res) => {
+  try {
+    const result = await service.getItemFulfillments(req.body);
+    return baseResponse(res, {
+      data: {
+        success: true,
+        data: result,
+        message: "Data fulfillments berhasil diambil",
+      },
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+      errors: error.errors || error,
+    });
+  }
+};
+
+/**
+ * Get fulfillment detail by id from local fulfillments table
+ */
+const getItemFulfillmentById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Parameter id tidak boleh kosong",
+      });
+    }
+
+    const result = await service.getItemFulfillmentById(id);
+    return baseResponse(res, {
+      data: {
+        success: true,
+        data: result,
+        message: "Data fulfillment berhasil diambil",
+      },
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+      errors: error.errors || error,
+    });
+  }
+};
+
+/**
  * Create item receipt/fulfillment (multipart/form-data, dengan lampiran file opsional)
  * via bridge API secara asynchronous menggunakan queue + listener.
  */
@@ -254,5 +308,7 @@ module.exports = {
   getItemLocation,
   getItemReceipts,
   getItemReceiptById,
+  getItemFulfillments,
+  getItemFulfillmentById,
   createFulfillmentReceipts,
 };

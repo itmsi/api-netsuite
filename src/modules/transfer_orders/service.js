@@ -184,6 +184,40 @@ const getTransferOrderById = async (id) => {
           "gate_sso_employees as updated_emp",
           dbNetsuite.raw("t.updated_by::text = updated_emp.employee_id::text"),
         )
+        .leftJoin(
+          "locations as l",
+          dbNetsuite.raw("l.netsuite_id::text = t.from_location_id::text"),
+        )
+        .leftJoin(
+          "locations as l2",
+          dbNetsuite.raw("l2.netsuite_id::text = t.to_location_id::text"),
+        )
+        .leftJoin(
+          "customforms as c",
+          dbNetsuite.raw("c.customform_id::text = t.customform::text"),
+        )
+        .leftJoin(
+          "subsidiarys as s",
+          dbNetsuite.raw("s.netsuite_id::text = t.subsidiary_id::text"),
+        )
+        .leftJoin(
+          "departments as d",
+          dbNetsuite.raw("d.netsuite_id::text = t.department_id::text"),
+        )
+        .leftJoin(
+          "class as c2",
+          dbNetsuite.raw("c2.netsuite_id::text = t.class_id::text"),
+        )
+        .leftJoin(
+          "gate_sso_employees as gse",
+          dbNetsuite.raw(
+            "gse.employee_id_netsuite::text = t.employee_id::text",
+          ),
+        )
+        .leftJoin(
+          "customers as c3",
+          dbNetsuite.raw("c3.netsuite_id::text = t.customer_id::text"),
+        )
         .select([
           "t.id",
           "t.netsuite_id",
@@ -191,9 +225,13 @@ const getTransferOrderById = async (id) => {
           "t.status_code",
           "t.status_name",
           "t.from_location_id",
-          "t.from_location_name",
+          dbNetsuite.raw(
+            "COALESCE(NULLIF(t.from_location_name, ''), l.name) AS from_location_name",
+          ),
           "t.to_location_id",
-          "t.to_location_name",
+          dbNetsuite.raw(
+            "COALESCE(NULLIF(t.to_location_name, ''), l2.name) AS to_location_name",
+          ),
           "t.memo",
           "t.last_modified_netsuite",
           "t.created_at",
@@ -221,13 +259,23 @@ const getTransferOrderById = async (id) => {
           "t.status",
           "t.incoterm_id",
           "t.employee_id",
-          "t.subsidiary_name",
-          "t.department_name",
-          "t.class_name",
+          dbNetsuite.raw(
+            "COALESCE(NULLIF(t.subsidiary_name, ''), s.subsidiary_name) AS subsidiary_name",
+          ),
+          dbNetsuite.raw(
+            "COALESCE(NULLIF(t.department_name, ''), d.name) AS department_name",
+          ),
+          dbNetsuite.raw(
+            "COALESCE(NULLIF(t.class_name, ''), c2.name) AS class_name",
+          ),
           "t.incoterm_name",
-          "t.employee_name",
+          dbNetsuite.raw(
+            "COALESCE(NULLIF(t.employee_name, ''), gse.employee_name) AS employee_name",
+          ),
           "t.customer_id",
-          "t.customer_name",
+          dbNetsuite.raw(
+            "COALESCE(NULLIF(t.customer_name, ''), c3.name) AS customer_name",
+          ),
           "t.logistic_vendor_id",
           "t.logistic_vendor_name",
           "t.firmed",

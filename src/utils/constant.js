@@ -699,5 +699,18 @@ module.exports = {
       table: "project_segmentations",
       deleteCol: null,
     },
+    fulfillments: {
+      url: `${process.env.BRIDGE_BASE_URL || "http://localhost:9570"}/api/v1/bridge/fulfillments/get-list`,
+      data: {
+        page: 1,
+        page_size: 10,
+        is_sync: true,
+        sort_by: "lastmodifieddate",
+        sort_order: "DESC",
+        filters: {},
+      },
+      table: "fulfillments",
+      deleteCol: null,
+    },
   },
 };

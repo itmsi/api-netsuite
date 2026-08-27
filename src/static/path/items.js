@@ -328,6 +328,94 @@ const itemsPaths = {
       },
     },
   },
+  "/items/get-fulfillment": {
+    post: {
+      tags: ["Items"],
+      summary: "Get fulfillments dari local database",
+      description:
+        "Fetch fulfillments dari tabel lokal bridge_sanbox.fulfillments dengan pagination dan filter sederhana.",
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/FulfillmentsRequest" },
+          },
+        },
+      },
+      responses: {
+        200: {
+          description: "Success",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/FulfillmentsListResponse" },
+            },
+          },
+        },
+        500: {
+          description: "Internal Server Error",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+            },
+          },
+        },
+      },
+    },
+  },
+  "/items/get-fulfillment/{id}": {
+    get: {
+      tags: ["Items"],
+      summary: "Get fulfillment detail by id",
+      description:
+        "Fetch a single fulfillment detail dari tabel lokal bridge_sanbox.fulfillments berdasarkan id (UUID) atau netsuite_id.",
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        {
+          name: "id",
+          in: "path",
+          required: true,
+          schema: { type: "string" },
+          description: "UUID (id) atau netsuite_id dari fulfillment",
+          example: "588",
+        },
+      ],
+      responses: {
+        200: {
+          description: "Success",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/FulfillmentDetailResponse" },
+            },
+          },
+        },
+        400: {
+          description: "Bad Request",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+            },
+          },
+        },
+        404: {
+          description: "Not Found",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+            },
+          },
+        },
+        500: {
+          description: "Internal Server Error",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+            },
+          },
+        },
+      },
+    },
+  },
   "/items/create-fulfillment-receipts": {
     post: {
       tags: ["Items"],

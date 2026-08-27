@@ -45,6 +45,24 @@ router.post("/get-receipts", verifyToken, controller.getItemReceipts);
 router.get("/get-receipts/:id", verifyToken, controller.getItemReceiptById);
 
 /**
+ * @route   POST /api/netsuite/items/get-fulfillment
+ * @desc    Get fulfillments from local database
+ * @access  Private
+ */
+router.post("/get-fulfillment", verifyToken, controller.getItemFulfillments);
+
+/**
+ * @route   GET /api/netsuite/items/get-fulfillment/:id
+ * @desc    Get fulfillment detail by id (UUID or netsuite_id) from local database
+ * @access  Private
+ */
+router.get(
+  "/get-fulfillment/:id",
+  verifyToken,
+  controller.getItemFulfillmentById,
+);
+
+/**
  * @route   GET /api/netsuite/items/sync/:id
  * @desc    Sync single item by ID dari bridge API
  * @access  Private

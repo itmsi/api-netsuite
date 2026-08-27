@@ -560,6 +560,190 @@ const getItemReceiptById = async (id) => {
   }
 };
 
+const FULFILLMENT_COLUMNS = [
+  "id",
+  "netsuite_id",
+  "number",
+  "date",
+  "status",
+  "status_label",
+  "memo",
+  "entity_id",
+  "entity_name",
+  "createdfrom_id",
+  "createdfrom_number",
+  "postingperiod",
+  "last_modified",
+  "created_by_netsuite",
+  "custbody_me_wf_created_by",
+  "custbody_me_approval_status",
+  "custbody_me_approval_status_display",
+  "custbody_me_delegate_approver",
+  "custbody_me_wf_in_delegation",
+  "custbody_me_wf_next_approver_blank",
+  "nextapprover",
+  "custbody_cseg_cn_cfi",
+  "custbody_cseg_cn_cfi_display",
+  "custbody_me_logistic_vendor",
+  "custbody_me_logistic_vendor_display",
+  "custbody_me_gross_weight",
+  "custbody_me_related_invoice",
+  "custbody_me_rate_id",
+  "custbody_me_rate_id_display",
+  "custbody_me_packages",
+  "custbody_me_total_packages",
+  "subsidiary",
+  "subsidiary_display",
+  "location",
+  "location_display",
+  "transferlocation",
+  "transferlocation_display",
+  "department",
+  "department_display",
+  "class",
+  "class_display",
+  "datecreated",
+  "lines",
+  "user_notes",
+  "files",
+  "created_at",
+  "created_by",
+  "updated_at",
+  "updated_by",
+  "deleted_at",
+  "deleted_by",
+  "is_delete",
+];
+
+/**
+ * Get fulfillments from local fulfillments table
+ */
+const getItemFulfillments = async (body) => {
+  try {
+    const page = parseInt(body.page) || 1;
+    const limit = parseInt(body.limit || body.page_size) || 20;
+    const offset = (page - 1) * limit;
+    const sortOrder = body.sort_order ? body.sort_order.toUpperCase() : "DESC";
+
+    const validSortColumns = [
+      "last_modified",
+      "number",
+      "date",
+      "datecreated",
+      "created_at",
+      "updated_at",
+    ];
+    const orderCol = validSortColumns.includes(body.sort_by)
+      ? body.sort_by
+      : "last_modified";
+
+    let query = dbNetsuite("fulfillments")
+      .where("is_delete", false)
+      .whereNotNull("netsuite_id")
+      .where("netsuite_id", "!=", "");
+
+    if (body.search) {
+      query = query.where(function () {
+        this.whereILike("number", `%${body.search}%`)
+          .orWhereILike("entity_name", `%${body.search}%`)
+          .orWhereILike("createdfrom_number", `%${body.search}%`)
+          .orWhereILike("subsidiary_display", `%${body.search}%`)
+          .orWhereILike("location_display", `%${body.search}%`);
+      });
+    }
+
+    if (body.status) {
+      query = query.where("status", body.status);
+    }
+
+    if (body.entity_id) {
+      query = query.where("entity_id", body.entity_id);
+    }
+
+    if (body.location) {
+      query = query.where("location", body.location);
+    }
+
+    // Handle classes filter (parent and children)
+    let classIds = [];
+    if (body.classes) {
+      const parentIdStr = body.classes.toString();
+      classIds.push(parentIdStr);
+
+      const children = await dbNetsuite("class")
+        .select("netsuite_id")
+        .where("parent_id", parentIdStr)
+        .andWhere("is_delete", false)
+        .whereNull("deleted_at");
+
+      if (children && children.length > 0) {
+        children.forEach((child) => {
+          if (child.netsuite_id) classIds.push(child.netsuite_id.toString());
+        });
+      }
+    }
+
+    if (classIds.length > 0) {
+      query = query.whereIn("class", classIds);
+    }
+
+    const countResult = await query.clone().count("* as total").first();
+    const total = parseInt(countResult.total) || 0;
+    const totalPages = Math.ceil(total / limit);
+
+    const rows = await query
+      .clone()
+      .select(FULFILLMENT_COLUMNS)
+      .orderBy(orderCol, sortOrder)
+      .limit(limit)
+      .offset(offset);
+
+    return {
+      items: rows,
+      pagination: { page, limit, total, totalPages },
+    };
+  } catch (error) {
+    throw {
+      message: error.message || "Failed to fetch fulfillments from database",
+      statusCode: 500,
+    };
+  }
+};
+
+/**
+ * Get single fulfillment detail by id (UUID) or netsuite_id from local fulfillments table
+ */
+const getItemFulfillmentById = async (id) => {
+  try {
+    const query = () =>
+      dbNetsuite("fulfillments")
+        .where("is_delete", false)
+        .select(FULFILLMENT_COLUMNS);
+
+    let item;
+    if (/^\d+$/.test(id)) {
+      item = await query().where("netsuite_id", id).first();
+    }
+
+    if (!item) {
+      item = await query().where("id", id).first();
+    }
+
+    if (!item) {
+      throw { message: "Data fulfillment tidak ditemukan", statusCode: 404 };
+    }
+
+    return item;
+  } catch (error) {
+    if (error.statusCode) throw error;
+    throw {
+      message:
+        error.message || "Failed to fetch fulfillment detail from database",
+      statusCode: 500,
+    };
+  }
+};
+
 /**
  * Create item receipt — hit bridge API
  * Hit: POST {BRIDGE_BASE_URL}/api/v1/bridge/items/item-receipt
@@ -788,6 +972,8 @@ module.exports = {
   getItemLocation,
   getItemReceipts,
   getItemReceiptById,
+  getItemFulfillments,
+  getItemFulfillmentById,
   createItemReceipt,
   createItemFulfillment,
   createFulfillmentReceipts,
