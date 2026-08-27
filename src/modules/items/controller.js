@@ -193,8 +193,14 @@ const getItemReceiptById = async (req, res) => {
  */
 const createFulfillmentReceipts = async (req, res) => {
   try {
-    const { function_type, transaction_type, transaction_id, items } =
-      req.body;
+    const {
+      function_type,
+      transaction_type,
+      transaction_id,
+      items,
+      note,
+      note_title,
+    } = req.body;
 
     let parsedItems = items;
     if (typeof items === "string") {
@@ -215,6 +221,8 @@ const createFulfillmentReceipts = async (req, res) => {
         transaction_id,
         items: parsedItems,
         file: req.file,
+        note,
+        note_title,
       },
       req.user,
     );

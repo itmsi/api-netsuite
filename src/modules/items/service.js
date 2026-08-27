@@ -667,6 +667,8 @@ const createFulfillmentReceipts = async (body, user) => {
       transaction_id,
       items,
       file,
+      note,
+      note_title,
     } = body;
 
     if (!VALID_FUNCTION_TYPES.includes(function_type)) {
@@ -704,7 +706,10 @@ const createFulfillmentReceipts = async (body, user) => {
       const fileNameOriginal = `${Date.now()}_${normalizedBaseName}${extension}`;
 
       const year = new Date().getFullYear();
-      const uploadDir = `/NetSuite/Items/${nextcloud.toPascalCase(transaction_type)}/${year}`;
+      const functionTypeFolder =
+        function_type === "receipts" ? "Receipt" : "Fulfillment";
+      const uploadDir = `/NetSuite/Items/${functionTypeFolder}/${year}`;
+      // const uploadDir = `/NetSuite/Items/${nextcloud.toPascalCase(transaction_type)}/${functionTypeFolder}/${year}`;
       const filePath = `${uploadDir}/${fileNameOriginal}`;
 
       await nextcloud.ensureDirectoryExists(uploadDir);
@@ -738,8 +743,8 @@ const createFulfillmentReceipts = async (body, user) => {
         transaction_type,
         transaction_id,
         items,
-        note: "created by login email",
-        noteTitle: userEmail,
+        note: note || "created by login email",
+        noteTitle: note_title || userEmail,
         file: uploadedFile,
         userEmail,
       },

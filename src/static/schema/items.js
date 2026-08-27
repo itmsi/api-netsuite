@@ -299,7 +299,8 @@ const itemsSchemas = {
         type: "string",
         enum: ["receipts", "fulfillment"],
         example: "receipts",
-        description: "Menentukan proses yang dijalankan: item receipt atau item fulfillment",
+        description:
+          "Menentukan proses yang dijalankan: item receipt atau item fulfillment",
       },
       transaction_type: {
         type: "string",
@@ -326,6 +327,18 @@ const itemsSchemas = {
         type: "string",
         format: "binary",
         description: "Lampiran file (opsional, single file)",
+      },
+      note: {
+        type: "string",
+        description:
+          "identifikasi proses ini di jalanan dari apps MSI atau dari WMS ITI",
+        example: "created by login email (apps)",
+      },
+      note_title: {
+        type: "string",
+        description:
+          "identifikasi proses ini di jalanan dari email login apps (dari apps),  WMS (dari ITI)",
+        example: "dharmaridwan@motorsights.net",
       },
     },
   },
