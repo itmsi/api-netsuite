@@ -704,7 +704,7 @@ const createFulfillmentReceipts = async (body, user) => {
       const fileNameOriginal = `${Date.now()}_${normalizedBaseName}${extension}`;
 
       const year = new Date().getFullYear();
-      const uploadDir = `/NetSuite/Items/${transaction_type}/${year}`;
+      const uploadDir = `/NetSuite/Items/${nextcloud.toPascalCase(transaction_type)}/${year}`;
       const filePath = `${uploadDir}/${fileNameOriginal}`;
 
       await nextcloud.ensureDirectoryExists(uploadDir);

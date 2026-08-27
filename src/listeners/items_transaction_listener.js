@@ -1,9 +1,11 @@
+const path = require("path");
 const {
   connectRabbitMQ,
   publishToRabbitMqQueueSingle,
 } = require("../config/rabbitmq");
 const { EXCHANGES, QUEUE } = require("../utils/constant");
 const itemsService = require("../modules/items/service");
+const nextcloud = require("../utils/nextcloud");
 
 /**
  * Worker logic for processing item receipt/fulfillment creation.
@@ -42,11 +44,37 @@ const methodExecution = async (payload, channel, msg, functionType) => {
         ? result?.goods_receipts?.[0]?.id
         : result?.fulfillment_id;
 
+    const documentNo =
+      functionType === "receipts"
+        ? result?.goods_receipts?.[0]?.tranid
+        : result?.document_no;
+
     console.info(
-      `[Worker] Item ${functionType} created, netsuite_id: ${netsuiteId}`,
+      `[Worker] Item ${functionType} created, netsuite_id: ${netsuiteId}, document_no: ${documentNo}`,
     );
 
-    if (netsuiteId && file) {
+    let attachedFile = file;
+
+    if (documentNo && file?.storagePath) {
+      try {
+        const currentDir = path.dirname(file.storagePath);
+        const fileName = path.basename(file.storagePath);
+        const newDir = `${currentDir}/${documentNo}`;
+        const newPath = `${newDir}/${fileName}`;
+
+        await nextcloud.ensureDirectoryExists(newDir);
+        await nextcloud.moveFile(file.storagePath, newPath);
+
+        attachedFile = { ...file, storagePath: newPath };
+      } catch (moveError) {
+        console.error(
+          `[Worker] Failed to move file into document folder ${documentNo}:`,
+          moveError.message,
+        );
+      }
+    }
+
+    if (netsuiteId && attachedFile) {
       const exchangeName = EXCHANGES.ITEM_ATTACH_FILE;
       const queueName = QUEUE.ITEM_ATTACH_FILE;
 
@@ -56,7 +84,7 @@ const methodExecution = async (payload, channel, msg, functionType) => {
         {
           netsuite_id: netsuiteId,
           type: `${transaction_type}_${functionType}`,
-          file,
+          file: attachedFile,
           userEmail,
         },
         {
