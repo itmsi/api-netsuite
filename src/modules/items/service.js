@@ -535,6 +535,8 @@ const getItemReceiptById = async (id) => {
         "created_by_name",
         "updated_at",
         "lines",
+        "files",
+        "user_notes",
       ]);
 
     let item;
