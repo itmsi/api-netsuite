@@ -50,6 +50,18 @@ const transferOrdersSchema = {
         description: "Filter by to_location_id",
         example: 4,
       },
+      start_date: {
+        type: "string",
+        description:
+          "Filter tran_date mulai dari tanggal ini (inclusive), format YYYY-MM-DD",
+        example: "2026-07-01",
+      },
+      end_date: {
+        type: "string",
+        description:
+          "Filter tran_date sampai dengan tanggal ini (inclusive), format YYYY-MM-DD",
+        example: "2026-07-31",
+      },
       classes: { type: "string", default: "", example: "" },
       status_name: {
         type: "array",

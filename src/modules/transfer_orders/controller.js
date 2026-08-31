@@ -34,6 +34,35 @@ const getList = async (req, res) => {
 };
 
 /**
+ * Get transfer orders list
+ */
+const getListMobile = async (req, res) => {
+  try {
+    const result = await service.getMobileTransferOrders(req.body);
+
+    const syncInfo = await syncService
+      .getLatestSyncInfo("transfer_orders")
+      .catch(() => null);
+
+    return baseResponse(res, {
+      data: {
+        success: true,
+        data: result,
+        sync_info: syncInfo,
+        message: "Data transfer orders berhasil diambil",
+      },
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+      errors: error.errors || error,
+    });
+  }
+};
+
+/**
  * Get transfer order by ID (id lokal UUID atau netsuite_id)
  */
 const getById = async (req, res) => {
@@ -218,7 +247,9 @@ const uploadTempFile = async (req, res) => {
   try {
     const file = req.file;
     if (!file) {
-      return res.status(400).json({ success: false, message: "No file uploaded" });
+      return res
+        .status(400)
+        .json({ success: false, message: "No file uploaded" });
     }
 
     const { netsuite_id, file_name } = req.body;
@@ -409,7 +440,8 @@ const updateUpload = async (req, res) => {
 
       let folderName = netsuite_id;
       try {
-        const toRecord = await service.getTransferOrderByNetsuiteId(netsuite_id);
+        const toRecord =
+          await service.getTransferOrderByNetsuiteId(netsuite_id);
         if (toRecord && toRecord.tranid) {
           folderName = toRecord.tranid;
           console.info(
@@ -581,6 +613,7 @@ const updateUpload = async (req, res) => {
 
 module.exports = {
   getList,
+  getListMobile,
   getById,
   syncById,
   create,

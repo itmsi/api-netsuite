@@ -88,6 +88,19 @@ const getTransferOrders = async (body) => {
         : [body.status_code];
       query = query.whereIn("t.status_code", statusCodes);
     }
+    // tran_date disimpan sebagai text format D/M/YYYY (mis. "9/7/2026")
+    if (body.start_date) {
+      query = query.whereRaw(
+        "to_date(t.tran_date, 'FMDD/FMMM/YYYY') >= ?::date",
+        [body.start_date],
+      );
+    }
+    if (body.end_date) {
+      query = query.whereRaw(
+        "to_date(t.tran_date, 'FMDD/FMMM/YYYY') <= ?::date",
+        [body.end_date],
+      );
+    }
 
     // Handle classes filter (parent and children)
     let classIds = [];
@@ -152,6 +165,154 @@ const getTransferOrders = async (body) => {
         "t.status_proccess_message",
         "t.created_at",
         "t.updated_at",
+      ])
+      .orderBy(`t.${orderCol}`, sortOrder)
+      .limit(limit)
+      .offset(offset);
+
+    return {
+      items,
+      pagination: { page, limit, total, totalPages },
+    };
+  } catch (error) {
+    throw {
+      message: error.message || "Failed to fetch transfer orders from database",
+      statusCode: 500,
+    };
+  }
+};
+
+/**
+ * Get transfer orders dari DB Netsuite (bridge_sanbox.transfer_orders)
+ */
+const getMobileTransferOrders = async (body) => {
+  try {
+    const page = parseInt(body.page) || 1;
+    const limit = parseInt(body.limit) || 10;
+    const sortOrder = body.sort_order ? body.sort_order.toUpperCase() : "DESC";
+    const offset = (page - 1) * limit;
+
+    const validSortColumns = [
+      "netsuite_id",
+      "tranid",
+      "tran_date",
+      "status_code",
+      "status_name",
+      "from_location_id",
+      "to_location_id",
+      "last_modified_netsuite",
+      "created_at",
+      "updated_at",
+    ];
+    const orderCol = validSortColumns.includes(body.sort_by)
+      ? body.sort_by
+      : "created_at";
+
+    let query = dbNetsuite("transfer_orders as t").where("t.is_delete", false);
+
+    if (body.search) {
+      query = query.where(function () {
+        this.whereILike("t.tranid", `%${body.search}%`)
+          .orWhereILike("t.netsuite_id", `%${body.search}%`)
+          .orWhereILike("t.memo", `%${body.search}%`);
+      });
+    }
+    if (body.from_location_id) {
+      query = query.where("t.from_location_id", body.from_location_id);
+    }
+    if (body.to_location_id) {
+      query = query.where("t.to_location_id", body.to_location_id);
+    }
+    if (body.status_name && body.status_name.length) {
+      const statusNames = Array.isArray(body.status_name)
+        ? body.status_name
+        : [body.status_name];
+      query = query.whereIn("t.status_name", statusNames);
+    }
+    if (body.status_code && body.status_code.length) {
+      const statusCodes = Array.isArray(body.status_code)
+        ? body.status_code
+        : [body.status_code];
+      query = query.whereIn("t.status_code", statusCodes);
+    }
+    // tran_date disimpan sebagai text format D/M/YYYY (mis. "9/7/2026")
+    if (body.start_date) {
+      query = query.whereRaw(
+        "to_date(t.tran_date, 'FMDD/FMMM/YYYY') >= ?::date",
+        [body.start_date],
+      );
+    }
+    if (body.end_date) {
+      query = query.whereRaw(
+        "to_date(t.tran_date, 'FMDD/FMMM/YYYY') <= ?::date",
+        [body.end_date],
+      );
+    }
+
+    // Handle classes filter (parent and children)
+    let classIds = [];
+    if (body.classes) {
+      const parentIdStr = body.classes.toString();
+      classIds.push(parentIdStr);
+
+      // Step 2 & 3: Cek ke tabel class untuk child yang memiliki parent_id tersebut
+      const children = await dbNetsuite("class")
+        .select("netsuite_id")
+        .where("parent_id", parentIdStr)
+        .andWhere("is_delete", false)
+        .whereNull("deleted_at");
+
+      // Step 4 & 5: Masukan daftar netsuite_id tersebut
+      if (children && children.length > 0) {
+        children.forEach((child) => {
+          if (child.netsuite_id) classIds.push(child.netsuite_id.toString());
+        });
+      }
+    }
+
+    // Step 6: Apply class filter
+    if (classIds.length > 0) {
+      query = query.whereIn("t.class", classIds);
+    }
+
+    const countResult = await query.clone().count("* as total").first();
+    const total = parseInt(countResult.total) || 0;
+    const totalPages = Math.ceil(total / limit);
+
+    const items = await query
+      .clone()
+      .leftJoin(
+        "gate_sso_employees as created_emp",
+        dbNetsuite.raw("t.created_by::text = created_emp.employee_id::text"),
+      )
+      .leftJoin(
+        "gate_sso_employees as updated_emp",
+        dbNetsuite.raw("t.updated_by::text = updated_emp.employee_id::text"),
+      )
+      .select([
+        "t.id",
+        "t.netsuite_id",
+        "t.tranid",
+        "t.status_code",
+        "t.status_name",
+        "t.from_location_id",
+        "t.from_location_name",
+        "t.to_location_id",
+        "t.to_location_name",
+        "t.memo",
+        "t.tran_date",
+        "t.datecreated",
+        "t.last_modified_netsuite",
+        "t.custbody_msi_createdby_api",
+        dbNetsuite.raw(
+          "CASE WHEN NULLIF(t.custbody_msi_createdby_api, '') IS NULL THEN COALESCE(NULLIF(created_emp.employee_name, ''), '') ELSE t.custbody_msi_createdby_api END AS created_by_name",
+        ),
+        "updated_emp.employee_name as updated_by_name",
+        "t.status_proccess",
+        "t.status_proccess_message",
+        "t.created_at",
+        "t.updated_at",
+        "t.items",
       ])
       .orderBy(`t.${orderCol}`, sortOrder)
       .limit(limit)
@@ -1175,6 +1336,7 @@ module.exports = {
   normalizeTransferOrderPayloadForBridge,
   getTransferOrderFinalizeTargets,
   getTransferOrders,
+  getMobileTransferOrders,
   getTransferOrderById,
   syncTransferOrderById,
   syncTransferOrderToBridge,

@@ -37,7 +37,15 @@ const methodExecution = async (payload, channel, msg) => {
     );
 
     // Inject internalid (UUID dari tabel transfer_orders lokal) ke payload
-    const dataWithInternalId = { ...data, internalid: to_internal_id };
+    // Bridge/NetSuite mengharapkan format files: [{ file_name, file_url }]
+    const dataWithInternalId = {
+      ...data,
+      internalid: to_internal_id,
+      files: (data.files || []).map((f) => ({
+        file_name: f.fileName || f.file_name,
+        file_url: f.fileUrl || f.file_url,
+      })),
+    };
     const result =
       await transferOrderService.createTransferOrderToBridge(
         dataWithInternalId,
