@@ -222,6 +222,16 @@ const getTransferOrderById = async (id) => {
           "vendors as v2",
           dbNetsuite.raw("v2.netsuite_id::text = t.logistic_vendor_id::text"),
         )
+        // EXPLODE JSON & JOIN MASTER DARI JSON
+        .leftJoin(
+          dbNetsuite.raw(
+            "LATERAL jsonb_array_elements(COALESCE(t.items, '[]'::jsonb)) WITH ORDINALITY AS arr(line, idx) ON TRUE",
+          ),
+        )
+        .leftJoin(
+          "items as i_line",
+          dbNetsuite.raw("(line->>'item') = i_line.netsuite_id::text"),
+        )
         .select([
           "t.id",
           "t.netsuite_id",
@@ -293,7 +303,48 @@ const getTransferOrderById = async (id) => {
           ),
           "updated_emp.employee_name as updated_by_name",
           "t.files",
-          "t.items",
+          dbNetsuite.raw(`
+          jsonb_agg(
+            jsonb_build_object(
+                'line_number', line->>'line_number',
+                'item_id', COALESCE(NULLIF(line->>'item', ''), line->>'item_id'),
+                'item_name', COALESCE(NULLIF(line->>'item_name', ''), i_line.item_id),
+                'item_displayname', COALESCE(NULLIF(line->>'item_displayname', ''), i_line.display_name),
+                'quantity', line->>'quantity',
+                'description', line->>'description',
+                'committed', line->>'committed',
+                'shipped', line->>'shipped',
+                'picked', line->>'picked',
+                'packed', line->>'packed',
+                'fulfilled', line->>'fulfilled',
+                'received', line->>'received',
+                'backorder', line->>'backorder',
+                'transfer_price', line->>'transfer_price',
+                'amount', COALESCE(NULLIF(line->>'amount', ''), line->>'rate'),
+                'units', line->>'units',
+                'from_location_id', line->>'from_location_id',
+                'from_location_name', line->>'from_location_name',
+                'order_priority', line->>'order_priority',
+                'commitment_confirmed', line->>'commitment_confirmed',
+                'closed', line->>'closed',
+                'expected_receipt_date', COALESCE(NULLIF(line->>'expectedreceiptdate', ''), line->>'expected_receipt_date')
+            ) ORDER BY idx ASC
+          ) FILTER (WHERE line IS NOT NULL) AS items
+        `),
+        ])
+        .groupBy([
+          "t.id",
+          "l.name",
+          "l2.name",
+          "c.customform_name",
+          "s.subsidiary_name",
+          "d.name",
+          "c2.name",
+          "gse.employee_name",
+          "c3.name",
+          "v2.entity_id",
+          "created_emp.employee_name",
+          "updated_emp.employee_name",
         ]);
 
     // Cari dulu berdasarkan netsuite_id, jika tidak ketemu cari berdasarkan id (UUID)
@@ -310,7 +361,7 @@ const getTransferOrderById = async (id) => {
       };
     }
 
-    record.items = parseJsonColumn(record.items, []);
+    record.items = record.items || [];
     // record.data = parseJsonColumn(record.data, {});
     record.files = parseJsonColumn(record.files, []);
 
