@@ -218,6 +218,10 @@ const getTransferOrderById = async (id) => {
           "customers as c3",
           dbNetsuite.raw("c3.netsuite_id::text = t.customer_id::text"),
         )
+        .leftJoin(
+          "vendors as v2",
+          dbNetsuite.raw("v2.netsuite_id::text = t.logistic_vendor_id::text"),
+        )
         .select([
           "t.id",
           "t.netsuite_id",
@@ -277,7 +281,9 @@ const getTransferOrderById = async (id) => {
             "COALESCE(NULLIF(t.customer_name, ''), c3.name) AS customer_name",
           ),
           "t.logistic_vendor_id",
-          "t.logistic_vendor_name",
+          dbNetsuite.raw(
+            "COALESCE(NULLIF(t.logistic_vendor_name, ''), v2.entity_id) AS logistic_vendor_name",
+          ),
           "t.firmed",
           "t.use_item_cost_as_transfer_cost",
           "t.total",
