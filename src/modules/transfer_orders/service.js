@@ -601,17 +601,34 @@ const normalizeTransferOrderPayloadForBridge = (body = {}) => {
   return nextBody;
 };
 
+const normalizeNetsuiteIdValue = (value) => String(value ?? "").trim();
+
 const getTransferOrderFinalizeTargets = (tempNetsuiteId, files = []) => {
   if (!Array.isArray(files) || files.length === 0) return [];
+
+  const normalizedTempId = normalizeNetsuiteIdValue(tempNetsuiteId);
 
   return files
     .filter((file) => {
       const sourceNetsuiteId =
         file?.netsuiteId || file?.netsuite_id || file?.tempNetsuiteId;
       const sourceStoragePath = file?.storagePath || file?.storage_path;
+      const normalizedSourceId = normalizeNetsuiteIdValue(sourceNetsuiteId);
+
+      const matchesTempId =
+        normalizedTempId &&
+        normalizedSourceId &&
+        normalizedSourceId === normalizedTempId;
+
+      const matchesPayloadTempId =
+        normalizedSourceId &&
+        normalizedTempId &&
+        normalizedSourceId === normalizedTempId;
+
       return (
-        (sourceNetsuiteId === tempNetsuiteId ||
-          (!sourceNetsuiteId &&
+        (matchesTempId ||
+          matchesPayloadTempId ||
+          (!normalizedSourceId &&
             sourceStoragePath &&
             sourceStoragePath.includes("/Temp/"))) &&
         sourceStoragePath
@@ -995,10 +1012,39 @@ const finalizeUploadedFilesForTO = async (
   try {
     const nextcloud = require("../../utils/nextcloud");
 
-    const dbFiles = await pgCore("transfer_orders_files").where(
-      "netsuite_id",
-      tempNetsuiteId,
+    const normalizedTempId = normalizeNetsuiteIdValue(tempNetsuiteId);
+    const normalizedRealId = normalizeNetsuiteIdValue(realNetsuiteId);
+    const payloadTempIds = Array.from(
+      new Set(
+        (inlineFiles || [])
+          .map((file) =>
+            normalizeNetsuiteIdValue(
+              file?.netsuiteId ?? file?.netsuite_id ?? file?.tempNetsuiteId,
+            ),
+          )
+          .filter(Boolean),
+      ),
     );
+
+    const dbFiles = await pgCore("transfer_orders_files")
+      .where(function () {
+        if (normalizedTempId) {
+          this.orWhereRaw("CAST(netsuite_id AS text) = ?", [normalizedTempId]);
+        }
+        if (normalizedRealId) {
+          this.orWhereRaw("CAST(netsuite_id AS text) = ?", [normalizedRealId]);
+        }
+        if (payloadTempIds.length > 0) {
+          this.orWhere(function () {
+            this.whereIn(
+              pgCore.raw("CAST(netsuite_id AS text)"),
+              payloadTempIds,
+            );
+          });
+        }
+        this.orWhere("storage_path", "ilike", "%/Temp/%");
+      })
+      .orderBy("created_at", "desc");
 
     const directFiles = getTransferOrderFinalizeTargets(
       tempNetsuiteId,

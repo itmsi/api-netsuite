@@ -71,3 +71,27 @@ test("getTransferOrderFinalizeTargets includes inline storagePath files for temp
     },
   ]);
 });
+
+test("getTransferOrderFinalizeTargets matches numeric and string temp ids without type mismatch", () => {
+  const {
+    getTransferOrderFinalizeTargets,
+  } = require("../src/modules/transfer_orders/service");
+
+  const targets = getTransferOrderFinalizeTargets("123", [
+    {
+      netsuiteId: 123,
+      fileUrl: "https://cloud.inlinegroupdc.com/s/abc123",
+      storagePath: "/Temp/123_image.jpg",
+      fileName: "123_image",
+    },
+  ]);
+
+  assert.deepEqual(targets, [
+    {
+      storage_path: "/Temp/123_image.jpg",
+      share_url: "https://cloud.inlinegroupdc.com/s/abc123",
+      file_name: "123_image",
+      netsuite_id: 123,
+    },
+  ]);
+});
