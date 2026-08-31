@@ -250,6 +250,142 @@ const transferOrdersPaths = {
         }
       }
     }
+  },
+
+  '/transfer-orders/upload': {
+    post: {
+      tags: ['Transfer Orders'],
+      summary: 'Upload file to Nextcloud Temp Directory',
+      description: 'Upload a file and get a temporary Nextcloud public share link.',
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          'multipart/form-data': {
+            schema: { $ref: '#/components/schemas/TransferOrderFileUploadRequest' }
+          }
+        }
+      },
+      responses: {
+        200: {
+          description: 'Success',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/TransferOrderFileUploadResponse' }
+            }
+          }
+        },
+        500: {
+          description: 'Internal Server Error',
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+        }
+      }
+    }
+  },
+
+  '/transfer-orders/upload/finalize': {
+    post: {
+      tags: ['Transfer Orders'],
+      summary: 'Finalize file upload',
+      description: 'Move file from temp to final folder based on netsuite_id',
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: { $ref: '#/components/schemas/TransferOrderFileFinalizeRequest' }
+          }
+        }
+      },
+      responses: {
+        200: {
+          description: 'Success',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/TransferOrderFileFinalizeResponse' }
+            }
+          }
+        },
+        500: {
+          description: 'Internal Server Error',
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+        }
+      }
+    }
+  },
+
+  '/transfer-orders/upload-delete': {
+    post: {
+      tags: ['Transfer Orders'],
+      summary: 'Delete uploaded file by share URL',
+      description: 'Delete uploaded file by share URL (fileUrl) from local database and Nextcloud WebDAV.',
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: { $ref: '#/components/schemas/TransferOrderFileDeleteRequest' }
+          }
+        }
+      },
+      responses: {
+        200: {
+          description: 'Success',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  success: { type: 'boolean', example: true },
+                  message: { type: 'string', example: 'File deleted successfully' }
+                }
+              }
+            }
+          }
+        },
+        404: {
+          description: 'File not found'
+        },
+        500: {
+          description: 'Internal Server Error',
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+        }
+      }
+    }
+  },
+
+  '/transfer-orders/upload-update': {
+    post: {
+      tags: ['Transfer Orders'],
+      summary: 'Update uploaded file by share URL',
+      description: 'Update uploaded file by share URL. Can replace the file itself, change the filename, or both.',
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          'multipart/form-data': {
+            schema: { $ref: '#/components/schemas/TransferOrderFileUpdateRequest' }
+          }
+        }
+      },
+      responses: {
+        200: {
+          description: 'Success',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/TransferOrderFileUpdateResponse' }
+            }
+          }
+        },
+        404: {
+          description: 'File not found'
+        },
+        500: {
+          description: 'Internal Server Error',
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+        }
+      }
+    }
   }
 };
 

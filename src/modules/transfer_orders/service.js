@@ -1,6 +1,7 @@
 const axios = require("axios");
 const knex = require("knex");
 const authService = require("../auth/service");
+const { pgCore } = require("../../config/database");
 
 // Knex instance untuk DB Netsuite (bridge_sanbox)
 const dbNetsuite = knex({
@@ -254,8 +255,6 @@ const getTransferOrderById = async (id) => {
           "t.created_from_to",
           "t.tran_date",
           "t.datecreated",
-          "t.raw_request",
-          "t.raw_response",
           "t.type_proccess",
           "t.status_proccess",
           "t.status_proccess_message",
@@ -567,6 +566,42 @@ const createTransferOrder = async (body, user, userId) => {
 };
 
 /**
+ * Normalize transfer-order file payload to the NetSuite bridge contract.
+ * Accepts both legacy local fields and already-normalized bridge fields.
+ */
+const normalizeTransferOrderPayloadForBridge = (body = {}) => {
+  const nextBody = { ...body };
+
+  if (!Array.isArray(nextBody.files)) {
+    return nextBody;
+  }
+
+  nextBody.files = nextBody.files.map((file) => {
+    if (!file || typeof file !== "object") return file;
+
+    const hasLegacyKeys =
+      Object.prototype.hasOwnProperty.call(file, "fileUrl") ||
+      Object.prototype.hasOwnProperty.call(file, "fileName") ||
+      Object.prototype.hasOwnProperty.call(file, "netsuiteId");
+
+    const hasBridgeKeys =
+      Object.prototype.hasOwnProperty.call(file, "file_url") ||
+      Object.prototype.hasOwnProperty.call(file, "file_name");
+
+    if (!hasLegacyKeys && hasBridgeKeys) {
+      return file;
+    }
+
+    return {
+      file_name: file.file_name || file.fileName || null,
+      file_url: file.file_url || file.fileUrl || null,
+    };
+  });
+
+  return nextBody;
+};
+
+/**
  * Hits the actual bridge API for Transfer Order creation (used by worker)
  */
 const createTransferOrderToBridge = async (body) => {
@@ -577,7 +612,9 @@ const createTransferOrderToBridge = async (body) => {
     process.env.BRIDGE_BASE_URL || "https://api-bridge-sb.motorsights.com";
   const url = `${baseUrl}/api/v1/bridge/transfer-orders/create`;
 
-  const response = await axios.post(url, body, {
+  const normalizedBody = normalizeTransferOrderPayloadForBridge(body);
+
+  const response = await axios.post(url, normalizedBody, {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
@@ -762,7 +799,9 @@ const updateTransferOrderToBridge = async (body) => {
     process.env.BRIDGE_BASE_URL || "https://api-bridge-sb.motorsights.com";
   const url = `${baseUrl}/api/v1/bridge/transfer-orders/update`;
 
-  const response = await axios.post(url, body, {
+  const normalizedBody = normalizeTransferOrderPayloadForBridge(body);
+
+  const response = await axios.post(url, normalizedBody, {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
@@ -892,7 +931,154 @@ const logEvent = async (eventId, type, message, data) => {
   });
 };
 
+/**
+ * Ambil transfer order dari DB Netsuite berdasarkan netsuite_id (untuk penamaan folder Nextcloud)
+ */
+const getTransferOrderByNetsuiteId = async (netsuiteId) => {
+  const record = await dbNetsuite("transfer_orders")
+    .where("netsuite_id", netsuiteId.toString())
+    .andWhere("is_delete", false)
+    .first();
+  return record;
+};
+
+const saveFileRecord = async (fileData) => {
+  const [record] = await pgCore("transfer_orders_files")
+    .insert(fileData)
+    .returning("*");
+  return record;
+};
+
+const updateFileRecord = async (oldPath, newPath, newUrl) => {
+  const [record] = await pgCore("transfer_orders_files")
+    .where("storage_path", oldPath)
+    .update({
+      storage_path: newPath,
+      share_url: newUrl,
+    })
+    .returning("*");
+  return record;
+};
+
+/**
+ * Pindahkan file dari folder temporary (netsuite_id sementara) ke folder final (netsuite_id asli)
+ */
+const finalizeUploadedFilesForTO = async (tempNetsuiteId, realNetsuiteId) => {
+  try {
+    const nextcloud = require("../../utils/nextcloud");
+
+    const files = await pgCore("transfer_orders_files").where(
+      "netsuite_id",
+      tempNetsuiteId,
+    );
+
+    if (!files || files.length === 0) {
+      console.info(
+        `[finalizeUploadedFilesForTO] No files found for temporary TO netsuite_id: ${tempNetsuiteId}`,
+      );
+      return;
+    }
+
+    // Ambil tranid dari db netsuite di tabel transfer_orders untuk penamaan folder
+    let folderName = realNetsuiteId;
+    try {
+      const toRecord = await getTransferOrderByNetsuiteId(realNetsuiteId);
+      if (toRecord && toRecord.tranid) {
+        folderName = toRecord.tranid;
+        console.info(
+          `[finalizeUploadedFilesForTO] Found tranid: ${folderName} for netsuite_id: ${realNetsuiteId}`,
+        );
+      } else {
+        console.warn(
+          `[finalizeUploadedFilesForTO] No transfer order record or tranid found for netsuite_id: ${realNetsuiteId}, falling back to netsuite_id for folder name`,
+        );
+      }
+    } catch (dbErr) {
+      console.error(
+        `[finalizeUploadedFilesForTO] Error retrieving tranid from DB Netsuite:`,
+        dbErr.message,
+      );
+    }
+
+    const year = new Date().getFullYear();
+    const finalDir = `/NetSuite/TransferOrders/${year}/${folderName}`;
+
+    await nextcloud.ensureDirectoryExists(finalDir);
+
+    for (const file of files) {
+      const oldStoragePath = file.storage_path;
+
+      // Jika file tidak ada di /Temp/, asumsikan sudah di folder yang benar.
+      if (!oldStoragePath.includes("/Temp/")) {
+        if (tempNetsuiteId !== realNetsuiteId.toString()) {
+          await pgCore("transfer_orders_files")
+            .where("id", file.id)
+            .update({ netsuite_id: realNetsuiteId.toString() });
+        }
+        continue;
+      }
+
+      const fileName = oldStoragePath.split("/").pop();
+      const newStoragePath = `${finalDir}/${fileName}`;
+
+      console.info(
+        `[finalizeUploadedFilesForTO] Moving file from ${oldStoragePath} to ${newStoragePath}`,
+      );
+
+      try {
+        await nextcloud.client.moveFile(oldStoragePath, newStoragePath);
+
+        // Keterangan: share_url DIBIARKAN TETAP untuk tidak memutus link yang ada.
+        await pgCore("transfer_orders_files").where("id", file.id).update({
+          netsuite_id: realNetsuiteId.toString(),
+          storage_path: newStoragePath,
+        });
+
+        console.info(
+          `[finalizeUploadedFilesForTO] File record updated successfully for file ID: ${file.id} with preserved share_url`,
+        );
+      } catch (moveErr) {
+        console.error(
+          `[finalizeUploadedFilesForTO] Failed to move file ${oldStoragePath}:`,
+          moveErr.message,
+        );
+      }
+    }
+  } catch (error) {
+    console.error(
+      `[finalizeUploadedFilesForTO] Error finalizing files for TO ${realNetsuiteId}:`,
+      error.message,
+    );
+  }
+};
+
+const getFileRecordById = async (id) => {
+  const record = await pgCore("transfer_orders_files").where("id", id).first();
+  return record;
+};
+
+const deleteFileRecord = async (id) => {
+  const count = await pgCore("transfer_orders_files").where("id", id).delete();
+  return count;
+};
+
+const updateFileRecordFields = async (id, updateData) => {
+  const [record] = await pgCore("transfer_orders_files")
+    .where("id", id)
+    .update(updateData)
+    .returning("*");
+  return record;
+};
+
+const getFileRecordByShareUrl = async (shareUrl) => {
+  const record = await pgCore("transfer_orders_files")
+    .where("share_url", shareUrl)
+    .first();
+  return record;
+};
+
 module.exports = {
+  normalizeTransferOrderPayloadForBridge,
   getTransferOrders,
   getTransferOrderById,
   syncTransferOrderById,
@@ -908,4 +1094,12 @@ module.exports = {
   canAutoRetry,
   getEventStatus,
   logEvent,
+  getTransferOrderByNetsuiteId,
+  saveFileRecord,
+  updateFileRecord,
+  finalizeUploadedFilesForTO,
+  getFileRecordById,
+  deleteFileRecord,
+  updateFileRecordFields,
+  getFileRecordByShareUrl,
 };

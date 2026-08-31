@@ -16,15 +16,18 @@ const transferOrderItemSchema = {
   },
 };
 
-const transferOrderFileSchema = {
-  type: "object",
-  properties: {
-    file_name: { type: "string", example: "document.pdf" },
-    file_url: { type: "string", example: "https://example.com/document.pdf" },
-  },
-};
-
 const transferOrdersSchema = {
+  TransferOrderFile: {
+    type: "object",
+    properties: {
+      netsuiteId: { type: "string", example: "temp-001" },
+      fileUrl: {
+        type: "string",
+        example: "https://cloud.inlinegroupdc.com/s/xR34c667kEKZRsj",
+      },
+      fileName: { type: "string", example: "Invoice Vendor" },
+    },
+  },
   TransferOrderListRequest: {
     type: "object",
     properties: {
@@ -130,7 +133,7 @@ const transferOrdersSchema = {
       },
       files: {
         type: "array",
-        items: transferOrderFileSchema,
+        items: { $ref: "#/components/schemas/TransferOrderFile" },
       },
       type_proccess: { type: "string", nullable: true, example: "CREATE" },
       status_proccess: {
@@ -199,7 +202,7 @@ const transferOrdersSchema = {
       },
       files: {
         type: "array",
-        items: transferOrderFileSchema,
+        items: { $ref: "#/components/schemas/TransferOrderFile" },
       },
     },
   },
@@ -232,7 +235,118 @@ const transferOrdersSchema = {
       },
       files: {
         type: "array",
-        items: transferOrderFileSchema,
+        items: { $ref: "#/components/schemas/TransferOrderFile" },
+      },
+    },
+  },
+  TransferOrderFileUploadRequest: {
+    type: "object",
+    properties: {
+      file: {
+        type: "string",
+        format: "binary",
+        description: "The file to upload",
+      },
+      file_name: {
+        type: "string",
+        description:
+          "Optional custom file name. Will be normalized to lowercase with spaces replaced by underscores (_)",
+      },
+      netsuite_id: {
+        type: "string",
+        description:
+          "Optional netsuite_id, netsuite_id sementara yg akan di buat oleh FE, prosesnya ketika add file akan insert file dan netsuite_id sementara, jangan sampe ui di refresh, jika di refresh maka akan generated netsuite_id baru di FE",
+      },
+    },
+  },
+  TransferOrderFileUploadResponse: {
+    type: "object",
+    properties: {
+      success: { type: "boolean", example: true },
+      id: { type: "string", example: "f0b57258-5f33-4e03-81f7-cd70d833b5c5" },
+      netsuiteId: { type: "string", example: "temp-001" },
+      fileUrl: {
+        type: "string",
+        example: "https://cloud.inlinegroupdc.com/s/abcdefgh",
+      },
+      storagePath: { type: "string", example: "/temp/123456789_file.pdf" },
+      fileName: { type: "string", example: "123456789_file.pdf" },
+    },
+  },
+  TransferOrderFileFinalizeRequest: {
+    type: "object",
+    required: ["netsuite_id", "storage_path"],
+    properties: {
+      netsuite_id: { type: "string", example: "52362" },
+      storage_path: { type: "string", example: "/temp/123456789_file.pdf" },
+    },
+  },
+  TransferOrderFileFinalizeResponse: {
+    type: "object",
+    properties: {
+      success: { type: "boolean", example: true },
+      path: {
+        type: "string",
+        example: "/uploads/to/2026/52362/123456789_file.pdf",
+      },
+    },
+  },
+  TransferOrderFileDeleteRequest: {
+    type: "object",
+    required: ["fileUrl"],
+    properties: {
+      fileUrl: {
+        type: "string",
+        example: "https://cloud.inlinegroupdc.com/s/abcdefgh",
+      },
+    },
+  },
+  TransferOrderFileUpdateRequest: {
+    type: "object",
+    required: ["fileUrl"],
+    properties: {
+      fileUrl: {
+        type: "string",
+        description: "The share URL of the existing file to update",
+        example: "https://cloud.inlinegroupdc.com/s/abcdefgh",
+      },
+      file: {
+        type: "string",
+        format: "binary",
+        description: "Optional new file to replace the existing file",
+      },
+      file_name: {
+        type: "string",
+        description:
+          "Optional new filename. Will be normalized to lowercase with spaces replaced by underscores (_)",
+      },
+      netsuite_id: {
+        type: "string",
+        description:
+          "Optional netsuite_id. If the file record does not exist for the provided fileUrl, this is used to create a new file record directly in the NetSuite Transfer Order folder.",
+      },
+    },
+  },
+  TransferOrderFileUpdateResponse: {
+    type: "object",
+    properties: {
+      success: { type: "boolean", example: true },
+      message: { type: "string", example: "File updated successfully" },
+      data: {
+        type: "object",
+        properties: {
+          id: {
+            type: "string",
+            example: "f0b57258-5f33-4e03-81f7-cd70d833b5c5",
+          },
+          netsuiteId: { type: "string", example: "52362" },
+          fileUrl: {
+            type: "string",
+            example: "https://cloud.inlinegroupdc.com/s/abcdefgh",
+          },
+          storagePath: { type: "string", example: "/temp/123456789_file.pdf" },
+          fileName: { type: "string", example: "file.pdf" },
+        },
       },
     },
   },

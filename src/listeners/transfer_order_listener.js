@@ -48,6 +48,31 @@ const methodExecution = async (payload, channel, msg) => {
         await transferOrderService.updateLocalTOId(to_internal_id, netsuiteId);
       }
 
+      // Check if there are temporary files in the payload to finalize
+      const files = data.files || [];
+      if (files.length > 0) {
+        const tempFile = files.find((f) => f.netsuiteId || f.netsuite_id);
+        const tempNetsuiteId = tempFile
+          ? tempFile.netsuiteId || tempFile.netsuite_id
+          : null;
+        if (tempNetsuiteId && netsuiteId) {
+          console.info(
+            `[Worker] Found temporary TO netsuite_id: ${tempNetsuiteId}, finalizing files to real netsuite_id: ${netsuiteId}`,
+          );
+          try {
+            await transferOrderService.finalizeUploadedFilesForTO(
+              tempNetsuiteId,
+              netsuiteId,
+            );
+          } catch (finalizeErr) {
+            console.error(
+              `[Worker] Error finalizing uploaded files for TO:`,
+              finalizeErr.message,
+            );
+          }
+        }
+      }
+
       // Update outbox event status
       await transferOrderService.updateEventStatus(event_id, "SUCCESS", result);
 
