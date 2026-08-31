@@ -47,3 +47,27 @@ test("normalizeTransferOrderPayloadForBridge preserves already normalized files"
     ],
   });
 });
+
+test("getTransferOrderFinalizeTargets includes inline storagePath files for temp records", () => {
+  const {
+    getTransferOrderFinalizeTargets,
+  } = require("../src/modules/transfer_orders/service");
+
+  const targets = getTransferOrderFinalizeTargets("temp-003", [
+    {
+      netsuiteId: "temp-003",
+      fileUrl: "https://cloud.inlinegroupdc.com/s/tmmi7w6gTEbwdGL",
+      storagePath: "/Temp/1788150994439_tempto003.jpg",
+      fileName: "tempto003",
+    },
+  ]);
+
+  assert.deepEqual(targets, [
+    {
+      storage_path: "/Temp/1788150994439_tempto003.jpg",
+      share_url: "https://cloud.inlinegroupdc.com/s/tmmi7w6gTEbwdGL",
+      file_name: "tempto003",
+      netsuite_id: "temp-003",
+    },
+  ]);
+});

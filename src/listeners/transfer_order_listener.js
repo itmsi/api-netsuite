@@ -39,7 +39,9 @@ const methodExecution = async (payload, channel, msg) => {
     // Inject internalid (UUID dari tabel transfer_orders lokal) ke payload
     const dataWithInternalId = { ...data, internalid: to_internal_id };
     const result =
-      await transferOrderService.createTransferOrderToBridge(dataWithInternalId);
+      await transferOrderService.createTransferOrderToBridge(
+        dataWithInternalId,
+      );
 
     if (result && (result.success || result.toId || result.to_id)) {
       const netsuiteId = result.toId || result.to_id || result.data?.id;
@@ -63,6 +65,7 @@ const methodExecution = async (payload, channel, msg) => {
             await transferOrderService.finalizeUploadedFilesForTO(
               tempNetsuiteId,
               netsuiteId,
+              files,
             );
           } catch (finalizeErr) {
             console.error(
@@ -150,7 +153,10 @@ const methodExecution = async (payload, channel, msg) => {
         console.error(
           `[Worker] Max retries reached for TO Event ${event_id}, marking as FAILED (manual retry required)`,
         );
-        await transferOrderService.updateLocalTOStatus(to_internal_id, "failed");
+        await transferOrderService.updateLocalTOStatus(
+          to_internal_id,
+          "failed",
+        );
 
         // Simpan request & response ke properties untuk audit
         const failureProperties = { request: data, response: errorDetail };

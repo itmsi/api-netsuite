@@ -601,6 +601,30 @@ const normalizeTransferOrderPayloadForBridge = (body = {}) => {
   return nextBody;
 };
 
+const getTransferOrderFinalizeTargets = (tempNetsuiteId, files = []) => {
+  if (!Array.isArray(files) || files.length === 0) return [];
+
+  return files
+    .filter((file) => {
+      const sourceNetsuiteId =
+        file?.netsuiteId || file?.netsuite_id || file?.tempNetsuiteId;
+      const sourceStoragePath = file?.storagePath || file?.storage_path;
+      return (
+        (sourceNetsuiteId === tempNetsuiteId ||
+          (!sourceNetsuiteId &&
+            sourceStoragePath &&
+            sourceStoragePath.includes("/Temp/"))) &&
+        sourceStoragePath
+      );
+    })
+    .map((file) => ({
+      storage_path: file.storagePath || file.storage_path,
+      share_url: file.fileUrl || file.file_url || file.share_url || null,
+      file_name: file.fileName || file.file_name || null,
+      netsuite_id: file.netsuiteId || file.netsuite_id || tempNetsuiteId,
+    }));
+};
+
 /**
  * Hits the actual bridge API for Transfer Order creation (used by worker)
  */
@@ -963,14 +987,24 @@ const updateFileRecord = async (oldPath, newPath, newUrl) => {
 /**
  * Pindahkan file dari folder temporary (netsuite_id sementara) ke folder final (netsuite_id asli)
  */
-const finalizeUploadedFilesForTO = async (tempNetsuiteId, realNetsuiteId) => {
+const finalizeUploadedFilesForTO = async (
+  tempNetsuiteId,
+  realNetsuiteId,
+  inlineFiles = [],
+) => {
   try {
     const nextcloud = require("../../utils/nextcloud");
 
-    const files = await pgCore("transfer_orders_files").where(
+    const dbFiles = await pgCore("transfer_orders_files").where(
       "netsuite_id",
       tempNetsuiteId,
     );
+
+    const directFiles = getTransferOrderFinalizeTargets(
+      tempNetsuiteId,
+      inlineFiles,
+    );
+    const files = [...(dbFiles || []), ...directFiles];
 
     if (!files || files.length === 0) {
       console.info(
@@ -1006,11 +1040,15 @@ const finalizeUploadedFilesForTO = async (tempNetsuiteId, realNetsuiteId) => {
     await nextcloud.ensureDirectoryExists(finalDir);
 
     for (const file of files) {
-      const oldStoragePath = file.storage_path;
+      const oldStoragePath = file.storage_path || file.storagePath;
+
+      if (!oldStoragePath) {
+        continue;
+      }
 
       // Jika file tidak ada di /Temp/, asumsikan sudah di folder yang benar.
       if (!oldStoragePath.includes("/Temp/")) {
-        if (tempNetsuiteId !== realNetsuiteId.toString()) {
+        if (file.id && tempNetsuiteId !== realNetsuiteId.toString()) {
           await pgCore("transfer_orders_files")
             .where("id", file.id)
             .update({ netsuite_id: realNetsuiteId.toString() });
@@ -1028,14 +1066,24 @@ const finalizeUploadedFilesForTO = async (tempNetsuiteId, realNetsuiteId) => {
       try {
         await nextcloud.client.moveFile(oldStoragePath, newStoragePath);
 
-        // Keterangan: share_url DIBIARKAN TETAP untuk tidak memutus link yang ada.
-        await pgCore("transfer_orders_files").where("id", file.id).update({
-          netsuite_id: realNetsuiteId.toString(),
-          storage_path: newStoragePath,
-        });
+        if (file.id) {
+          await pgCore("transfer_orders_files").where("id", file.id).update({
+            netsuite_id: realNetsuiteId.toString(),
+            storage_path: newStoragePath,
+          });
+        } else {
+          await pgCore("transfer_orders_files").insert({
+            netsuite_id: realNetsuiteId.toString(),
+            file_name: file.file_name || file.fileName || fileName,
+            file_name_original: file.file_name || file.fileName || fileName,
+            storage_provider: "nextcloud",
+            storage_path: newStoragePath,
+            share_url: file.share_url || file.file_url || file.fileUrl || null,
+          });
+        }
 
         console.info(
-          `[finalizeUploadedFilesForTO] File record updated successfully for file ID: ${file.id} with preserved share_url`,
+          `[finalizeUploadedFilesForTO] File record updated successfully for file with path ${oldStoragePath}`,
         );
       } catch (moveErr) {
         console.error(
@@ -1079,6 +1127,7 @@ const getFileRecordByShareUrl = async (shareUrl) => {
 
 module.exports = {
   normalizeTransferOrderPayloadForBridge,
+  getTransferOrderFinalizeTargets,
   getTransferOrders,
   getTransferOrderById,
   syncTransferOrderById,
