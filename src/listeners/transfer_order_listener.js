@@ -43,8 +43,12 @@ const methodExecution = async (payload, channel, msg) => {
         dataWithInternalId,
       );
 
-    if (result && (result.success || result.toId || result.to_id)) {
-      const netsuiteId = result.toId || result.to_id || result.data?.id;
+    if (
+      result &&
+      (result.success || result.transfer_order_id || result.to_id)
+    ) {
+      const netsuiteId =
+        result.toId || result.transfer_order_id || result.data?.id;
 
       if (netsuiteId) {
         await transferOrderService.updateLocalTOId(to_internal_id, netsuiteId);
