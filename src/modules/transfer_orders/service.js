@@ -1,5 +1,6 @@
 const axios = require("axios");
 const knex = require("knex");
+const moment = require("moment");
 const authService = require("../auth/service");
 const { pgCore } = require("../../config/database");
 
@@ -33,6 +34,20 @@ const parseJsonColumn = (value, fallback) => {
     }
   }
   return value;
+};
+
+/**
+ * Format tanggal ke D/M/YYYY menggunakan moment, mendukung beberapa format input.
+ * Mengembalikan value asli jika tidak bisa di-parse.
+ */
+const formatDateDMY = (value) => {
+  if (!value) return value;
+  const parsed = moment(
+    value,
+    ["D/M/YYYY", "DD/MM/YYYY", "YYYY-MM-DD", moment.ISO_8601],
+    true,
+  );
+  return parsed.isValid() ? parsed.format("D/M/YYYY") : value;
 };
 
 /**
@@ -528,7 +543,10 @@ const getTransferOrderById = async (id) => {
       };
     }
 
-    record.items = record.items || [];
+    record.items = (record.items || []).map((item) => ({
+      ...item,
+      expected_receipt_date: formatDateDMY(item.expected_receipt_date),
+    }));
     // record.data = parseJsonColumn(record.data, {});
     record.files = parseJsonColumn(record.files, []);
 
