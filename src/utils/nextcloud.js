@@ -17,6 +17,21 @@ const client = createClient(
 );
 
 /**
+ * Convert a snake_case/kebab-case/space-separated string into PascalCase,
+ * e.g. "transfer_order" -> "TransferOrder"
+ * @param {string} value
+ * @returns {string}
+ */
+const toPascalCase = (value) => {
+  if (!value) return value;
+  return String(value)
+    .split(/[\s_-]+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join('');
+};
+
+/**
  * Ensures a directory exists in Nextcloud
  * @param {string} dirPath Directory path
  */
@@ -31,6 +46,15 @@ const ensureDirectoryExists = async (dirPath) => {
       await client.createDirectory(currentPath);
     }
   }
+};
+
+/**
+ * Move/rename a file within Nextcloud
+ * @param {string} fromPath Current path of the file
+ * @param {string} toPath Destination path
+ */
+const moveFile = async (fromPath, toPath) => {
+  await client.moveFile(fromPath, toPath);
 };
 
 /**
@@ -72,7 +96,9 @@ const generateShareLink = async (path) => {
 
 module.exports = {
   client,
+  toPascalCase,
   ensureDirectoryExists,
+  moveFile,
   generateShareLink,
   NEXTCLOUD_UPLOAD_DIR
 };

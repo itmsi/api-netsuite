@@ -67,6 +67,9 @@ routing.use(`${API_TAG}/classes`, classesModule);
 const departmentModule = require('../../modules/department');
 routing.use(`${API_TAG}/departments`, departmentModule);
 
+const projectSegmentationsModule = require('../../modules/project_segmentations');
+routing.use(`${API_TAG}/project-segmentations`, projectSegmentationsModule);
+
 const subsidiaryModule = require('../../modules/subsidiary');
 routing.use(`${API_TAG}/subsidiary`, subsidiaryModule);
 
@@ -78,6 +81,9 @@ routing.use(`${API_TAG}/sync`, syncModule);
 
 const salesOrdersModule = require('../../modules/sales_orders');
 routing.use(`${API_TAG}/sales-orders`, salesOrdersModule);
+
+const transferOrdersModule = require('../../modules/transfer_orders');
+routing.use(`${API_TAG}/transfer-orders`, transferOrdersModule);
 
 // Example:
 // const yourModule = require('../../modules/yourModule')

@@ -133,6 +133,22 @@ const getPurchaseOrderById = async (id) => {
   return record;
 };
 
+const getTransferOrderByNetsuiteId = async (netsuiteId) => {
+  const record = await dbNetsuite("transfer_orders")
+    .where("netsuite_id", netsuiteId)
+    .andWhere("is_delete", false)
+    .first();
+  return record;
+};
+
+const getTransferOrderById = async (id) => {
+  const record = await dbNetsuite("transfer_orders")
+    .where("id", id)
+    .andWhere("is_delete", false)
+    .first();
+  return record;
+};
+
 const callBridgeCreate = async ({
   localId,
   netsuiteId,
@@ -255,6 +271,8 @@ module.exports = {
   deleteFileRecord,
   getPurchaseOrderByPoId,
   getPurchaseOrderById,
+  getTransferOrderByNetsuiteId,
+  getTransferOrderById,
   callBridgeCreate,
   callBridgeUpdate,
   callBridgeDelete,

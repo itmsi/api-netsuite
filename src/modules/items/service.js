@@ -81,6 +81,7 @@ const getItemsList = async (body) => {
         "type as itemType",
         "display_name as displayName",
         "last_modified_netsuite as lastModifiedDate",
+        "price_levels as priceLevels",
         "data",
       ])
       .orderBy(orderCol, sortOrder)
@@ -94,6 +95,7 @@ const getItemsList = async (body) => {
       itemType: row.itemType,
       displayName: row.displayName || "",
       lastModifiedDate: row.lastModifiedDate,
+      priceLevels: row.priceLevels,
       locations: row.data && row.data.locations ? row.data.locations : [],
     }));
 
@@ -162,6 +164,84 @@ const syncItemsList = async (body) => {
       };
     }
     throw { message: error.message, statusCode: 500 };
+  }
+};
+
+/**
+ * Sync single item by ID dari bridge API
+ * Hit: POST {BRIDGE_BASE_URL}/api/v1/bridge/items/sync/netsuite/{id}
+ */
+const syncItemById = async (id) => {
+  try {
+    // 1. Get token
+    const tokenResponse = await authService.getToken();
+    const token = tokenResponse.data.access_token;
+
+    // 2. Hit bridge sync by ID endpoint
+    const baseUrl =
+      process.env.BRIDGE_BASE_URL || "https://api-bridge-sb.motorsights.com";
+    const url = `${baseUrl}/api/v1/bridge/items/sync/netsuite/${id}`;
+
+    const response = await axios.post(
+      url,
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    );
+
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw {
+        message:
+          error.response.data?.message ||
+          "Failed to sync item by ID from bridge API",
+        statusCode: error.response.status,
+        errors: error.response.data,
+      };
+    }
+    throw { message: error.message, statusCode: 500 };
+  }
+};
+
+/**
+ * Get single item by netsuite_id dari DB Netsuite (bridge_sanbox.items)
+ */
+const getItemByNetsuiteId = async (netsuiteId) => {
+  try {
+    const row = await dbNetsuite("items")
+      .where("netsuite_id", netsuiteId.toString())
+      .select([
+        "netsuite_id as internalId",
+        "item_id as itemId",
+        "type as itemType",
+        "display_name as displayName",
+        "last_modified_netsuite as lastModifiedDate",
+        "data",
+      ])
+      .first();
+
+    if (!row) {
+      throw { message: "Data item tidak ditemukan", statusCode: 404 };
+    }
+
+    return {
+      internalId: row.internalId,
+      itemId: row.itemId,
+      itemType: row.itemType,
+      displayName: row.displayName || "",
+      lastModifiedDate: row.lastModifiedDate,
+      locations: row.data && row.data.locations ? row.data.locations : [],
+    };
+  } catch (error) {
+    if (error.statusCode) throw error;
+    throw {
+      message: error.message || "Failed to fetch item from database",
+      statusCode: 500,
+    };
   }
 };
 
@@ -455,6 +535,8 @@ const getItemReceiptById = async (id) => {
         "created_by_name",
         "updated_at",
         "lines",
+        "files",
+        "user_notes",
       ]);
 
     let item;
@@ -480,11 +562,421 @@ const getItemReceiptById = async (id) => {
   }
 };
 
+const FULFILLMENT_COLUMNS = [
+  "id",
+  "netsuite_id",
+  "number",
+  "date",
+  "status",
+  "status_label",
+  "memo",
+  "entity_id",
+  "entity_name",
+  "createdfrom_id",
+  "createdfrom_number",
+  "postingperiod",
+  "last_modified",
+  "created_by_netsuite",
+  "custbody_me_wf_created_by",
+  "custbody_me_approval_status",
+  "custbody_me_approval_status_display",
+  "custbody_me_delegate_approver",
+  "custbody_me_wf_in_delegation",
+  "custbody_me_wf_next_approver_blank",
+  "nextapprover",
+  "custbody_cseg_cn_cfi",
+  "custbody_cseg_cn_cfi_display",
+  "custbody_me_logistic_vendor",
+  "custbody_me_logistic_vendor_display",
+  "custbody_me_gross_weight",
+  "custbody_me_related_invoice",
+  "custbody_me_rate_id",
+  "custbody_me_rate_id_display",
+  "custbody_me_packages",
+  "custbody_me_total_packages",
+  "subsidiary",
+  "subsidiary_display",
+  "location",
+  "location_display",
+  "transferlocation",
+  "transferlocation_display",
+  "department",
+  "department_display",
+  "class",
+  "class_display",
+  "datecreated",
+  "lines",
+  "user_notes",
+  "files",
+  "created_at",
+  "created_by",
+  "updated_at",
+  "updated_by",
+  "deleted_at",
+  "deleted_by",
+  "is_delete",
+];
+
+/**
+ * Get fulfillments from local fulfillments table
+ */
+const getItemFulfillments = async (body) => {
+  try {
+    const page = parseInt(body.page) || 1;
+    const limit = parseInt(body.limit || body.page_size) || 20;
+    const offset = (page - 1) * limit;
+    const sortOrder = body.sort_order ? body.sort_order.toUpperCase() : "DESC";
+
+    const validSortColumns = [
+      "last_modified",
+      "number",
+      "date",
+      "datecreated",
+      "created_at",
+      "updated_at",
+    ];
+    const orderCol = validSortColumns.includes(body.sort_by)
+      ? body.sort_by
+      : "last_modified";
+
+    let query = dbNetsuite("fulfillments")
+      .where("is_delete", false)
+      .whereNotNull("netsuite_id")
+      .where("netsuite_id", "!=", "");
+
+    if (body.search) {
+      query = query.where(function () {
+        this.whereILike("number", `%${body.search}%`)
+          .orWhereILike("entity_name", `%${body.search}%`)
+          .orWhereILike("createdfrom_number", `%${body.search}%`)
+          .orWhereILike("subsidiary_display", `%${body.search}%`)
+          .orWhereILike("location_display", `%${body.search}%`);
+      });
+    }
+
+    if (body.status) {
+      query = query.where("status", body.status);
+    }
+
+    if (body.entity_id) {
+      query = query.where("entity_id", body.entity_id);
+    }
+
+    if (body.location) {
+      query = query.where("location", body.location);
+    }
+
+    // Handle classes filter (parent and children)
+    let classIds = [];
+    if (body.classes) {
+      const parentIdStr = body.classes.toString();
+      classIds.push(parentIdStr);
+
+      const children = await dbNetsuite("class")
+        .select("netsuite_id")
+        .where("parent_id", parentIdStr)
+        .andWhere("is_delete", false)
+        .whereNull("deleted_at");
+
+      if (children && children.length > 0) {
+        children.forEach((child) => {
+          if (child.netsuite_id) classIds.push(child.netsuite_id.toString());
+        });
+      }
+    }
+
+    if (classIds.length > 0) {
+      query = query.whereIn("class", classIds);
+    }
+
+    const countResult = await query.clone().count("* as total").first();
+    const total = parseInt(countResult.total) || 0;
+    const totalPages = Math.ceil(total / limit);
+
+    const rows = await query
+      .clone()
+      .select(FULFILLMENT_COLUMNS)
+      .orderBy(orderCol, sortOrder)
+      .limit(limit)
+      .offset(offset);
+
+    return {
+      items: rows,
+      pagination: { page, limit, total, totalPages },
+    };
+  } catch (error) {
+    throw {
+      message: error.message || "Failed to fetch fulfillments from database",
+      statusCode: 500,
+    };
+  }
+};
+
+/**
+ * Get single fulfillment detail by id (UUID) or netsuite_id from local fulfillments table
+ */
+const getItemFulfillmentById = async (id) => {
+  try {
+    const query = () =>
+      dbNetsuite("fulfillments")
+        .where("is_delete", false)
+        .select(FULFILLMENT_COLUMNS);
+
+    let item;
+    if (/^\d+$/.test(id)) {
+      item = await query().where("netsuite_id", id).first();
+    }
+
+    if (!item) {
+      item = await query().where("id", id).first();
+    }
+
+    if (!item) {
+      throw { message: "Data fulfillment tidak ditemukan", statusCode: 404 };
+    }
+
+    return item;
+  } catch (error) {
+    if (error.statusCode) throw error;
+    throw {
+      message:
+        error.message || "Failed to fetch fulfillment detail from database",
+      statusCode: 500,
+    };
+  }
+};
+
+/**
+ * Create item receipt — hit bridge API
+ * Hit: POST {BRIDGE_BASE_URL}/api/v1/bridge/items/item-receipt
+ */
+const createItemReceipt = async (body) => {
+  try {
+    const tokenResponse = await authService.getToken();
+    const token = tokenResponse.data.access_token;
+
+    const baseUrl =
+      process.env.BRIDGE_BASE_URL || "https://api-bridge-sb.motorsights.com";
+    const url = `${baseUrl}/api/v1/bridge/items/item-receipt`;
+
+    const requestData = {
+      transaction_type: body.transaction_type,
+      transaction_id: body.transaction_id,
+      items: body.items,
+      note: body.note,
+      noteTitle: body.noteTitle,
+    };
+
+    const response = await axios.post(url, requestData, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw {
+        message:
+          error.response.data?.message || "Failed to create item receipt",
+        statusCode: error.response.status,
+        errors: error.response.data,
+      };
+    }
+    throw { message: error.message, statusCode: 500 };
+  }
+};
+
+/**
+ * Create item fulfillment — hit bridge API
+ * Hit: POST {BRIDGE_BASE_URL}/api/v1/bridge/items/item-fulfillment
+ */
+const createItemFulfillment = async (body) => {
+  try {
+    const tokenResponse = await authService.getToken();
+    const token = tokenResponse.data.access_token;
+
+    const baseUrl =
+      process.env.BRIDGE_BASE_URL || "https://api-bridge-sb.motorsights.com";
+    const url = `${baseUrl}/api/v1/bridge/items/item-fulfillment`;
+
+    const requestData = {
+      transaction_type: body.transaction_type,
+      transaction_id: body.transaction_id,
+      ship_status: body.ship_status,
+      items: body.items,
+      note: body.note,
+      noteTitle: body.noteTitle,
+    };
+
+    const response = await axios.post(url, requestData, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw {
+        message:
+          error.response.data?.message || "Failed to create item fulfillment",
+        statusCode: error.response.status,
+        errors: error.response.data,
+      };
+    }
+    throw { message: error.message, statusCode: 500 };
+  }
+};
+
+const VALID_FUNCTION_TYPES = ["receipts", "fulfillment"];
+const VALID_TRANSACTION_TYPES = [
+  "sales_order",
+  "transfer_order",
+  "vendor_return",
+  "purchase_order",
+  "customer_return",
+];
+
+/**
+ * Upload file lampiran (jika ada) ke Nextcloud, lalu queue pembuatan item
+ * receipt/fulfillment via bridge API. Netsuite ID hasil bridge API baru
+ * didapat di worker (listener), yang kemudian queue proses attach file.
+ */
+const createFulfillmentReceipts = async (body, user) => {
+  try {
+    const {
+      function_type,
+      transaction_type,
+      transaction_id,
+      items,
+      file,
+      note,
+      note_title,
+    } = body;
+
+    if (!VALID_FUNCTION_TYPES.includes(function_type)) {
+      throw {
+        message: `function_type harus salah satu dari: ${VALID_FUNCTION_TYPES.join(", ")}`,
+        statusCode: 400,
+      };
+    }
+
+    if (!VALID_TRANSACTION_TYPES.includes(transaction_type)) {
+      throw {
+        message: `transaction_type harus salah satu dari: ${VALID_TRANSACTION_TYPES.join(", ")}`,
+        statusCode: 400,
+      };
+    }
+
+    if (!transaction_id) {
+      throw { message: "transaction_id tidak boleh kosong", statusCode: 400 };
+    }
+
+    if (!Array.isArray(items) || items.length === 0) {
+      throw { message: "items tidak boleh kosong", statusCode: 400 };
+    }
+
+    const userEmail = user?.email || null;
+
+    let uploadedFile = null;
+    if (file) {
+      const path = require("path");
+      const nextcloud = require("../../utils/nextcloud");
+
+      const extension = path.extname(file.originalname);
+      const baseName = path.basename(file.originalname, extension);
+      const normalizedBaseName = baseName.toLowerCase().replace(/\s+/g, "_");
+      const fileNameOriginal = `${Date.now()}_${normalizedBaseName}${extension}`;
+
+      const year = new Date().getFullYear();
+      const functionTypeFolder =
+        function_type === "receipts" ? "Receipt" : "Fulfillment";
+      const uploadDir = `/NetSuite/Items/${functionTypeFolder}/${year}`;
+      // const uploadDir = `/NetSuite/Items/${nextcloud.toPascalCase(transaction_type)}/${functionTypeFolder}/${year}`;
+      const filePath = `${uploadDir}/${fileNameOriginal}`;
+
+      await nextcloud.ensureDirectoryExists(uploadDir);
+      await nextcloud.client.putFileContents(filePath, file.buffer);
+      const shareUrl = await nextcloud.generateShareLink(filePath);
+
+      uploadedFile = {
+        fileName: file.originalname,
+        fileNameOriginal,
+        storagePath: filePath,
+        fileUrl: shareUrl,
+      };
+    }
+
+    const { publishToRabbitMqQueueSingle } = require("../../config/rabbitmq");
+    const { EXCHANGES, QUEUE } = require("../../utils/constant");
+
+    const isReceipts = function_type === "receipts";
+    const exchangeName = isReceipts
+      ? EXCHANGES.ITEM_RECEIPT_CREATE
+      : EXCHANGES.ITEM_FULFILLMENT_CREATE;
+    const queueName = isReceipts
+      ? QUEUE.ITEM_RECEIPT_CREATE
+      : QUEUE.ITEM_FULFILLMENT_CREATE;
+
+    await publishToRabbitMqQueueSingle(
+      exchangeName,
+      queueName,
+      {
+        function_type,
+        transaction_type,
+        transaction_id,
+        items,
+        note: note || "created by login email",
+        noteTitle: note_title || userEmail,
+        file: uploadedFile,
+        userEmail,
+      },
+      {
+        durable: true,
+        arguments: {
+          "x-dead-letter-exchange": `${exchangeName}-retry`,
+        },
+      },
+    );
+
+    return {
+      function_type,
+      transaction_type,
+      transaction_id,
+      file: uploadedFile
+        ? { fileName: uploadedFile.fileName, fileUrl: uploadedFile.fileUrl }
+        : null,
+    };
+  } catch (error) {
+    if (error.statusCode) throw error;
+    if (error.response) {
+      throw {
+        message:
+          error.response.data?.message ||
+          "Failed to queue item receipt/fulfillment",
+        statusCode: error.response.status,
+        errors: error.response.data,
+      };
+    }
+    throw { message: error.message, statusCode: 500 };
+  }
+};
+
 module.exports = {
   getItemsList,
   syncItemsList,
+  syncItemById,
+  getItemByNetsuiteId,
   processItemsSync,
   getItemLocation,
   getItemReceipts,
   getItemReceiptById,
+  getItemFulfillments,
+  getItemFulfillmentById,
+  createItemReceipt,
+  createItemFulfillment,
+  createFulfillmentReceipts,
 };

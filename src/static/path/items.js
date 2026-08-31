@@ -81,6 +81,66 @@ const itemsPaths = {
       },
     },
   },
+  "/items/sync/{id}": {
+    get: {
+      tags: ["Items"],
+      summary: "Sync single item by ID dari bridge API",
+      description:
+        "Hit bridge API `POST /api/v1/bridge/items/sync/netsuite/{id}` untuk sync satu item berdasarkan NetSuite internal ID, lalu ambil ulang data item tersebut dari database lokal (format sama dengan get by netsuite_id).",
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        {
+          name: "id",
+          in: "path",
+          required: true,
+          description: "NetSuite internal ID dari item",
+          schema: { type: "integer", example: 7337 },
+        },
+      ],
+      responses: {
+        200: {
+          description: "Success",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ItemSyncByIdResponse" },
+            },
+          },
+        },
+        400: {
+          description: "Bad Request - ID not provided",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+            },
+          },
+        },
+        401: {
+          description: "Unauthorized",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+            },
+          },
+        },
+        404: {
+          description: "Not Found - Item tidak ditemukan di database lokal setelah sync",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+            },
+          },
+        },
+        500: {
+          description: "Internal Server Error",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+            },
+          },
+        },
+      },
+    },
+  },
   "/items/get-item-location": {
     post: {
       tags: ["Items"],
@@ -251,6 +311,153 @@ const itemsPaths = {
         },
         404: {
           description: "Not Found",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+            },
+          },
+        },
+        500: {
+          description: "Internal Server Error",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+            },
+          },
+        },
+      },
+    },
+  },
+  "/items/get-fulfillment": {
+    post: {
+      tags: ["Items"],
+      summary: "Get fulfillments dari local database",
+      description:
+        "Fetch fulfillments dari tabel lokal bridge_sanbox.fulfillments dengan pagination dan filter sederhana.",
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/FulfillmentsRequest" },
+          },
+        },
+      },
+      responses: {
+        200: {
+          description: "Success",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/FulfillmentsListResponse" },
+            },
+          },
+        },
+        500: {
+          description: "Internal Server Error",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+            },
+          },
+        },
+      },
+    },
+  },
+  "/items/get-fulfillment/{id}": {
+    get: {
+      tags: ["Items"],
+      summary: "Get fulfillment detail by id",
+      description:
+        "Fetch a single fulfillment detail dari tabel lokal bridge_sanbox.fulfillments berdasarkan id (UUID) atau netsuite_id.",
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        {
+          name: "id",
+          in: "path",
+          required: true,
+          schema: { type: "string" },
+          description: "UUID (id) atau netsuite_id dari fulfillment",
+          example: "588",
+        },
+      ],
+      responses: {
+        200: {
+          description: "Success",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/FulfillmentDetailResponse" },
+            },
+          },
+        },
+        400: {
+          description: "Bad Request",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+            },
+          },
+        },
+        404: {
+          description: "Not Found",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+            },
+          },
+        },
+        500: {
+          description: "Internal Server Error",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+            },
+          },
+        },
+      },
+    },
+  },
+  "/items/create-fulfillment-receipts": {
+    post: {
+      tags: ["Items"],
+      summary: "Create item receipt/fulfillment via bridge API (async, dengan lampiran file)",
+      description:
+        "Membuat item receipt atau item fulfillment secara asynchronous via bridge API (`POST /api/v1/bridge/items/item-receipt` atau `POST /api/v1/bridge/items/item-fulfillment`), tergantung `function_type`. " +
+        "Request berupa `multipart/form-data` dengan lampiran file opsional (single file). " +
+        "Proses dijalankan lewat queue + listener: (1) request diterima dan langsung di-queue, (2) worker hit bridge API dan mengambil netsuite_id dari response " +
+        "(`goods_receipts[0].id` untuk receipts, `fulfillment_id` untuk fulfillment), (3) jika ada file lampiran, worker meng-queue proses attach file (mirip modul attach_file) " +
+        "dengan `type` berupa `{transaction_type}_{function_type}` (contoh: `transfer_order_fulfillment`, `purchase_order_receipts`).",
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          "multipart/form-data": {
+            schema: {
+              $ref: "#/components/schemas/CreateFulfillmentReceiptsRequest",
+            },
+          },
+        },
+      },
+      responses: {
+        200: {
+          description: "Success - request diterima dan sedang diproses",
+          content: {
+            "application/json": {
+              schema: {
+                $ref: "#/components/schemas/CreateFulfillmentReceiptsResponse",
+              },
+            },
+          },
+        },
+        400: {
+          description: "Bad Request - payload tidak valid",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+            },
+          },
+        },
+        401: {
+          description: "Unauthorized",
           content: {
             "application/json": {
               schema: { $ref: "#/components/schemas/ErrorResponse" },

@@ -64,6 +64,53 @@ const sync = async (req, res) => {
 };
 
 /**
+ * Sync single item by ID dari bridge API
+ */
+const syncById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Parameter id tidak boleh kosong" });
+    }
+
+    await service.syncItemById(id);
+
+    const result = await service.getItemByNetsuiteId(id);
+
+    // await syncService.upsertSync(
+    //   { sync_module: "items", sync_status: "success" },
+    //   req.user
+    // );
+
+    // const syncInfo = await syncService
+    //   .getLatestSyncInfo("items")
+    //   .catch(() => null);
+
+    return baseResponse(res, {
+      data: {
+        success: true,
+        data: result,
+        // sync_info: syncInfo,
+        message: `Item ID ${id} berhasil di-sync dari bridge API`,
+      },
+    });
+  } catch (error) {
+    await syncService
+      .upsertSync({ sync_module: "items", sync_status: "failed" }, req.user)
+      .catch(() => {});
+
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+      errors: error.errors || error,
+    });
+  }
+};
+
+/**
  * Get item locations
  */
 const getItemLocation = async (req, res) => {
@@ -140,10 +187,128 @@ const getItemReceiptById = async (req, res) => {
   }
 };
 
+/**
+ * Get fulfillments from local fulfillments table
+ */
+const getItemFulfillments = async (req, res) => {
+  try {
+    const result = await service.getItemFulfillments(req.body);
+    return baseResponse(res, {
+      data: {
+        success: true,
+        data: result,
+        message: "Data fulfillments berhasil diambil",
+      },
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+      errors: error.errors || error,
+    });
+  }
+};
+
+/**
+ * Get fulfillment detail by id from local fulfillments table
+ */
+const getItemFulfillmentById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Parameter id tidak boleh kosong",
+      });
+    }
+
+    const result = await service.getItemFulfillmentById(id);
+    return baseResponse(res, {
+      data: {
+        success: true,
+        data: result,
+        message: "Data fulfillment berhasil diambil",
+      },
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+      errors: error.errors || error,
+    });
+  }
+};
+
+/**
+ * Create item receipt/fulfillment (multipart/form-data, dengan lampiran file opsional)
+ * via bridge API secara asynchronous menggunakan queue + listener.
+ */
+const createFulfillmentReceipts = async (req, res) => {
+  try {
+    const {
+      function_type,
+      transaction_type,
+      transaction_id,
+      items,
+      note,
+      note_title,
+    } = req.body;
+
+    let parsedItems = items;
+    if (typeof items === "string") {
+      try {
+        parsedItems = JSON.parse(items);
+      } catch (e) {
+        return res.status(400).json({
+          success: false,
+          message: "Format items tidak valid, harus berupa JSON array",
+        });
+      }
+    }
+
+    const result = await service.createFulfillmentReceipts(
+      {
+        function_type,
+        transaction_type,
+        transaction_id,
+        items: parsedItems,
+        file: req.file,
+        note,
+        note_title,
+      },
+      req.user,
+    );
+
+    return baseResponse(res, {
+      data: {
+        success: true,
+        data: result,
+        message:
+          function_type === "receipts"
+            ? "Item receipt sedang diproses"
+            : "Item fulfillment sedang diproses",
+      },
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+      errors: error.errors || error,
+    });
+  }
+};
+
 module.exports = {
   getList,
   sync,
+  syncById,
   getItemLocation,
   getItemReceipts,
   getItemReceiptById,
+  getItemFulfillments,
+  getItemFulfillmentById,
+  createFulfillmentReceipts,
 };

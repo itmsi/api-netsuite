@@ -52,6 +52,36 @@ const itemsSchemas = {
       message: { type: "string", example: "Data items berhasil diambil" },
     },
   },
+  ItemSyncByIdResponse: {
+    type: "object",
+    properties: {
+      success: { type: "boolean", example: true },
+      data: {
+        type: "object",
+        description:
+          "Item hasil query ulang dari database lokal (bridge_sanbox.items) setelah sync berhasil, format sama dengan item pada `/get-list`",
+        properties: {
+          internalId: { type: "string", example: "7337" },
+          itemId: { type: "string", example: "ITM-001" },
+          itemType: { type: "string", example: "Inventory Item" },
+          displayName: { type: "string", example: "Item Display Name" },
+          lastModifiedDate: {
+            type: "string",
+            nullable: true,
+            example: "2026-03-18T08:56:00+07:00",
+          },
+          locations: {
+            type: "array",
+            items: { type: "object" },
+          },
+        },
+      },
+      message: {
+        type: "string",
+        example: "Item ID 7337 berhasil di-sync dari bridge API",
+      },
+    },
+  },
   ReceiptsRequest: {
     type: "object",
     properties: {
@@ -259,6 +289,290 @@ const itemsSchemas = {
         },
       },
       message: { type: "string", example: "Data receipt berhasil diambil" },
+    },
+  },
+  FulfillmentsRequest: {
+    type: "object",
+    properties: {
+      page: { type: "integer", default: 1, example: 1 },
+      limit: { type: "integer", default: 20, example: 20 },
+      sort_by: {
+        type: "string",
+        default: "last_modified",
+        example: "last_modified",
+      },
+      sort_order: { type: "string", default: "desc", example: "desc" },
+      search: { type: "string", default: "", example: "FUL123" },
+      status: { type: "string", nullable: true, example: "shipped" },
+      entity_id: { type: "string", nullable: true, example: "12345" },
+      location: { type: "string", nullable: true, example: "10" },
+      classes: { type: "string", nullable: true, example: "2" },
+    },
+  },
+  FulfillmentItem: {
+    type: "object",
+    properties: {
+      id: { type: "integer", example: 1 },
+      netsuite_id: { type: "string", example: "588" },
+      number: { type: "string", example: "IF-001" },
+      date: { type: "string", nullable: true, example: "2026-03-18" },
+      status: { type: "string", example: "shipped" },
+      status_label: { type: "string", example: "Shipped" },
+      memo: { type: "string", nullable: true, example: "Item fulfillment" },
+      entity_id: { type: "string", nullable: true, example: "123" },
+      entity_name: { type: "string", nullable: true, example: "Customer ABC" },
+      createdfrom_id: { type: "string", nullable: true, example: "46555" },
+      createdfrom_number: {
+        type: "string",
+        nullable: true,
+        example: "SO-123",
+      },
+      postingperiod: { type: "string", nullable: true, example: "Mar 2026" },
+      last_modified: {
+        type: "string",
+        nullable: true,
+        example: "2026-03-18T08:56:00+07:00",
+      },
+      created_by_netsuite: {
+        type: "string",
+        nullable: true,
+        example: "Admin",
+      },
+      custbody_me_wf_created_by: {
+        type: "string",
+        nullable: true,
+        example: "Admin",
+      },
+      custbody_me_approval_status: {
+        type: "string",
+        nullable: true,
+        example: "2",
+      },
+      custbody_me_approval_status_display: {
+        type: "string",
+        nullable: true,
+        example: "Approved",
+      },
+      custbody_me_delegate_approver: {
+        type: "string",
+        nullable: true,
+        example: null,
+      },
+      custbody_me_wf_in_delegation: {
+        type: "boolean",
+        nullable: true,
+        example: false,
+      },
+      custbody_me_wf_next_approver_blank: {
+        type: "boolean",
+        nullable: true,
+        example: false,
+      },
+      nextapprover: { type: "string", nullable: true, example: null },
+      custbody_cseg_cn_cfi: { type: "string", nullable: true, example: "1" },
+      custbody_cseg_cn_cfi_display: {
+        type: "string",
+        nullable: true,
+        example: "CFI 1",
+      },
+      custbody_me_logistic_vendor: {
+        type: "string",
+        nullable: true,
+        example: "10",
+      },
+      custbody_me_logistic_vendor_display: {
+        type: "string",
+        nullable: true,
+        example: "Logistic Vendor A",
+      },
+      custbody_me_gross_weight: {
+        type: "string",
+        nullable: true,
+        example: "120.5",
+      },
+      custbody_me_related_invoice: {
+        type: "string",
+        nullable: true,
+        example: "INV-001",
+      },
+      custbody_me_rate_id: { type: "string", nullable: true, example: "1" },
+      custbody_me_rate_id_display: {
+        type: "string",
+        nullable: true,
+        example: "Rate 1",
+      },
+      custbody_me_packages: { type: "string", nullable: true, example: "2" },
+      custbody_me_total_packages: {
+        type: "string",
+        nullable: true,
+        example: "2",
+      },
+      subsidiary: { type: "string", nullable: true, example: "1" },
+      subsidiary_display: {
+        type: "string",
+        nullable: true,
+        example: "Subsidiary 1",
+      },
+      location: { type: "string", nullable: true, example: "10" },
+      location_display: {
+        type: "string",
+        nullable: true,
+        example: "Warehouse A",
+      },
+      transferlocation: { type: "string", nullable: true, example: "20" },
+      transferlocation_display: {
+        type: "string",
+        nullable: true,
+        example: "Warehouse B",
+      },
+      department: { type: "string", nullable: true, example: "5" },
+      department_display: {
+        type: "string",
+        nullable: true,
+        example: "Logistics",
+      },
+      class: { type: "string", nullable: true, example: "2" },
+      class_display: {
+        type: "string",
+        nullable: true,
+        example: "Accessories",
+      },
+      datecreated: {
+        type: "string",
+        nullable: true,
+        example: "2026-03-18T08:00:00+07:00",
+      },
+      lines: {
+        type: "array",
+        nullable: true,
+        items: { type: "object" },
+        example: [{ item: "A", qty: 2 }],
+      },
+      user_notes: {
+        type: "array",
+        nullable: true,
+        items: { type: "object" },
+        example: [{ note: "Handle with care" }],
+      },
+      files: {
+        type: "array",
+        nullable: true,
+        items: { type: "object" },
+        example: [{ fileName: "photo.jpg", fileUrl: "https://..." }],
+      },
+      created_at: { type: "string", example: "2026-03-18T08:56:00+07:00" },
+      created_by: { type: "string", nullable: true, example: "Admin" },
+      updated_at: {
+        type: "string",
+        nullable: true,
+        example: "2026-03-18T09:00:00+07:00",
+      },
+      updated_by: { type: "string", nullable: true, example: "Admin" },
+      deleted_at: { type: "string", nullable: true, example: null },
+      deleted_by: { type: "string", nullable: true, example: null },
+      is_delete: { type: "boolean", example: false },
+    },
+  },
+  FulfillmentsListResponse: {
+    type: "object",
+    properties: {
+      success: { type: "boolean", example: true },
+      data: {
+        type: "object",
+        properties: {
+          items: {
+            type: "array",
+            items: { $ref: "#/components/schemas/FulfillmentItem" },
+          },
+          pagination: { $ref: "#/components/schemas/Pagination" },
+        },
+      },
+      message: { type: "string", example: "Data fulfillments berhasil diambil" },
+    },
+  },
+  FulfillmentDetailResponse: {
+    type: "object",
+    properties: {
+      success: { type: "boolean", example: true },
+      data: { $ref: "#/components/schemas/FulfillmentItem" },
+      message: { type: "string", example: "Data fulfillment berhasil diambil" },
+    },
+  },
+  CreateFulfillmentReceiptsRequest: {
+    type: "object",
+    required: ["function_type", "transaction_type", "transaction_id", "items"],
+    properties: {
+      function_type: {
+        type: "string",
+        enum: ["receipts", "fulfillment"],
+        example: "receipts",
+        description:
+          "Menentukan proses yang dijalankan: item receipt atau item fulfillment",
+      },
+      transaction_type: {
+        type: "string",
+        enum: [
+          "sales_order",
+          "transfer_order",
+          "vendor_return",
+          "purchase_order",
+          "customer_return",
+        ],
+        example: "purchase_order",
+      },
+      transaction_id: {
+        type: "string",
+        description: "Netsuite ID dari transaksi terkait",
+        example: "46555",
+      },
+      items: {
+        type: "string",
+        description: "JSON string array of { line, quantity }",
+        example: '[{"line":1,"quantity":1}]',
+      },
+      file: {
+        type: "string",
+        format: "binary",
+        description: "Lampiran file (opsional, single file)",
+      },
+      note: {
+        type: "string",
+        description:
+          "identifikasi proses ini di jalanan dari apps MSI atau dari WMS ITI",
+        example: "created by login email (apps)",
+      },
+      note_title: {
+        type: "string",
+        description:
+          "identifikasi proses ini di jalanan dari email login apps (dari apps),  WMS (dari ITI)",
+        example: "dharmaridwan@motorsights.net",
+      },
+    },
+  },
+  CreateFulfillmentReceiptsResponse: {
+    type: "object",
+    properties: {
+      success: { type: "boolean", example: true },
+      data: {
+        type: "object",
+        properties: {
+          function_type: { type: "string", example: "receipts" },
+          transaction_type: { type: "string", example: "purchase_order" },
+          transaction_id: { type: "string", example: "46555" },
+          file: {
+            type: "object",
+            nullable: true,
+            properties: {
+              fileName: { type: "string", example: "invoice.pdf" },
+              fileUrl: {
+                type: "string",
+                example: "https://cloud.inlinegroupdc.com/s/xxxx",
+              },
+            },
+          },
+        },
+      },
+      message: { type: "string", example: "Item receipt sedang diproses" },
     },
   },
 };

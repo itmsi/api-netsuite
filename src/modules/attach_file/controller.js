@@ -79,15 +79,27 @@ const create = async (req, res) => {
     let resolvedNetsuiteId = netsuite_id;
 
     if (isNetsuiteIdUUID) {
-      // netsuite_id berformat UUID → cari di purchase_orders by id, ambil po_id
-      const poRecord = await service.getPurchaseOrderById(netsuite_id);
-      if (!poRecord || !poRecord.po_id) {
-        return res.status(400).json({
-          success: false,
-          message: "Netsuite ID tidak ditemukan di data PO",
-        });
+      if (type === "transfer_order") {
+        // netsuite_id berformat UUID → cari di transfer_orders by id, ambil netsuite_id
+        const toRecord = await service.getTransferOrderById(netsuite_id);
+        if (!toRecord || !toRecord.netsuite_id) {
+          return res.status(400).json({
+            success: false,
+            message: "Netsuite ID tidak ditemukan di data Transfer Order",
+          });
+        }
+        resolvedNetsuiteId = toRecord.netsuite_id;
+      } else if (type === "purchase_order") {
+        // netsuite_id berformat UUID → cari di purchase_orders by id, ambil po_id
+        const poRecord = await service.getPurchaseOrderById(netsuite_id);
+        if (!poRecord || !poRecord.po_id) {
+          return res.status(400).json({
+            success: false,
+            message: "Netsuite ID tidak ditemukan di data PO",
+          });
+        }
+        resolvedNetsuiteId = poRecord.po_id;
       }
-      resolvedNetsuiteId = poRecord.po_id;
     }
 
     let uploadDir = nextcloud.NEXTCLOUD_UPLOAD_DIR;
@@ -98,6 +110,14 @@ const create = async (req, res) => {
         const year = new Date().getFullYear();
         const folderName = poRecord.po_number || resolvedNetsuiteId;
         uploadDir = `/NetSuite/PurchasingOrders/${year}/${folderName}`;
+      }
+    } else if (type === "transfer_order" && resolvedNetsuiteId) {
+      const toRecord =
+        await service.getTransferOrderByNetsuiteId(resolvedNetsuiteId);
+      if (toRecord) {
+        const year = new Date().getFullYear();
+        const folderName = toRecord.tranid || resolvedNetsuiteId;
+        uploadDir = `/NetSuite/TransferOrders/${year}/${folderName}`;
       }
     }
 
@@ -190,6 +210,13 @@ const update = async (req, res) => {
         const year = new Date().getFullYear();
         const folderName = poRecord.po_number || netsuite_id;
         dirPath = `/NetSuite/PurchasingOrders/${year}/${folderName}`;
+      }
+    } else if (type === "transfer_order" && netsuite_id) {
+      const toRecord = await service.getTransferOrderByNetsuiteId(netsuite_id);
+      if (toRecord) {
+        const year = new Date().getFullYear();
+        const folderName = toRecord.tranid || netsuite_id;
+        dirPath = `/NetSuite/TransferOrders/${year}/${folderName}`;
       }
     }
 

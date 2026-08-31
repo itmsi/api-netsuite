@@ -42,10 +42,12 @@ const referenceSchema = require('./schema/reference');
 const invoiceSalesOrderSchema = require('./schema/invoice_sales_order');
 const classesSchema = require('./schema/classes');
 const departmentSchema = require('./schema/department');
+const projectSegmentationsSchema = require('./schema/project_segmentations');
 const subsidiarySchema = require('./schema/subsidiary');
 const termsSchema = require('./schema/terms');
 const syncSchema = require('./schema/sync');
 const salesOrdersSchema = require('./schema/sales_orders');
+const transferOrdersSchema = require('./schema/transfer_orders');
 const bankSchema = require('./schema/bank');
 const billPaymentSchema = require('./schema/bill_payment');
 const poStatusSchema = require('./schema/po_status');
@@ -70,10 +72,12 @@ const referencePaths = require('./path/reference');
 const invoiceSalesOrderPaths = require('./path/invoice_sales_order');
 const classesPaths = require('./path/classes');
 const departmentPaths = require('./path/department');
+const projectSegmentationsPaths = require('./path/project_segmentations');
 const subsidiaryPaths = require('./path/subsidiary');
 const termsPaths = require('./path/terms');
 const syncPaths = require('./path/sync');
 const salesOrdersPaths = require('./path/sales_orders');
+const transferOrdersPaths = require('./path/transfer_orders');
 const bankPaths = require('./path/bank');
 const billPaymentPaths = require('./path/bill_payment');
 const poStatusPaths = require('./path/po_status');
@@ -99,10 +103,12 @@ const schemas = {
   ...invoiceSalesOrderSchema,
   ...classesSchema,
   ...departmentSchema,
+  ...projectSegmentationsSchema,
   ...subsidiarySchema,
   ...termsSchema,
   ...syncSchema,
   ...salesOrdersSchema,
+  ...transferOrdersSchema,
   ...bankSchema,
   ...billPaymentSchema,
   ...poStatusSchema,
@@ -129,10 +135,12 @@ const paths = {
   ...invoiceSalesOrderPaths,
   ...classesPaths,
   ...departmentPaths,
+  ...projectSegmentationsPaths,
   ...subsidiaryPaths,
   ...termsPaths,
   ...syncPaths,
   ...salesOrdersPaths,
+  ...transferOrdersPaths,
   ...bankPaths,
   ...billPaymentPaths,
   ...poStatusPaths,
