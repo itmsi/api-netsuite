@@ -42,7 +42,9 @@ const parseJsonColumn = (value, fallback) => {
  */
 const formatDateDMY = (value) => {
   if (!value) return value;
-  const parsed = moment(
+  // parseZone: pertahankan tanggal sesuai offset aslinya (hindari pergeseran
+  // tanggal akibat konversi ke local/UTC time, mis. "2026-09-02T00:00:00+07:00")
+  const parsed = moment.parseZone(
     value,
     ["D/M/YYYY", "DD/MM/YYYY", "YYYY-MM-DD", moment.ISO_8601],
     true,
