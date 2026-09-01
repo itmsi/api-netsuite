@@ -38,6 +38,11 @@ const getList = async (req, res) => {
  */
 const getListMobile = async (req, res) => {
   try {
+    const page = parseInt(req.body.page) || 1;
+    if (page === 1) {
+      await service.syncTransferOrdersListFromBridge(req.body).catch(() => null);
+    }
+
     const result = await service.getMobileTransferOrders(req.body);
 
     const syncInfo = await syncService
