@@ -565,6 +565,8 @@ const getItemReceiptById = async (id) => {
 const FULFILLMENT_COLUMNS = [
   "id",
   "netsuite_id",
+  "source_type",
+  "source_type_display",
   "number",
   "date",
   "status",
