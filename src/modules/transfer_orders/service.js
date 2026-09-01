@@ -567,6 +567,51 @@ const getTransferOrderById = async (id) => {
 };
 
 /**
+ * Hit bridge API untuk sync list transfer orders (halaman pertama) sebelum diambil dari DB lokal.
+ * Hit: POST {BRIDGE_BASE_URL}/api/v1/bridge/transfer-orders/get (is_sync: true)
+ */
+const syncTransferOrdersListFromBridge = async (body) => {
+  try {
+    const tokenResponse = await authService.getToken();
+    const token = tokenResponse.data.access_token;
+
+    const baseUrl =
+      process.env.BRIDGE_BASE_URL || "https://api-bridge-sb.motorsights.com";
+    const url = `${baseUrl}/api/v1/bridge/transfer-orders/get`;
+
+    const requestData = {
+      page: parseInt(body.page) || 1,
+      page_size: parseInt(body.limit) || 10,
+      sort_by: body.sort_by || "lastmodifieddate",
+      sort_order: body.sort_order ? body.sort_order.toUpperCase() : "DESC",
+      is_sync: true,
+      filters: body.filters || {},
+    };
+
+    const response = await axios.post(url, requestData, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      timeout: 1500000,
+    });
+
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw {
+        message:
+          error.response.data?.message ||
+          "Failed to sync transfer orders list from bridge API",
+        statusCode: error.response.status,
+        errors: error.response.data,
+      };
+    }
+    throw { message: error.message, statusCode: 500 };
+  }
+};
+
+/**
  * Hits the actual bridge API to sync a transfer order given its NetSuite internal ID
  * Hit: POST {BRIDGE_BASE_URL}/api/v1/bridge/transfer-orders/sync/{netsuite_id}
  */
@@ -1367,6 +1412,7 @@ module.exports = {
   getTransferOrderById,
   syncTransferOrderById,
   syncTransferOrderToBridge,
+  syncTransferOrdersListFromBridge,
   createTransferOrder,
   createTransferOrderToBridge,
   updateTransferOrder,
