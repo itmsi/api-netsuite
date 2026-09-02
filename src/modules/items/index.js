@@ -45,6 +45,13 @@ router.post("/get-receipts", verifyToken, controller.getItemReceipts);
 router.get("/get-receipts/:id", verifyToken, controller.getItemReceiptById);
 
 /**
+ * @route   GET /api/netsuite/items/sync-receipts/:id
+ * @desc    Sync receipt by id dari bridge API, lalu ambil data terbaru dari local database
+ * @access  Private
+ */
+router.get("/sync-receipts/:id", verifyToken, controller.syncReceiptById);
+
+/**
  * @route   POST /api/netsuite/items/get-fulfillment
  * @desc    Get fulfillments from local database
  * @access  Private
@@ -60,6 +67,17 @@ router.get(
   "/get-fulfillment/:id",
   verifyToken,
   controller.getItemFulfillmentById,
+);
+
+/**
+ * @route   GET /api/netsuite/items/sync-fulfillment/:id
+ * @desc    Sync fulfillment by id dari bridge API, lalu ambil data terbaru dari local database
+ * @access  Private
+ */
+router.get(
+  "/sync-fulfillment/:id",
+  verifyToken,
+  controller.syncFulfillmentById,
 );
 
 /**
