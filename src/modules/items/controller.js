@@ -111,6 +111,72 @@ const syncById = async (req, res) => {
 };
 
 /**
+ * Sync single receipt by ID dari bridge API
+ */
+const syncReceiptById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Parameter id tidak boleh kosong" });
+    }
+
+    await service.syncItemReceiptById(id);
+
+    const result = await service.getItemReceiptById(id);
+
+    return baseResponse(res, {
+      data: {
+        success: true,
+        data: result,
+        message: `Receipt ID ${id} berhasil di-sync dari bridge API`,
+      },
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+      errors: error.errors || error,
+    });
+  }
+};
+
+/**
+ * Sync single fulfillment by ID dari bridge API
+ */
+const syncFulfillmentById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Parameter id tidak boleh kosong" });
+    }
+
+    await service.syncItemFulfillmentById(id);
+
+    const result = await service.getItemFulfillmentById(id);
+
+    return baseResponse(res, {
+      data: {
+        success: true,
+        data: result,
+        message: `Fulfillment ID ${id} berhasil di-sync dari bridge API`,
+      },
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+      errors: error.errors || error,
+    });
+  }
+};
+
+/**
  * Get item locations
  */
 const getItemLocation = async (req, res) => {
@@ -305,6 +371,8 @@ module.exports = {
   getList,
   sync,
   syncById,
+  syncReceiptById,
+  syncFulfillmentById,
   getItemLocation,
   getItemReceipts,
   getItemReceiptById,

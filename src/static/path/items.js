@@ -141,6 +141,126 @@ const itemsPaths = {
       },
     },
   },
+  "/items/sync-receipts/{id}": {
+    get: {
+      tags: ["Items"],
+      summary: "Sync single receipt by ID dari bridge API",
+      description:
+        "Hit bridge API `GET /api/v1/bridge/receives/sync/{id}` untuk sync satu receipt berdasarkan NetSuite internal ID, lalu ambil ulang data receipt tersebut dari database lokal.",
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        {
+          name: "id",
+          in: "path",
+          required: true,
+          description: "NetSuite internal ID (atau UUID) dari receipt",
+          schema: { type: "string", example: "62009" },
+        },
+      ],
+      responses: {
+        200: {
+          description: "Success",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ReceiptDetailResponse" },
+            },
+          },
+        },
+        400: {
+          description: "Bad Request - ID not provided",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+            },
+          },
+        },
+        401: {
+          description: "Unauthorized",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+            },
+          },
+        },
+        404: {
+          description: "Not Found - Receipt tidak ditemukan di database lokal setelah sync",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+            },
+          },
+        },
+        500: {
+          description: "Internal Server Error",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+            },
+          },
+        },
+      },
+    },
+  },
+  "/items/sync-fulfillment/{id}": {
+    get: {
+      tags: ["Items"],
+      summary: "Sync single fulfillment by ID dari bridge API",
+      description:
+        "Hit bridge API `GET /api/v1/bridge/fulfillments/sync/{id}` untuk sync satu fulfillment berdasarkan NetSuite internal ID, lalu ambil ulang data fulfillment tersebut dari database lokal.",
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        {
+          name: "id",
+          in: "path",
+          required: true,
+          description: "NetSuite internal ID (atau UUID) dari fulfillment",
+          schema: { type: "string", example: "62009" },
+        },
+      ],
+      responses: {
+        200: {
+          description: "Success",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/FulfillmentDetailResponse" },
+            },
+          },
+        },
+        400: {
+          description: "Bad Request - ID not provided",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+            },
+          },
+        },
+        401: {
+          description: "Unauthorized",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+            },
+          },
+        },
+        404: {
+          description: "Not Found - Fulfillment tidak ditemukan di database lokal setelah sync",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+            },
+          },
+        },
+        500: {
+          description: "Internal Server Error",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+            },
+          },
+        },
+      },
+    },
+  },
   "/items/get-item-location": {
     post: {
       tags: ["Items"],

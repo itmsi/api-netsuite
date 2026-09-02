@@ -208,6 +208,75 @@ const syncItemById = async (id) => {
 };
 
 /**
+ * Sync single receipt by ID dari bridge API
+ * Hit: GET {BRIDGE_BASE_URL}/api/v1/bridge/receives/sync/{id}
+ */
+const syncItemReceiptById = async (id) => {
+  try {
+    const tokenResponse = await authService.getToken();
+    const token = tokenResponse.data.access_token;
+
+    const baseUrl =
+      process.env.BRIDGE_BASE_URL || "https://api-bridge-sb.motorsights.com";
+    const url = `${baseUrl}/api/v1/bridge/receives/sync/${id}`;
+
+    const response = await axios.get(url, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw {
+        message:
+          error.response.data?.message ||
+          "Failed to sync receipt by ID from bridge API",
+        statusCode: error.response.status,
+        errors: error.response.data,
+      };
+    }
+    throw { message: error.message, statusCode: 500 };
+  }
+};
+
+/**
+ * Sync single fulfillment by ID dari bridge API
+ * Hit: GET {BRIDGE_BASE_URL}/api/v1/bridge/fulfillments/sync/{id}
+ */
+const syncItemFulfillmentById = async (id) => {
+  try {
+    const tokenResponse = await authService.getToken();
+    const token = tokenResponse.data.access_token;
+
+    const baseUrl =
+      process.env.BRIDGE_BASE_URL || "https://api-bridge-sb.motorsights.com";
+    const url = `${baseUrl}/api/v1/bridge/fulfillments/sync/${id}`;
+
+    const response = await axios.get(url, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw {
+        message:
+          error.response.data?.message ||
+          "Failed to sync fulfillment by ID from bridge API",
+        statusCode: error.response.status,
+        errors: error.response.data,
+      };
+    }
+    throw { message: error.message, statusCode: 500 };
+  }
+};
+
+/**
  * Get single item by netsuite_id dari DB Netsuite (bridge_sanbox.items)
  */
 const getItemByNetsuiteId = async (netsuiteId) => {
@@ -975,6 +1044,8 @@ module.exports = {
   getItemsList,
   syncItemsList,
   syncItemById,
+  syncItemReceiptById,
+  syncItemFulfillmentById,
   getItemByNetsuiteId,
   processItemsSync,
   getItemLocation,
