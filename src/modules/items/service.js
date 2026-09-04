@@ -1060,6 +1060,263 @@ const createFulfillmentReceipts = async (body, user) => {
   }
 };
 
+/**
+ * Get single item by netsuite_id dari DB Netsuite (bridge_sanbox.items)
+ * Mengembalikan seluruh kolom dari tabel items apa adanya (tanpa alias).
+ */
+const getItemDetailByNetsuiteId = async (id) => {
+  try {
+    const row = await dbNetsuite("items")
+      .where("netsuite_id", id.toString())
+      .select([
+        "id",
+        "netsuite_id",
+        "item_id",
+        "display_name",
+        "data",
+        "last_modified_netsuite",
+        "created_at",
+        "updated_at",
+        "is_deleted",
+        "type",
+        "locations",
+        "type_id",
+        "price_levels",
+      ])
+      .first();
+
+    if (!row) {
+      throw { message: "Data item tidak ditemukan", statusCode: 404 };
+    }
+
+    return row;
+  } catch (error) {
+    if (error.statusCode) throw error;
+    throw {
+      message: error.message || "Failed to fetch item from database",
+      statusCode: 500,
+    };
+  }
+};
+
+/**
+ * Get item locations (per item) dari tabel item_locations, filter by netsuite_item_id
+ */
+const getItemLocationsList = async (body) => {
+  try {
+    const page = parseInt(body.page) || 1;
+    const limit = parseInt(body.limit) || 10;
+    const offset = (page - 1) * limit;
+    const sortOrder = body.sort_order ? body.sort_order.toUpperCase() : "DESC";
+
+    const sortColumnMap = {
+      created_at: "il.created_at",
+      updated_at: "il.updated_at",
+      qtyAvailable: 'il."qtyAvailable"',
+      qtyOnHand: 'il."qtyOnHand"',
+      qtyOnOrder: 'il."qtyOnOrder"',
+      qtyCommitted: 'il."qtyCommitted"',
+      qtyBackOrder: 'il."qtyBackOrder"',
+    };
+    const orderCol = sortColumnMap[body.sort_by] || sortColumnMap.created_at;
+
+    let query = dbNetsuite("item_locations as il")
+      .leftJoin(
+        "locations as l",
+        dbNetsuite.raw("l.netsuite_id::integer"),
+        dbNetsuite.raw('il."inventorylocationId"::integer'),
+      )
+      .where("il.is_deleted", false);
+
+    if (body.netsuite_item_id) {
+      query = query.where("il.item_id", body.netsuite_item_id.toString());
+    }
+
+    if (body.search) {
+      query = query.where(function () {
+        this.whereILike("il.item_id", `%${body.search}%`).orWhereILike(
+          "l.name",
+          `%${body.search}%`,
+        );
+      });
+    }
+
+    const countResult = await query.clone().count("il.id as total").first();
+    const total = parseInt(countResult.total) || 0;
+    const totalPages = Math.ceil(total / limit);
+
+    const rows = await query
+      .clone()
+      .select([
+        "il.id",
+        "il.inventorylocationId",
+        "il.item_id",
+        "l.name as location_name",
+        "il.qtyAvailable",
+        "il.qtyOnHand",
+        "il.qtyOnOrder",
+        "il.qtyCommitted",
+        "il.qtyBackOrder",
+        "il.serialNumbers",
+        "il.created_at",
+        "il.updated_at",
+      ])
+      .orderByRaw(`${orderCol} ${sortOrder} NULLS LAST`)
+      .limit(limit)
+      .offset(offset);
+
+    return { items: rows, pagination: { page, limit, total, totalPages } };
+  } catch (error) {
+    throw {
+      message:
+        error.message || "Failed to fetch item locations from database",
+      statusCode: 500,
+    };
+  }
+};
+
+/**
+ * Get item tier prices dari tabel item_tier_prices, filter by netsuite_item_id
+ */
+const getItemTierPricesList = async (body) => {
+  try {
+    const page = parseInt(body.page) || 1;
+    const limit = parseInt(body.limit) || 10;
+    const offset = (page - 1) * limit;
+    const sortOrder = body.sort_order ? body.sort_order.toUpperCase() : "DESC";
+
+    const validSortColumns = [
+      "created_at",
+      "updated_at",
+      "price_level",
+      "price",
+      "quantity",
+    ];
+    const orderCol = validSortColumns.includes(body.sort_by)
+      ? body.sort_by
+      : "created_at";
+
+    let query = dbNetsuite("item_tier_prices as itp").where(
+      "itp.is_delete",
+      false,
+    );
+
+    if (body.netsuite_item_id) {
+      query = query.where("itp.item_id", body.netsuite_item_id.toString());
+    }
+
+    if (body.search) {
+      query = query.where(function () {
+        this.whereILike("itp.price_level", `%${body.search}%`).orWhereILike(
+          "itp.item_id",
+          `%${body.search}%`,
+        );
+      });
+    }
+
+    const countResult = await query.clone().count("itp.id as total").first();
+    const total = parseInt(countResult.total) || 0;
+    const totalPages = Math.ceil(total / limit);
+
+    const rows = await query
+      .clone()
+      .select([
+        "itp.id",
+        "itp.item_id",
+        "itp.price_level",
+        "itp.price",
+        "itp.quantity",
+        "itp.created_at",
+        "itp.created_by",
+        "itp.updated_at",
+        "itp.updated_by",
+      ])
+      .orderBy(`itp.${orderCol}`, sortOrder)
+      .limit(limit)
+      .offset(offset);
+
+    return { items: rows, pagination: { page, limit, total, totalPages } };
+  } catch (error) {
+    throw {
+      message:
+        error.message || "Failed to fetch item tier prices from database",
+      statusCode: 500,
+    };
+  }
+};
+
+/**
+ * Get item serial numbers dari tabel item_serial_numbers, filter by netsuite_item_id dan is_used
+ */
+const getItemSerialNumbersList = async (body) => {
+  try {
+    const page = parseInt(body.page) || 1;
+    const limit = parseInt(body.limit) || 10;
+    const offset = (page - 1) * limit;
+    const sortOrder = body.sort_order ? body.sort_order.toUpperCase() : "DESC";
+
+    const validSortColumns = ["created_at", "updated_at", "serial_number"];
+    const orderCol = validSortColumns.includes(body.sort_by)
+      ? body.sort_by
+      : "created_at";
+
+    let query = dbNetsuite("item_serial_numbers as isn").where(
+      "isn.is_delete",
+      false,
+    );
+
+    if (body.netsuite_item_id) {
+      query = query.where("isn.item_id", body.netsuite_item_id.toString());
+    }
+
+    if (body.is_used !== undefined && body.is_used !== null && body.is_used !== "") {
+      const isUsed =
+        typeof body.is_used === "string"
+          ? body.is_used.toLowerCase() === "true"
+          : Boolean(body.is_used);
+      query = query.where("isn.is_used", isUsed);
+    }
+
+    if (body.search) {
+      query = query.where(function () {
+        this.whereILike("isn.serial_number", `%${body.search}%`).orWhereILike(
+          "isn.item_id",
+          `%${body.search}%`,
+        );
+      });
+    }
+
+    const countResult = await query.clone().count("isn.id as total").first();
+    const total = parseInt(countResult.total) || 0;
+    const totalPages = Math.ceil(total / limit);
+
+    const rows = await query
+      .clone()
+      .select([
+        "isn.id",
+        "isn.item_id",
+        "isn.inventorylocationId",
+        "isn.serial_number",
+        "isn.is_used",
+        "isn.created_at",
+        "isn.created_by",
+        "isn.updated_at",
+        "isn.updated_by",
+      ])
+      .orderBy(`isn.${orderCol}`, sortOrder)
+      .limit(limit)
+      .offset(offset);
+
+    return { items: rows, pagination: { page, limit, total, totalPages } };
+  } catch (error) {
+    throw {
+      message:
+        error.message || "Failed to fetch item serial numbers from database",
+      statusCode: 500,
+    };
+  }
+};
+
 module.exports = {
   getItemsList,
   syncItemsList,
@@ -1067,8 +1324,12 @@ module.exports = {
   syncItemReceiptById,
   syncItemFulfillmentById,
   getItemByNetsuiteId,
+  getItemDetailByNetsuiteId,
   processItemsSync,
   getItemLocation,
+  getItemLocationsList,
+  getItemTierPricesList,
+  getItemSerialNumbersList,
   getItemReceipts,
   getItemReceiptById,
   getItemFulfillments,

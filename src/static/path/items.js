@@ -536,6 +536,170 @@ const itemsPaths = {
       },
     },
   },
+  "/items/{id}": {
+    get: {
+      tags: ["Items"],
+      summary: "Get item detail by netsuite_id",
+      description:
+        "Fetch a single item detail dari tabel lokal bridge_sanbox.items berdasarkan netsuite_id, mengembalikan seluruh kolom (id, netsuite_id, item_id, display_name, data, last_modified_netsuite, created_at, updated_at, is_deleted, type, locations, type_id, price_levels).",
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        {
+          name: "id",
+          in: "path",
+          required: true,
+          schema: { type: "string" },
+          description: "netsuite_id dari item",
+          example: "22807",
+        },
+      ],
+      responses: {
+        200: {
+          description: "Success",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ItemDetailResponse" },
+            },
+          },
+        },
+        400: {
+          description: "Bad Request - ID not provided",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+            },
+          },
+        },
+        404: {
+          description: "Not Found - Item tidak ditemukan",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+            },
+          },
+        },
+        500: {
+          description: "Internal Server Error",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+            },
+          },
+        },
+      },
+    },
+  },
+  "/items/item_locations": {
+    post: {
+      tags: ["Items"],
+      summary: "Get item locations by netsuite_item_id",
+      description:
+        "Fetch item locations dari tabel lokal bridge_sanbox.item_locations, difilter berdasarkan netsuite_item_id (kolom netsuite_id di tabel items), dengan pagination dan search.",
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/ItemLocationsRequest" },
+          },
+        },
+      },
+      responses: {
+        200: {
+          description: "Success",
+          content: {
+            "application/json": {
+              schema: {
+                $ref: "#/components/schemas/ItemLocationsListResponse",
+              },
+            },
+          },
+        },
+        500: {
+          description: "Internal Server Error",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+            },
+          },
+        },
+      },
+    },
+  },
+  "/items/item_tier_prices": {
+    post: {
+      tags: ["Items"],
+      summary: "Get item tier prices by netsuite_item_id",
+      description:
+        "Fetch item tier prices dari tabel lokal bridge_sanbox.item_tier_prices, difilter berdasarkan netsuite_item_id (kolom netsuite_id di tabel items), dengan pagination dan search.",
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/ItemTierPricesRequest" },
+          },
+        },
+      },
+      responses: {
+        200: {
+          description: "Success",
+          content: {
+            "application/json": {
+              schema: {
+                $ref: "#/components/schemas/ItemTierPricesListResponse",
+              },
+            },
+          },
+        },
+        500: {
+          description: "Internal Server Error",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+            },
+          },
+        },
+      },
+    },
+  },
+  "/items/item_serial_numbers": {
+    post: {
+      tags: ["Items"],
+      summary: "Get item serial numbers by netsuite_item_id",
+      description:
+        "Fetch item serial numbers dari tabel lokal bridge_sanbox.item_serial_numbers, difilter berdasarkan netsuite_item_id (kolom netsuite_id di tabel items) dan is_used, dengan pagination dan search.",
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/ItemSerialNumbersRequest" },
+          },
+        },
+      },
+      responses: {
+        200: {
+          description: "Success",
+          content: {
+            "application/json": {
+              schema: {
+                $ref: "#/components/schemas/ItemSerialNumbersListResponse",
+              },
+            },
+          },
+        },
+        500: {
+          description: "Internal Server Error",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+            },
+          },
+        },
+      },
+    },
+  },
   "/items/create-fulfillment-receipts": {
     post: {
       tags: ["Items"],

@@ -498,6 +498,234 @@ const itemsSchemas = {
       message: { type: "string", example: "Data fulfillment berhasil diambil" },
     },
   },
+  ItemDetailResponse: {
+    type: "object",
+    properties: {
+      success: { type: "boolean", example: true },
+      data: {
+        type: "object",
+        properties: {
+          id: {
+            type: "string",
+            example: "e520cef0-d85b-475a-bb85-45c66fddbcc9",
+          },
+          netsuite_id: { type: "string", example: "22807" },
+          item_id: { type: "string", example: "DZ15221100004K" },
+          display_name: {
+            type: "string",
+            nullable: true,
+            example: "STANDARD CAB BODY (8)",
+          },
+          data: { type: "object", description: "Raw data JSON dari NetSuite" },
+          last_modified_netsuite: {
+            type: "string",
+            nullable: true,
+            example: "2026-03-18T08:56:00+07:00",
+          },
+          created_at: {
+            type: "string",
+            example: "2026-03-18T08:56:00+07:00",
+          },
+          updated_at: {
+            type: "string",
+            nullable: true,
+            example: "2026-03-18T09:00:00+07:00",
+          },
+          is_deleted: { type: "boolean", example: false },
+          type: { type: "string", nullable: true, example: "Inventory Item" },
+          locations: {
+            type: "array",
+            nullable: true,
+            items: { type: "object" },
+          },
+          type_id: { type: "string", nullable: true, example: "InvtPart" },
+          price_levels: {
+            type: "array",
+            nullable: true,
+            items: { type: "object" },
+          },
+        },
+      },
+      message: { type: "string", example: "Data item berhasil diambil" },
+    },
+  },
+  ItemLocationsRequest: {
+    type: "object",
+    properties: {
+      page: { type: "integer", default: 1, example: 1 },
+      limit: { type: "integer", default: 10, example: 10 },
+      sort_by: { type: "string", default: "created_at", example: "created_at" },
+      sort_order: { type: "string", default: "desc", example: "desc" },
+      search: { type: "string", default: "", example: "" },
+      netsuite_item_id: {
+        type: "string",
+        nullable: true,
+        description: "Berdasarkan kolom netsuite_id di tabel items",
+        example: "26614",
+      },
+    },
+  },
+  ItemLocationsListResponse: {
+    type: "object",
+    properties: {
+      success: { type: "boolean", example: true },
+      data: {
+        type: "object",
+        properties: {
+          items: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                id: { type: "string", example: "6687f24a-8292-4481-8366-c2fea7db461a" },
+                inventorylocationId: { type: "integer", example: 19 },
+                item_id: { type: "string", example: "26614" },
+                location_name: { type: "string", example: "Jakarta - IEC" },
+                qtyAvailable: { type: "string", example: "14" },
+                qtyOnHand: { type: "string", example: "14" },
+                qtyOnOrder: { type: "string", example: "0" },
+                qtyCommitted: { type: "string", example: "0" },
+                qtyBackOrder: { type: "string", example: "0" },
+                serialNumbers: { type: "array", items: { type: "object" } },
+                created_at: {
+                  type: "string",
+                  example: "2026-06-24T06:33:04.599Z",
+                },
+                updated_at: {
+                  type: "string",
+                  example: "2026-06-24T06:33:04.599Z",
+                },
+              },
+            },
+          },
+          pagination: { $ref: "#/components/schemas/Pagination" },
+        },
+      },
+      message: {
+        type: "string",
+        example: "Data item locations berhasil diambil",
+      },
+    },
+  },
+  ItemTierPricesRequest: {
+    type: "object",
+    properties: {
+      page: { type: "integer", default: 1, example: 1 },
+      limit: { type: "integer", default: 10, example: 10 },
+      sort_by: { type: "string", default: "created_at", example: "created_at" },
+      sort_order: { type: "string", default: "desc", example: "desc" },
+      search: { type: "string", default: "", example: "" },
+      netsuite_item_id: {
+        type: "string",
+        nullable: true,
+        description: "Berdasarkan kolom netsuite_id di tabel items",
+        example: "22230",
+      },
+    },
+  },
+  ItemTierPricesListResponse: {
+    type: "object",
+    properties: {
+      success: { type: "boolean", example: true },
+      data: {
+        type: "object",
+        properties: {
+          items: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                id: { type: "string", example: "a06d64fd-1fe6-491f-a65b-1f1ab202f37b" },
+                item_id: { type: "string", example: "22230" },
+                price_level: { type: "string", example: "Harga Dasar" },
+                price: { type: "string", example: "100000.00" },
+                quantity: { type: "string", example: "0" },
+                created_at: {
+                  type: "string",
+                  example: "2026-09-04T08:59:47.706Z",
+                },
+                created_by: { type: "string", nullable: true, example: null },
+                updated_at: {
+                  type: "string",
+                  example: "2026-09-04T08:59:47.706Z",
+                },
+                updated_by: { type: "string", nullable: true, example: null },
+              },
+            },
+          },
+          pagination: { $ref: "#/components/schemas/Pagination" },
+        },
+      },
+      message: {
+        type: "string",
+        example: "Data item tier prices berhasil diambil",
+      },
+    },
+  },
+  ItemSerialNumbersRequest: {
+    type: "object",
+    properties: {
+      page: { type: "integer", default: 1, example: 1 },
+      limit: { type: "integer", default: 10, example: 10 },
+      sort_by: { type: "string", default: "created_at", example: "created_at" },
+      sort_order: { type: "string", default: "desc", example: "desc" },
+      search: { type: "string", default: "", example: "" },
+      is_used: {
+        type: "boolean",
+        nullable: true,
+        description: "Filter berdasarkan kolom is_used (true atau false)",
+        example: true,
+      },
+      netsuite_item_id: {
+        type: "string",
+        nullable: true,
+        description: "Berdasarkan kolom netsuite_id di tabel items",
+        example: "26606",
+      },
+    },
+  },
+  ItemSerialNumbersListResponse: {
+    type: "object",
+    properties: {
+      success: { type: "boolean", example: true },
+      data: {
+        type: "object",
+        properties: {
+          items: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                id: { type: "string", example: "07ce4ae8-b792-43b0-a236-e1e9095deb63" },
+                item_id: { type: "string", example: "26606" },
+                inventorylocationId: { type: "string", example: "114" },
+                serial_number: {
+                  type: "string",
+                  example: "202608030001-01",
+                },
+                is_used: { type: "boolean", example: true },
+                created_at: {
+                  type: "string",
+                  example: "2026-09-04T08:58:01.865Z",
+                },
+                created_by: { type: "string", nullable: true, example: null },
+                updated_at: {
+                  type: "string",
+                  example: "2026-09-04T08:58:01.865Z",
+                },
+                updated_by: { type: "string", nullable: true, example: null },
+              },
+            },
+          },
+          pagination: { $ref: "#/components/schemas/Pagination" },
+        },
+      },
+      message: {
+        type: "string",
+        example: "Data item serial numbers berhasil diambil",
+      },
+    },
+  },
   CreateFulfillmentReceiptsRequest: {
     type: "object",
     required: ["function_type", "transaction_type", "transaction_id", "items"],

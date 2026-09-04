@@ -88,6 +88,39 @@ router.get(
 router.get("/sync/:id", verifyToken, controller.syncById);
 
 /**
+ * @route   POST /api/netsuite/items/item_locations
+ * @desc    Get item locations by netsuite_item_id from local database
+ * @access  Private
+ */
+router.post(
+  "/item_locations",
+  verifyToken,
+  controller.getItemLocationsList,
+);
+
+/**
+ * @route   POST /api/netsuite/items/item_tier_prices
+ * @desc    Get item tier prices by netsuite_item_id from local database
+ * @access  Private
+ */
+router.post(
+  "/item_tier_prices",
+  verifyToken,
+  controller.getItemTierPricesList,
+);
+
+/**
+ * @route   POST /api/netsuite/items/item_serial_numbers
+ * @desc    Get item serial numbers by netsuite_item_id from local database
+ * @access  Private
+ */
+router.post(
+  "/item_serial_numbers",
+  verifyToken,
+  controller.getItemSerialNumbersList,
+);
+
+/**
  * @route   POST /api/netsuite/items/create-fulfillment-receipts
  * @desc    Create item receipt/fulfillment (multipart/form-data, dengan lampiran
  *          file opsional) via bridge API secara asynchronous (queue + listener)
@@ -99,5 +132,12 @@ router.post(
   upload.single("file"),
   controller.createFulfillmentReceipts,
 );
+
+/**
+ * @route   GET /api/netsuite/items/:id
+ * @desc    Get item detail by netsuite_id (semua kolom tabel items) dari local database
+ * @access  Private
+ */
+router.get("/:id", verifyToken, controller.getItemById);
 
 module.exports = router;
