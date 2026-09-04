@@ -177,8 +177,12 @@ const getTransferOrders = async (body) => {
         // dbNetsuite.raw(
         //   "CASE WHEN NULLIF(t.custbody_msi_createdby_api, '') IS NULL THEN COALESCE(NULLIF(created_emp.employee_name, ''), '') ELSE t.custbody_msi_createdby_api END AS created_by_name",
         // ),
+        // dbNetsuite.raw(
+        //   "CASE WHEN NULLIF(created_emp.employee_name, '') IS NULL THEN COALESCE(NULLIF(t.custbody_msi_createdby_api, ''), '') ELSE created_emp.employee_name END AS created_by_name",
+        // ),
+        //intinya jika custbody_msi_createdby_api null maka dia di create dari netsuite langsung
         dbNetsuite.raw(
-          "CASE WHEN NULLIF(created_emp.employee_name, '') IS NULL THEN COALESCE(NULLIF(t.custbody_msi_createdby_api, ''), '') ELSE created_emp.employee_name END AS created_by_name",
+          "CASE WHEN NULLIF(t.custbody_msi_createdby_api, '') IS NULL THEN t.created_by_netsuite_name ELSE COALESCE(NULLIF(created_emp.employee_name, ''), '') END AS created_by_name",
         ),
         "updated_emp.employee_name as updated_by_name",
         "t.status_proccess",
@@ -324,12 +328,8 @@ const getMobileTransferOrders = async (body) => {
         "t.datecreated",
         "t.last_modified_netsuite",
         "t.custbody_msi_createdby_api",
-        // dbNetsuite.raw(
-        //   "CASE WHEN NULLIF(t.custbody_msi_createdby_api, '') IS NULL THEN COALESCE(NULLIF(created_emp.employee_name, ''), '') ELSE t.custbody_msi_createdby_api END AS created_by_name",
-        // ),
-
         dbNetsuite.raw(
-          "CASE WHEN NULLIF(created_emp.employee_name, '') IS NULL THEN COALESCE(NULLIF(t.custbody_msi_createdby_api, ''), '') ELSE created_emp.employee_name END AS created_by_name",
+          "CASE WHEN NULLIF(t.custbody_msi_createdby_api, '') IS NULL THEN t.created_by_netsuite_name ELSE COALESCE(NULLIF(created_emp.employee_name, ''), '') END AS created_by_name",
         ),
         "updated_emp.employee_name as updated_by_name",
         "t.status_proccess",
@@ -483,7 +483,7 @@ const getTransferOrderById = async (id) => {
           "t.total",
           "t.customform_display",
           dbNetsuite.raw(
-            "CASE WHEN NULLIF(t.custbody_msi_createdby_api, '') IS NULL THEN COALESCE(NULLIF(created_emp.employee_name, ''), '') ELSE t.custbody_msi_createdby_api END AS created_by_name",
+            "CASE WHEN NULLIF(t.custbody_msi_createdby_api, '') IS NULL THEN t.created_by_netsuite_name ELSE COALESCE(NULLIF(created_emp.employee_name, ''), '') END AS created_by_name",
           ),
           "updated_emp.employee_name as updated_by_name",
           "t.files",
