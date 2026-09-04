@@ -80,7 +80,8 @@ const getTransferOrders = async (body) => {
 
     let query = dbNetsuite("transfer_orders as t")
       .where("t.is_delete", false)
-      .whereNotNull("t.netsuite_id");
+      .whereNotNull("t.netsuite_id")
+      .where("t.netsuite_id", "!=", "");
 
     if (body.search) {
       query = query.where(function () {
@@ -236,7 +237,8 @@ const getMobileTransferOrders = async (body) => {
 
     let query = dbNetsuite("transfer_orders as t")
       .where("t.is_delete", false)
-      .whereNotNull("t.netsuite_id");
+      .whereNotNull("t.netsuite_id")
+      .where("t.netsuite_id", "!=", "");
 
     if (body.search) {
       query = query.where(function () {
