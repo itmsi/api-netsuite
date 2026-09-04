@@ -82,7 +82,6 @@ const getItemsList = async (body) => {
         "display_name as displayName",
         "last_modified_netsuite as lastModifiedDate",
         "price_levels as priceLevels",
-        "data",
       ])
       .orderBy(orderCol, sortOrder)
       .limit(limit)
@@ -1073,7 +1072,6 @@ const getItemDetailByNetsuiteId = async (id) => {
         "netsuite_id",
         "item_id",
         "display_name",
-        "data",
         "last_modified_netsuite",
         "created_at",
         "updated_at",
@@ -1168,8 +1166,7 @@ const getItemLocationsList = async (body) => {
     return { items: rows, pagination: { page, limit, total, totalPages } };
   } catch (error) {
     throw {
-      message:
-        error.message || "Failed to fetch item locations from database",
+      message: error.message || "Failed to fetch item locations from database",
       statusCode: 500,
     };
   }
@@ -1269,7 +1266,11 @@ const getItemSerialNumbersList = async (body) => {
       query = query.where("isn.item_id", body.netsuite_item_id.toString());
     }
 
-    if (body.is_used !== undefined && body.is_used !== null && body.is_used !== "") {
+    if (
+      body.is_used !== undefined &&
+      body.is_used !== null &&
+      body.is_used !== ""
+    ) {
       const isUsed =
         typeof body.is_used === "string"
           ? body.is_used.toLowerCase() === "true"
