@@ -38,6 +38,51 @@ const itemsPaths = {
       },
     },
   },
+  "/items/validate-names": {
+    post: {
+      tags: ["Items"],
+      summary: "Validate a batch of item names/codes (paste dari Excel)",
+      description:
+        "Menerima daftar nama/kode item hasil paste dari Excel, lalu mengembalikan status per baris tanpa perlu N request terpisah. " +
+        "Match priority: `item_id` (exact, unik) dulu, kalau tidak ketemu baru dicoba ke `display_name` (exact, bisa dobel -> ambiguous). " +
+        "Pencocokan case-insensitive dan trim whitespace. Baris kosong dibalas `not_found`. Maksimal 500 nama per request.",
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/ValidateItemNamesRequest" },
+          },
+        },
+      },
+      responses: {
+        200: {
+          description: "Success",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ValidateItemNamesResponse" },
+            },
+          },
+        },
+        400: {
+          description: "Bad Request - names kosong atau melebihi batas maksimal",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+            },
+          },
+        },
+        500: {
+          description: "Internal Server Error",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+            },
+          },
+        },
+      },
+    },
+  },
   "/items/sync": {
     post: {
       tags: ["Items"],

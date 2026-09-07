@@ -52,6 +52,108 @@ const itemsSchemas = {
       message: { type: "string", example: "Data items berhasil diambil" },
     },
   },
+  ValidateItemNamesRequest: {
+    type: "object",
+    required: ["names"],
+    properties: {
+      names: {
+        type: "array",
+        items: { type: "string" },
+        description:
+          "Daftar nama/kode item hasil paste dari Excel (baris kosong tetap dikirim apa adanya, akan dibalas status not_found). Maksimal 500 baris per request.",
+        example: ["06.15013.0415", "WASHER", "TIDAK-ADA-ITEM-INI"],
+      },
+      item_type: {
+        oneOf: [
+          { type: "string" },
+          { type: "array", items: { type: "string" } },
+        ],
+        nullable: true,
+        description: "Filter opsional, sama seperti pada /get-list",
+        example: ["Inventory Item"],
+      },
+      item_type_id: {
+        oneOf: [
+          { type: "string" },
+          { type: "array", items: { type: "string" } },
+        ],
+        nullable: true,
+        description: "Filter opsional, sama seperti pada /get-list",
+        example: ["InvtPart"],
+      },
+    },
+  },
+  ValidateItemNamesResponse: {
+    type: "object",
+    properties: {
+      success: { type: "boolean", example: true },
+      data: {
+        type: "object",
+        properties: {
+          results: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                name: {
+                  type: "string",
+                  description: "Nama/kode item persis seperti input",
+                  example: "06.15013.0415",
+                },
+                status: {
+                  type: "string",
+                  enum: ["found", "ambiguous", "not_found"],
+                  example: "found",
+                },
+                matched_by: {
+                  type: "string",
+                  nullable: true,
+                  enum: ["itemId", "displayName", null],
+                  example: "itemId",
+                },
+                item: {
+                  type: "object",
+                  nullable: true,
+                  description: "Terisi hanya jika status = found",
+                  properties: {
+                    internalId: { type: "string", example: "22807" },
+                    itemId: { type: "string", example: "06.15013.0415" },
+                    displayName: { type: "string", example: "WASHER" },
+                    itemType: { type: "string", example: "Inventory Item" },
+                    itemTypeId: { type: "string", example: "InvtPart" },
+                  },
+                },
+                candidates: {
+                  type: "array",
+                  description:
+                    "Terisi hanya jika status = ambiguous, berisi semua item yang cocok",
+                  items: {
+                    type: "object",
+                    properties: {
+                      internalId: { type: "string" },
+                      itemId: { type: "string" },
+                      displayName: { type: "string" },
+                      itemType: { type: "string" },
+                      itemTypeId: { type: "string" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          summary: {
+            type: "object",
+            properties: {
+              found: { type: "integer", example: 1 },
+              ambiguous: { type: "integer", example: 1 },
+              not_found: { type: "integer", example: 1 },
+            },
+          },
+        },
+      },
+      message: { type: "string", example: "Validasi nama item selesai" },
+    },
+  },
   ItemSyncByIdResponse: {
     type: "object",
     properties: {

@@ -1318,8 +1318,166 @@ const getItemSerialNumbersList = async (body) => {
   }
 };
 
+const MAX_VALIDATE_NAMES = 500;
+
+/**
+ * Validate a batch of names against local items table.
+ * Match priority: item_id (exact, unique) lalu display_name (exact, bisa dobel -> ambiguous).
+ * Dipakai oleh fitur "Paste from Excel" di FE (Transfer Order dkk) supaya tidak N request per baris.
+ */
+const validateItemNames = async (body) => {
+  try {
+    const namesInput = Array.isArray(body.names) ? body.names : [];
+    if (namesInput.length === 0) {
+      throw { message: "names tidak boleh kosong", statusCode: 400 };
+    }
+    if (namesInput.length > MAX_VALIDATE_NAMES) {
+      throw {
+        message: `names maksimal ${MAX_VALIDATE_NAMES} baris per request`,
+        statusCode: 400,
+      };
+    }
+
+    const normalized = namesInput.map((n) =>
+      n === null || n === undefined ? "" : n.toString().trim(),
+    );
+    const uniqueKeys = [
+      ...new Set(normalized.filter((n) => n !== "").map((n) => n.toLowerCase())),
+    ];
+
+    let itemQuery = dbNetsuite("items").where("is_deleted", false);
+
+    if (body.item_type) {
+      const itemTypes = Array.isArray(body.item_type)
+        ? body.item_type
+        : [body.item_type];
+      itemQuery = itemQuery.whereIn("type", itemTypes);
+    }
+    if (body.item_type_id) {
+      const itemTypeIds = Array.isArray(body.item_type_id)
+        ? body.item_type_id
+        : [body.item_type_id];
+      itemQuery = itemQuery.whereIn("type_id", itemTypeIds);
+    }
+
+    const candidates = uniqueKeys.length
+      ? await itemQuery
+          .clone()
+          .where(function () {
+            this.whereRaw("LOWER(item_id) = ANY(?)", [uniqueKeys]).orWhereRaw(
+              "LOWER(display_name) = ANY(?)",
+              [uniqueKeys],
+            );
+          })
+          .select([
+            "netsuite_id as internalId",
+            "item_id as itemId",
+            "display_name as displayName",
+            "type as itemType",
+            "type_id as itemTypeId",
+          ])
+      : [];
+
+    const byItemId = new Map();
+    const byDisplayName = new Map();
+    for (const c of candidates) {
+      const idKey = (c.itemId || "").toString().trim().toLowerCase();
+      if (idKey) {
+        if (!byItemId.has(idKey)) byItemId.set(idKey, []);
+        byItemId.get(idKey).push(c);
+      }
+      const nameKey = (c.displayName || "").toString().trim().toLowerCase();
+      if (nameKey) {
+        if (!byDisplayName.has(nameKey)) byDisplayName.set(nameKey, []);
+        byDisplayName.get(nameKey).push(c);
+      }
+    }
+
+    const results = namesInput.map((rawName) => {
+      const original =
+        rawName === null || rawName === undefined ? "" : rawName.toString();
+      const key = original.trim().toLowerCase();
+
+      if (!key) {
+        return {
+          name: original,
+          status: "not_found",
+          matched_by: null,
+          item: null,
+          candidates: [],
+        };
+      }
+
+      const idMatches = byItemId.get(key) || [];
+      if (idMatches.length === 1) {
+        return {
+          name: original,
+          status: "found",
+          matched_by: "itemId",
+          item: idMatches[0],
+          candidates: [],
+        };
+      }
+      if (idMatches.length > 1) {
+        return {
+          name: original,
+          status: "ambiguous",
+          matched_by: "itemId",
+          item: null,
+          candidates: idMatches,
+        };
+      }
+
+      const nameMatches = byDisplayName.get(key) || [];
+      if (nameMatches.length === 1) {
+        return {
+          name: original,
+          status: "found",
+          matched_by: "displayName",
+          item: nameMatches[0],
+          candidates: [],
+        };
+      }
+      if (nameMatches.length > 1) {
+        return {
+          name: original,
+          status: "ambiguous",
+          matched_by: "displayName",
+          item: null,
+          candidates: nameMatches,
+        };
+      }
+
+      return {
+        name: original,
+        status: "not_found",
+        matched_by: null,
+        item: null,
+        candidates: [],
+      };
+    });
+
+    const summary = results.reduce(
+      (acc, r) => {
+        acc[r.status] = (acc[r.status] || 0) + 1;
+        return acc;
+      },
+      { found: 0, ambiguous: 0, not_found: 0 },
+    );
+
+    return { results, summary };
+  } catch (error) {
+    if (error.statusCode) throw error;
+    throw {
+      message: error.message || "Failed to validate item names",
+      statusCode: 500,
+    };
+  }
+};
+
 module.exports = {
   getItemsList,
+  validateItemNames,
   syncItemsList,
   syncItemById,
   syncItemReceiptById,
