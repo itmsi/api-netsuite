@@ -26,6 +26,29 @@ const getList = async (req, res) => {
 };
 
 /**
+ * Validate a batch of item names/codes (untuk fitur "Paste from Excel" di FE)
+ */
+const validateNames = async (req, res) => {
+  try {
+    const result = await service.validateItemNames(req.body);
+    return baseResponse(res, {
+      data: {
+        success: true,
+        data: result,
+        message: "Validasi nama item selesai",
+      },
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+      errors: error.errors || error,
+    });
+  }
+};
+
+/**
  * Sync items dari bridge API
  */
 const sync = async (req, res) => {
@@ -469,6 +492,7 @@ const getItemSerialNumbersList = async (req, res) => {
 
 module.exports = {
   getList,
+  validateNames,
   sync,
   syncById,
   syncReceiptById,

@@ -17,6 +17,16 @@ const upload = multer({
 router.post("/get-list", verifyToken, controller.getList);
 
 /**
+ * @route   POST /api/netsuite/items/validate-names
+ * @desc    Validate a batch of item names/codes { names: string[] }, mengembalikan
+ *          status per nama (found/ambiguous/not_found) — dipakai fitur paste dari Excel.
+ *          Match priority: item_id (unik) lalu display_name (bisa dobel -> ambiguous).
+ *          Optional filter: item_type / item_type_id (sama seperti get-list).
+ * @access  Private
+ */
+router.post("/validate-names", verifyToken, controller.validateNames);
+
+/**
  * @route   POST /api/netsuite/items/sync
  * @desc    Sync items dari bridge API
  * @access  Private
