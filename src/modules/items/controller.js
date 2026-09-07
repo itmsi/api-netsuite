@@ -26,6 +26,29 @@ const getList = async (req, res) => {
 };
 
 /**
+ * Validate a batch of item names/codes (untuk fitur "Paste from Excel" di FE)
+ */
+const validateNames = async (req, res) => {
+  try {
+    const result = await service.validateItemNames(req.body);
+    return baseResponse(res, {
+      data: {
+        success: true,
+        data: result,
+        message: "Validasi nama item selesai",
+      },
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+      errors: error.errors || error,
+    });
+  }
+};
+
+/**
  * Sync items dari bridge API
  */
 const sync = async (req, res) => {
@@ -367,13 +390,118 @@ const createFulfillmentReceipts = async (req, res) => {
   }
 };
 
+/**
+ * Get item detail by netsuite_id (semua kolom tabel items)
+ */
+const getItemById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Parameter id tidak boleh kosong",
+      });
+    }
+
+    const result = await service.getItemDetailByNetsuiteId(id);
+    return baseResponse(res, {
+      data: {
+        success: true,
+        data: result,
+        message: "Data item berhasil diambil",
+      },
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+      errors: error.errors || error,
+    });
+  }
+};
+
+/**
+ * Get item locations by netsuite_item_id
+ */
+const getItemLocationsList = async (req, res) => {
+  try {
+    const result = await service.getItemLocationsList(req.body);
+    return baseResponse(res, {
+      data: {
+        success: true,
+        data: result,
+        message: "Data item locations berhasil diambil",
+      },
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+      errors: error.errors || error,
+    });
+  }
+};
+
+/**
+ * Get item tier prices by netsuite_item_id
+ */
+const getItemTierPricesList = async (req, res) => {
+  try {
+    const result = await service.getItemTierPricesList(req.body);
+    return baseResponse(res, {
+      data: {
+        success: true,
+        data: result,
+        message: "Data item tier prices berhasil diambil",
+      },
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+      errors: error.errors || error,
+    });
+  }
+};
+
+/**
+ * Get item serial numbers by netsuite_item_id
+ */
+const getItemSerialNumbersList = async (req, res) => {
+  try {
+    const result = await service.getItemSerialNumbersList(req.body);
+    return baseResponse(res, {
+      data: {
+        success: true,
+        data: result,
+        message: "Data item serial numbers berhasil diambil",
+      },
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+      errors: error.errors || error,
+    });
+  }
+};
+
 module.exports = {
   getList,
+  validateNames,
   sync,
   syncById,
   syncReceiptById,
   syncFulfillmentById,
+  getItemById,
   getItemLocation,
+  getItemLocationsList,
+  getItemTierPricesList,
+  getItemSerialNumbersList,
   getItemReceipts,
   getItemReceiptById,
   getItemFulfillments,
