@@ -1306,7 +1306,7 @@ const receiveItemPurchaseOrder = async (body, user) => {
  * Hits the actual bridge API for Item Receipt (used by worker)
  * CATATAN MULAI TGL 2022-08-05 INI MENGGUNAKAN API ITEM RECEIPT YANG BARU BUKAN KHUSUS PO
  */
-const receiveItemPurchaseOrderToBridge = async (body, internalId) => {
+const receiveItemPurchaseOrderToBridge = async (body, receive_internal_id) => {
   const tokenResponse = await authService.getToken();
   const token = tokenResponse.data.access_token;
 
@@ -1340,6 +1340,7 @@ const receiveItemPurchaseOrderToBridge = async (body, internalId) => {
     transaction_id: body.po_id || null,
     trandate: body.trandate,
     // internal_id: internalId,
+    receive_internal_id: receive_internal_id || null,
     items: Array.isArray(body.items)
       ? body.items.map((item) => {
           const { line_sequence, ...restItem } = item || {};
@@ -1442,7 +1443,9 @@ const getPurchaseOrderById = async (id) => {
         )
         .leftJoin(
           "project_segmentations as t_project_segmentations",
-          dbNetsuite.raw("(line->>'cseg_msi_pro_segmen') = t_project_segmentations.netsuite_id::text"),
+          dbNetsuite.raw(
+            "(line->>'cseg_msi_pro_segmen') = t_project_segmentations.netsuite_id::text",
+          ),
         )
 
         .select([
