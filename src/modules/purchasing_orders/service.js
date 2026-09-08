@@ -1541,6 +1541,13 @@ const getPurchaseOrderById = async (id) => {
                         i2.item_id
                     )
                 ),
+                'item_displayname', COALESCE(
+                    NULLIF(line->>'item_displayname', ''),
+                    COALESCE(
+                        NULLIF(i.display_name, ''),
+                        i2.display_name
+                    )
+                ),
                 'quantity', COALESCE(
                     NULLIF(line->>'quantity', ''),
                     line->>'qty'
