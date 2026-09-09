@@ -42,48 +42,75 @@ const getItemsList = async (body) => {
       ? sortByRaw
       : "last_modified_netsuite";
 
-    let query = dbNetsuite("items").where("is_deleted", false);
+    let query = dbNetsuite("items as i").where("i.is_deleted", false);
+
+    if (body.location_id) {
+      query = query
+        .leftJoin(
+          "item_locations as il",
+          dbNetsuite.raw("i.netsuite_id::integer"),
+          dbNetsuite.raw("il.item_id::integer"),
+        )
+        .where(
+          dbNetsuite.raw('il."inventorylocationId"::integer'),
+          parseInt(body.location_id),
+        );
+    }
 
     if (body.item_type) {
       const itemTypes = Array.isArray(body.item_type)
         ? body.item_type
         : [body.item_type];
-      query = query.whereIn("type", itemTypes);
+      query = query.whereIn("i.type", itemTypes);
     }
 
     if (body.item_type_id) {
       const itemTypeIds = Array.isArray(body.item_type_id)
         ? body.item_type_id
         : [body.item_type_id];
-      query = query.whereIn("type_id", itemTypeIds);
+      query = query.whereIn("i.type_id", itemTypeIds);
     }
 
     // Filter opsional
     if (body.search) {
       query = query.where(function () {
-        this.whereILike("item_id", `%${body.search}%`)
-          .orWhereILike("display_name", `%${body.search}%`)
-          .orWhere("netsuite_id", body.search);
+        this.whereILike("i.item_id", `%${body.search}%`)
+          .orWhereILike("i.display_name", `%${body.search}%`)
+          .orWhere("i.netsuite_id", body.search);
       });
     }
 
-    // Hitung total
-    const countResult = await query.clone().count("* as total").first();
+    // Hitung total (distinct karena bisa duplikat akibat left join item_locations)
+    const countResult = await query
+      .clone()
+      .countDistinct("i.netsuite_id as total")
+      .first();
     const total = parseInt(countResult.total) || 0;
     const totalPages = Math.ceil(total / limit);
 
     // Select dengan alias sesuai format response
-    const rows = await query
-      .clone()
-      .select([
-        "netsuite_id as internalId",
-        "item_id as itemId",
-        "type as itemType",
-        "display_name as displayName",
-        "last_modified_netsuite as lastModifiedDate",
-        "price_levels as priceLevels",
-      ])
-      .orderBy(orderCol, sortOrder)
+    let rowsQuery = query.clone().select([
+      "i.netsuite_id as internalId",
+      "i.item_id as itemId",
+      "i.type as itemType",
+      "i.display_name as displayName",
+      "i.last_modified_netsuite as lastModifiedDate",
+      "i.price_levels as priceLevels",
+    ]);
+
+    if (body.location_id) {
+      rowsQuery = rowsQuery.groupBy(
+        "i.netsuite_id",
+        "i.item_id",
+        "i.type",
+        "i.display_name",
+        "i.last_modified_netsuite",
+        "i.price_levels",
+      );
+    }
+
+    const rows = await rowsQuery
+      .orderBy(`i.${orderCol}`, sortOrder)
       .limit(limit)
       .offset(offset);
 

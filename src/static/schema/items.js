@@ -33,6 +33,13 @@ const itemsSchemas = {
         nullable: true,
         example: ["InvtPart", "NonInvtPart"],
       },
+      location_id: {
+        type: "integer",
+        nullable: true,
+        description:
+          "Filter item berdasarkan inventory location (join ke tabel item_locations via item_locations.inventorylocationId)",
+        example: 1,
+      },
     },
   },
   ItemsListResponse: {
