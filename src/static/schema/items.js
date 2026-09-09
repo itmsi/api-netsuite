@@ -884,6 +884,12 @@ const itemsSchemas = {
           "identifikasi proses ini di jalanan dari email login apps (dari apps),  WMS (dari ITI)",
         example: "dharmaridwan@motorsights.net",
       },
+      trandate: {
+        type: "string",
+        nullable: true,
+        description: "Tanggal transaksi (transaction date) untuk item receipt/fulfillment",
+        example: "2026-03-18",
+      },
     },
   },
   CreateFulfillmentReceiptsResponse: {
@@ -896,6 +902,7 @@ const itemsSchemas = {
           function_type: { type: "string", example: "receipts" },
           transaction_type: { type: "string", example: "purchase_order" },
           transaction_id: { type: "string", example: "46555" },
+          trandate: { type: "string", nullable: true, example: "2026-03-18" },
           file: {
             type: "object",
             nullable: true,

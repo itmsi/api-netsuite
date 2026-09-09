@@ -356,6 +356,7 @@ const createFulfillmentReceipts = async (req, res) => {
       items,
       note,
       note_title,
+      trandate,
     } = req.body;
 
     let parsedItems = items;
@@ -379,6 +380,7 @@ const createFulfillmentReceipts = async (req, res) => {
         file: req.file,
         note,
         note_title,
+        trandate,
       },
       req.user,
     );

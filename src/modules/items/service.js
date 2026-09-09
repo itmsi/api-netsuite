@@ -886,6 +886,7 @@ const createItemReceipt = async (body) => {
       items: body.items,
       note: body.note,
       noteTitle: body.noteTitle,
+      trandate: body.trandate,
     };
 
     const response = await axios.post(url, requestData, {
@@ -929,6 +930,7 @@ const createItemFulfillment = async (body) => {
       items: body.items,
       note: body.note,
       noteTitle: body.noteTitle,
+      trandate: body.trandate,
     };
 
     const response = await axios.post(url, requestData, {
@@ -976,6 +978,7 @@ const createFulfillmentReceipts = async (body, user) => {
       file,
       note,
       note_title,
+      trandate,
     } = body;
 
     if (!VALID_FUNCTION_TYPES.includes(function_type)) {
@@ -1052,6 +1055,7 @@ const createFulfillmentReceipts = async (body, user) => {
         items,
         note: note || "created by login email",
         noteTitle: note_title || userEmail,
+        trandate: trandate || null,
         file: uploadedFile,
         userEmail,
       },
@@ -1067,6 +1071,7 @@ const createFulfillmentReceipts = async (body, user) => {
       function_type,
       transaction_type,
       transaction_id,
+      trandate: trandate || null,
       file: uploadedFile
         ? { fileName: uploadedFile.fileName, fileUrl: uploadedFile.fileUrl }
         : null,
