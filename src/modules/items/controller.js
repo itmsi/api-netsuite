@@ -8,10 +8,15 @@ const { baseResponse } = require("../../utils");
 const getList = async (req, res) => {
   try {
     const result = await service.getItemsList(req.body);
+    const syncInfo = await syncService
+      .getLatestSyncInfo("items")
+      .catch(() => null);
+
     return baseResponse(res, {
       data: {
         success: true,
         data: result,
+        sync_info: syncInfo,
         message: "Data items berhasil diambil",
       },
     });
@@ -228,10 +233,14 @@ const getItemLocation = async (req, res) => {
 const getItemReceipts = async (req, res) => {
   try {
     const result = await service.getItemReceipts(req.body);
+    const syncInfo = await syncService
+      .getLatestSyncInfo("receives")
+      .catch(() => null);
     return baseResponse(res, {
       data: {
         success: true,
         data: result,
+        sync_info: syncInfo,
         message: "Data receipts berhasil diambil",
       },
     });
@@ -282,10 +291,14 @@ const getItemReceiptById = async (req, res) => {
 const getItemFulfillments = async (req, res) => {
   try {
     const result = await service.getItemFulfillments(req.body);
+    const syncInfo = await syncService
+      .getLatestSyncInfo("fulfillments")
+      .catch(() => null);
     return baseResponse(res, {
       data: {
         success: true,
         data: result,
+        sync_info: syncInfo,
         message: "Data fulfillments berhasil diambil",
       },
     });
