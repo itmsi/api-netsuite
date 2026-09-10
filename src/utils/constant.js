@@ -712,7 +712,7 @@ module.exports = {
       table: "fulfillments",
       deleteCol: null,
     },
-    fulfillments: {
+    inventory_adjustments: {
       url: `${process.env.BRIDGE_BASE_URL || "http://localhost:9570"}/api/v1/bridge/inventory/adjustments/get`,
       data: {
         page: 1,
