@@ -493,6 +493,7 @@ const getItemReceipts = async (body) => {
       : "last_modified_netsuite";
 
     let query = dbNetsuite("receives")
+      .where("is_delete", false)
       .whereNotNull("netsuite_id")
       .where("netsuite_id", "!=", "");
 
