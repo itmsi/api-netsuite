@@ -712,5 +712,18 @@ module.exports = {
       table: "fulfillments",
       deleteCol: null,
     },
+    fulfillments: {
+      url: `${process.env.BRIDGE_BASE_URL || "http://localhost:9570"}/api/v1/bridge/inventory/adjustments/get`,
+      data: {
+        page: 1,
+        page_size: 10,
+        is_sync: true,
+        sort_by: "lastmodifieddate",
+        sort_order: "DESC",
+        filters: {},
+      },
+      table: "inventory_adjustments",
+      deleteCol: null,
+    },
   },
 };
