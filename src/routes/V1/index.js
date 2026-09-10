@@ -101,4 +101,7 @@ routing.use(`${API_TAG}/email`, emailModule);
 const itemTypeModule = require('../../modules/item_type');
 routing.use(`${API_TAG}/item_type`, itemTypeModule);
 
+const inventoryAdjustmentsModule = require('../../modules/inventory_adjustments');
+routing.use(`${API_TAG}/inventory_adjustments`, inventoryAdjustmentsModule);
+
 module.exports = routing;
