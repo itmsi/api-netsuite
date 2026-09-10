@@ -89,14 +89,16 @@ const getItemsList = async (body) => {
     const totalPages = Math.ceil(total / limit);
 
     // Select dengan alias sesuai format response
-    let rowsQuery = query.clone().select([
-      "i.netsuite_id as internalId",
-      "i.item_id as itemId",
-      "i.type as itemType",
-      "i.display_name as displayName",
-      "i.last_modified_netsuite as lastModifiedDate",
-      "i.price_levels as priceLevels",
-    ]);
+    let rowsQuery = query
+      .clone()
+      .select([
+        "i.netsuite_id as internalId",
+        "i.item_id as itemId",
+        "i.type as itemType",
+        "i.display_name as displayName",
+        "i.last_modified_netsuite as lastModifiedDate",
+        "i.price_levels as priceLevels",
+      ]);
 
     if (body.location_id) {
       rowsQuery = rowsQuery.groupBy(
@@ -887,6 +889,7 @@ const createItemReceipt = async (body) => {
       note: body.note,
       noteTitle: body.noteTitle,
       trandate: body.trandate,
+      memo: body.memo || null,
     };
 
     const response = await axios.post(url, requestData, {
@@ -931,6 +934,7 @@ const createItemFulfillment = async (body) => {
       note: body.note,
       noteTitle: body.noteTitle,
       trandate: body.trandate,
+      memo: body.memo || null,
     };
 
     const response = await axios.post(url, requestData, {
@@ -1377,7 +1381,9 @@ const validateItemNames = async (body) => {
       n === null || n === undefined ? "" : n.toString().trim(),
     );
     const uniqueKeys = [
-      ...new Set(normalized.filter((n) => n !== "").map((n) => n.toLowerCase())),
+      ...new Set(
+        normalized.filter((n) => n !== "").map((n) => n.toLowerCase()),
+      ),
     ];
 
     let itemQuery = dbNetsuite("items").where("is_deleted", false);

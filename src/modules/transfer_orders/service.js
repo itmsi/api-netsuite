@@ -145,7 +145,7 @@ const getTransferOrders = async (body) => {
 
     // Step 6: Apply class filter
     if (classIds.length > 0) {
-      query = query.whereIn("t.class", classIds);
+      query = query.whereIn("t.class_id", classIds);
     }
 
     const countResult = await query.clone().count("* as total").first();
@@ -302,7 +302,7 @@ const getMobileTransferOrders = async (body) => {
 
     // Step 6: Apply class filter
     if (classIds.length > 0) {
-      query = query.whereIn("t.class", classIds);
+      query = query.whereIn("t.class_id", classIds);
     }
 
     const countResult = await query.clone().count("* as total").first();
