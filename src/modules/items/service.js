@@ -979,6 +979,7 @@ const createFulfillmentReceipts = async (body, user) => {
       note,
       note_title,
       trandate,
+      memo,
     } = body;
 
     if (!VALID_FUNCTION_TYPES.includes(function_type)) {
@@ -1056,6 +1057,7 @@ const createFulfillmentReceipts = async (body, user) => {
         note: note || "created by login email",
         noteTitle: note_title || userEmail,
         trandate: trandate || null,
+        memo: memo || null,
         file: uploadedFile,
         userEmail,
       },
@@ -1072,6 +1074,7 @@ const createFulfillmentReceipts = async (body, user) => {
       transaction_type,
       transaction_id,
       trandate: trandate || null,
+      memo: memo || null,
       file: uploadedFile
         ? { fileName: uploadedFile.fileName, fileUrl: uploadedFile.fileUrl }
         : null,

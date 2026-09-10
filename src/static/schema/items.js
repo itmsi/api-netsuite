@@ -890,6 +890,12 @@ const itemsSchemas = {
         description: "Tanggal transaksi (transaction date) untuk item receipt/fulfillment",
         example: "2026-03-18",
       },
+      memo: {
+        type: "string",
+        nullable: true,
+        description: "Memo untuk item receipt/fulfillment (opsional)",
+        example: "Item receipt dari WMS",
+      },
     },
   },
   CreateFulfillmentReceiptsResponse: {
@@ -903,6 +909,7 @@ const itemsSchemas = {
           transaction_type: { type: "string", example: "purchase_order" },
           transaction_id: { type: "string", example: "46555" },
           trandate: { type: "string", nullable: true, example: "2026-03-18" },
+          memo: { type: "string", nullable: true, example: "Item receipt dari WMS" },
           file: {
             type: "object",
             nullable: true,
