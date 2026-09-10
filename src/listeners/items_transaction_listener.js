@@ -13,8 +13,17 @@ const nextcloud = require("../utils/nextcloud");
  * (jika ada file lampiran) di-queue ke listener attach file.
  */
 const methodExecution = async (payload, channel, msg, functionType) => {
-  const { transaction_type, transaction_id, items, note, noteTitle, file, userEmail } =
-    payload;
+  const {
+    transaction_type,
+    transaction_id,
+    items,
+    note,
+    noteTitle,
+    trandate,
+    memo,
+    file,
+    userEmail,
+  } = payload;
 
   try {
     console.info(
@@ -29,6 +38,8 @@ const methodExecution = async (payload, channel, msg, functionType) => {
             items,
             note,
             noteTitle,
+            trandate,
+            memo,
           })
         : await itemsService.createItemFulfillment({
             transaction_type,
@@ -36,6 +47,8 @@ const methodExecution = async (payload, channel, msg, functionType) => {
             items,
             note,
             noteTitle,
+            trandate,
+            memo,
             ship_status: "shipped",
           });
 
