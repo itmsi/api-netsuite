@@ -78,7 +78,7 @@ const transferOrdersPaths = {
       tags: ["Transfer Orders"],
       summary: "Export transfer orders to Excel",
       description:
-        "Fetch transfer orders sesuai filter (sama seperti `/get-list`, default `limit` 1000 untuk proses export), generate file Excel, upload ke Nextcloud folder `NetSuite/TransferOrders/Export`, lalu kembalikan link share untuk download file tersebut.",
+        "Fetch transfer orders sesuai filter (sama seperti `/get-list`, default `limit` 1000 untuk proses export, `start_date` & `end_date` wajib diisi dengan rentang maksimal 14 hari), generate file Excel, upload ke Nextcloud folder `NetSuite/TransferOrders/Export`, lalu kembalikan link share untuk download file tersebut. Jika `include_child` (boolean) diisi `true`, setiap line item pada kolom `items` (jsonb) akan dipecah menjadi baris tersendiri yang digabung dengan data header (header akan terduplikasi sesuai jumlah line item-nya), menambahkan kolom: line_number, item_name, description, item_from_location_name, units, quantity, committed, picked, packed, shipped, fulfilled, received, backorder, closed, expected_receipt_date.",
       security: [{ bearerAuth: [] }],
       requestBody: {
         required: false,

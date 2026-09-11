@@ -1491,10 +1491,55 @@ const exportTransferOrders = async (body) => {
       ? body.sort_by
       : "created_at";
 
+    const includeChild =
+      body.include_child === true || body.include_child === "true";
+
     const { query: filteredQuery } =
       await buildTransferOrdersFilteredQuery(body);
 
-    const items = await filteredQuery
+    const baseSelect = [
+      "t.id",
+      "t.netsuite_id",
+      "t.tranid",
+      "t.status_name",
+      "t.from_location_name",
+      "t.to_location_name",
+      "t.memo",
+      "t.customform_display",
+      dbNetsuite.raw(
+        "COALESCE(NULLIF(t.subsidiary_name, ''), s.subsidiary_name) AS subsidiary_name",
+      ),
+      dbNetsuite.raw(
+        "COALESCE(NULLIF(t.department_name, ''), d.name) AS department_name",
+      ),
+      dbNetsuite.raw(
+        "COALESCE(NULLIF(t.class_name, ''), c2.name) AS class_name",
+      ),
+      "t.incoterm_name",
+      dbNetsuite.raw(
+        "COALESCE(NULLIF(t.employee_name, ''), gse.employee_name) AS employee_name",
+      ),
+      dbNetsuite.raw(
+        "COALESCE(NULLIF(t.customer_name, ''), c3.name) AS customer_name",
+      ),
+      dbNetsuite.raw(
+        "COALESCE(NULLIF(t.logistic_vendor_name, ''), v2.entity_id) AS logistic_vendor_name",
+      ),
+      "t.tran_date",
+      "t.datecreated",
+      "t.last_modified_netsuite",
+      dbNetsuite.raw(
+        "CASE WHEN NULLIF(t.custbody_msi_createdby_api, '') IS NULL THEN t.created_by_netsuite_name ELSE COALESCE(NULLIF(created_emp.employee_name, ''), '') END AS created_by_name",
+      ),
+      "updated_emp.employee_name as updated_by_name",
+      "t.created_at",
+      "t.updated_at",
+    ];
+    if (includeChild) {
+      baseSelect.push("t.items");
+    }
+
+    const rows = await filteredQuery
       .leftJoin(
         "gate_sso_employees as created_emp",
         dbNetsuite.raw("t.created_by::text = created_emp.employee_id::text"),
@@ -1531,46 +1576,46 @@ const exportTransferOrders = async (body) => {
         "vendors as v2",
         dbNetsuite.raw("v2.netsuite_id::text = t.logistic_vendor_id::text"),
       )
-      .select([
-        "t.id",
-        "t.netsuite_id",
-        "t.tranid",
-        "t.status_name",
-        "t.from_location_name",
-        "t.to_location_name",
-        "t.memo",
-        "t.customform_display",
-        dbNetsuite.raw(
-          "COALESCE(NULLIF(t.subsidiary_name, ''), s.subsidiary_name) AS subsidiary_name",
-        ),
-        dbNetsuite.raw(
-          "COALESCE(NULLIF(t.department_name, ''), d.name) AS department_name",
-        ),
-        dbNetsuite.raw(
-          "COALESCE(NULLIF(t.class_name, ''), c2.name) AS class_name",
-        ),
-        "t.incoterm_name",
-        dbNetsuite.raw(
-          "COALESCE(NULLIF(t.employee_name, ''), gse.employee_name) AS employee_name",
-        ),
-        dbNetsuite.raw(
-          "COALESCE(NULLIF(t.customer_name, ''), c3.name) AS customer_name",
-        ),
-        dbNetsuite.raw(
-          "COALESCE(NULLIF(t.logistic_vendor_name, ''), v2.entity_id) AS logistic_vendor_name",
-        ),
-        "t.tran_date",
-        "t.datecreated",
-        "t.last_modified_netsuite",
-        dbNetsuite.raw(
-          "CASE WHEN NULLIF(t.custbody_msi_createdby_api, '') IS NULL THEN t.created_by_netsuite_name ELSE COALESCE(NULLIF(created_emp.employee_name, ''), '') END AS created_by_name",
-        ),
-        "updated_emp.employee_name as updated_by_name",
-        "t.created_at",
-        "t.updated_at",
-      ])
+      .select(baseSelect)
       .orderBy(`t.${orderCol}`, sortOrder)
       .limit(limit);
+
+    // Jika include_child true, pecah kolom jsonb "items" jadi 1 row per line item,
+    // digabung dengan kolom header transfer order (header akan terduplikasi
+    // sebanyak jumlah line item-nya)
+    let exportRows = rows;
+    if (includeChild) {
+      exportRows = [];
+      rows.forEach((row) => {
+        const { items: childItems, ...header } = row;
+        const children = parseJsonColumn(childItems, []);
+
+        if (Array.isArray(children) && children.length > 0) {
+          children.forEach((child) => {
+            exportRows.push({
+              ...header,
+              item_name: child.item_name,
+              line_number: child.line_number,
+              units: child.units,
+              closed: child.closed,
+              packed: child.packed,
+              picked: child.picked,
+              shipped: child.shipped,
+              quantity: child.quantity,
+              received: child.received,
+              backorder: child.backorder,
+              committed: child.committed,
+              fulfilled: child.fulfilled,
+              item_from_location_name: child.from_location_name,
+              expected_receipt_date: child.expected_receipt_date,
+              description: child.description,
+            });
+          });
+        } else {
+          exportRows.push(header);
+        }
+      });
+    }
 
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet("Transfer Orders");
@@ -1598,9 +1643,30 @@ const exportTransferOrders = async (body) => {
       { header: "Created At", key: "created_at", width: 20 },
       { header: "Updated At", key: "updated_at", width: 20 },
     ];
+
+    if (includeChild) {
+      sheet.columns = [
+        ...sheet.columns,
+        { header: "Line Number", key: "line_number", width: 12 },
+        { header: "Item Name", key: "item_name", width: 25 },
+        { header: "Description", key: "description", width: 30 },
+        { header: "Item From Location", key: "item_from_location_name", width: 25 },
+        { header: "Units", key: "units", width: 12 },
+        { header: "Quantity", key: "quantity", width: 12 },
+        { header: "Committed", key: "committed", width: 12 },
+        { header: "Picked", key: "picked", width: 12 },
+        { header: "Packed", key: "packed", width: 12 },
+        { header: "Shipped", key: "shipped", width: 12 },
+        { header: "Fulfilled", key: "fulfilled", width: 12 },
+        { header: "Received", key: "received", width: 12 },
+        { header: "Backorder", key: "backorder", width: 12 },
+        { header: "Closed", key: "closed", width: 10 },
+        { header: "Expected Receipt Date", key: "expected_receipt_date", width: 20 },
+      ];
+    }
     sheet.getRow(1).font = { bold: true };
 
-    items.forEach((item) => sheet.addRow(item));
+    exportRows.forEach((row) => sheet.addRow(row));
 
     const buffer = await workbook.xlsx.writeBuffer();
 
@@ -1622,7 +1688,8 @@ const exportTransferOrders = async (body) => {
     return {
       file_url: shareUrl + "/download",
       file_name: fileName,
-      total_data: items.length,
+      total_data: rows.length,
+      total_rows: exportRows.length,
     };
   } catch (error) {
     if (error.statusCode) throw error;
