@@ -492,7 +492,7 @@ const getItemReceipts = async (body) => {
       ? body.sort_by
       : "last_modified_netsuite";
 
-    let query = dbNetsuite("receives")
+    let query = dbNetsuite("receives as t")
       .where("is_delete", false)
       .whereNotNull("netsuite_id")
       .where("netsuite_id", "!=", "");
@@ -555,6 +555,10 @@ const getItemReceipts = async (body) => {
 
     const rows = await query
       .clone()
+      .leftJoin(
+        "gate_sso_employees as created_emp",
+        dbNetsuite.raw("t.created_by::text = created_emp.employee_id::text"),
+      )
       .select([
         "id",
         "netsuite_id",
@@ -590,7 +594,10 @@ const getItemReceipts = async (body) => {
         "last_modified_netsuite",
         "datecreated_netsuite",
         "created_at",
-        "created_by_name",
+        dbNetsuite.raw(
+          "CASE WHEN NULLIF(t.created_by::text, '') IS NULL THEN t.created_by_name_netsuite ELSE COALESCE(NULLIF(created_emp.employee_name, ''), '') END AS created_by_name",
+        ),
+        "created_by_name_netsuite as created_by_netsuite",
         "updated_at",
       ])
       .orderBy(orderCol, sortOrder)
@@ -615,55 +622,65 @@ const getItemReceipts = async (body) => {
 const getItemReceiptById = async (id) => {
   try {
     const query = () =>
-      dbNetsuite("receives").select([
-        "id",
-        "netsuite_id",
-        "source_type",
-        "source_type_display",
-        "tranid",
-        "trandate",
-        "status",
-        "status_display",
-        "memo",
-        "vendor_id",
-        "vendor_name",
-        "createdfrom",
-        "createdfrom_display",
-        "subsidiary",
-        "subsidiary_display",
-        "location",
-        "location_display",
-        "department",
-        "department_display",
-        "class",
-        "class_display",
-        "inboundshipment",
-        "inboundshipment_display",
-        "postingperiod",
-        "incoterm_id",
-        "incoterm_name",
-        "currency",
-        "currency_display",
-        "exchangerate",
-        "transferlocation",
-        "transferlocation_display",
-        "last_modified_netsuite",
-        "datecreated_netsuite",
-        "created_at",
-        "created_by_name",
-        "updated_at",
-        "lines",
-        "files",
-        "user_notes",
-      ]);
+      dbNetsuite("receives as t")
+        .leftJoin(
+          "gate_sso_employees as created_emp",
+          dbNetsuite.raw(
+            "t.created_by::text = created_emp.employee_id::text",
+          ),
+        )
+        .select([
+          "id",
+          "netsuite_id",
+          "source_type",
+          "source_type_display",
+          "tranid",
+          "trandate",
+          "status",
+          "status_display",
+          "memo",
+          "vendor_id",
+          "vendor_name",
+          "createdfrom",
+          "createdfrom_display",
+          "subsidiary",
+          "subsidiary_display",
+          "location",
+          "location_display",
+          "department",
+          "department_display",
+          "class",
+          "class_display",
+          "inboundshipment",
+          "inboundshipment_display",
+          "postingperiod",
+          "incoterm_id",
+          "incoterm_name",
+          "currency",
+          "currency_display",
+          "exchangerate",
+          "transferlocation",
+          "transferlocation_display",
+          "last_modified_netsuite",
+          "datecreated_netsuite",
+          "created_at",
+          dbNetsuite.raw(
+            "CASE WHEN NULLIF(t.created_by::text, '') IS NULL THEN t.created_by_name_netsuite ELSE COALESCE(NULLIF(created_emp.employee_name, ''), '') END AS created_by_name",
+          ),
+          "created_by_name_netsuite as created_by_netsuite",
+          "updated_at",
+          "lines",
+          "files",
+          "user_notes",
+        ]);
 
     let item;
     if (/^\d+$/.test(id)) {
-      item = await query().where("netsuite_id", id).first();
+      item = await query().where("t.netsuite_id", id).first();
     }
 
     if (!item) {
-      item = await query().where("id", id).first();
+      item = await query().where("t.id", id).first();
     }
 
     if (!item) {
@@ -696,7 +713,9 @@ const FULFILLMENT_COLUMNS = [
   "createdfrom_number",
   "postingperiod",
   "last_modified",
-  "created_by_netsuite",
+  dbNetsuite.raw(
+    "CASE WHEN NULLIF(t.created_by::text, '') IS NULL THEN t.created_by_name_netsuite ELSE COALESCE(NULLIF(created_emp.employee_name, ''), '') END AS created_by_name",
+  ),
   "custbody_me_wf_created_by",
   "custbody_me_approval_status",
   "custbody_me_approval_status_display",
@@ -734,6 +753,7 @@ const FULFILLMENT_COLUMNS = [
   "files",
   "created_at",
   "created_by",
+  "created_by_name_netsuite as created_by_netsuite",
   "updated_at",
   "updated_by",
   "deleted_at",
@@ -763,7 +783,7 @@ const getItemFulfillments = async (body) => {
       ? body.sort_by
       : "last_modified";
 
-    let query = dbNetsuite("fulfillments")
+    let query = dbNetsuite("fulfillments as t")
       .where("is_delete", false)
       .whereNotNull("netsuite_id")
       .where("netsuite_id", "!=", "");
@@ -819,6 +839,10 @@ const getItemFulfillments = async (body) => {
 
     const rows = await query
       .clone()
+      .leftJoin(
+        "gate_sso_employees as created_emp",
+        dbNetsuite.raw("t.created_by::text = created_emp.employee_id::text"),
+      )
       .select(FULFILLMENT_COLUMNS)
       .orderBy(orderCol, sortOrder)
       .limit(limit)
@@ -842,17 +866,23 @@ const getItemFulfillments = async (body) => {
 const getItemFulfillmentById = async (id) => {
   try {
     const query = () =>
-      dbNetsuite("fulfillments")
+      dbNetsuite("fulfillments as t")
         .where("is_delete", false)
+        .leftJoin(
+          "gate_sso_employees as created_emp",
+          dbNetsuite.raw(
+            "t.created_by::text = created_emp.employee_id::text",
+          ),
+        )
         .select(FULFILLMENT_COLUMNS);
 
     let item;
     if (/^\d+$/.test(id)) {
-      item = await query().where("netsuite_id", id).first();
+      item = await query().where("t.netsuite_id", id).first();
     }
 
     if (!item) {
-      item = await query().where("id", id).first();
+      item = await query().where("t.id", id).first();
     }
 
     if (!item) {
@@ -891,6 +921,7 @@ const createItemReceipt = async (body) => {
       noteTitle: body.noteTitle,
       trandate: body.trandate,
       memo: body.memo || null,
+      created_by: body.created_by || null,
     };
 
     const response = await axios.post(url, requestData, {
@@ -936,6 +967,7 @@ const createItemFulfillment = async (body) => {
       noteTitle: body.noteTitle,
       trandate: body.trandate,
       memo: body.memo || null,
+      created_by: body.created_by || null,
     };
 
     const response = await axios.post(url, requestData, {
@@ -1010,6 +1042,7 @@ const createFulfillmentReceipts = async (body, user) => {
     }
 
     const userEmail = user?.email || null;
+    const createdBy = user?.employee_id || user?.user_id || null;
 
     let uploadedFile = null;
     if (file) {
@@ -1063,6 +1096,7 @@ const createFulfillmentReceipts = async (body, user) => {
         noteTitle: note_title || userEmail,
         trandate: trandate || null,
         memo: memo || null,
+        created_by: createdBy,
         file: uploadedFile,
         userEmail,
       },

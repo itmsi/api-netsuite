@@ -64,6 +64,7 @@ const transferOrdersSchema = {
         example: "2026-07-31",
       },
       classes: { type: "string", default: "", example: "" },
+      include_child: { type: "boolean", default: false, example: false },
       status_name: {
         type: "array",
         items: { type: "string" },

@@ -53,6 +53,87 @@ const formatDateDMY = (value) => {
 };
 
 /**
+ * Bangun query transfer_orders dengan filter yang sama dipakai oleh
+ * getTransferOrders (list) dan exportTransferOrders (export ke Excel).
+ */
+const buildTransferOrdersFilteredQuery = async (body) => {
+  let query = dbNetsuite("transfer_orders as t")
+    .where("t.is_delete", false)
+    .whereNotNull("t.netsuite_id")
+    .where("t.netsuite_id", "!=", "");
+
+  if (body.search) {
+    query = query.where(function () {
+      this.whereILike("t.tranid", `%${body.search}%`)
+        .orWhereILike("t.netsuite_id", `%${body.search}%`)
+        .orWhereILike("t.memo", `%${body.search}%`);
+    });
+  }
+  if (body.from_location_id) {
+    query = query.where("t.from_location_id", body.from_location_id);
+  }
+  if (body.to_location_id) {
+    query = query.where("t.to_location_id", body.to_location_id);
+  }
+  if (body.status_name && body.status_name.length) {
+    const statusNames = Array.isArray(body.status_name)
+      ? body.status_name
+      : [body.status_name];
+    query = query.whereIn("t.status_name", statusNames);
+  }
+  if (body.status_code && body.status_code.length) {
+    const statusCodes = Array.isArray(body.status_code)
+      ? body.status_code
+      : [body.status_code];
+    query = query.whereIn("t.status_code", statusCodes);
+  }
+  // tran_date disimpan sebagai text format D/M/YYYY (mis. "9/7/2026")
+  if (body.start_date) {
+    query = query.whereRaw(
+      "to_date(t.tran_date, 'FMDD/FMMM/YYYY') >= ?::date",
+      [body.start_date],
+    );
+  }
+  if (body.end_date) {
+    query = query.whereRaw(
+      "to_date(t.tran_date, 'FMDD/FMMM/YYYY') <= ?::date",
+      [body.end_date],
+    );
+  }
+
+  // Handle classes filter (parent and children)
+  let classIds = [];
+  if (body.classes) {
+    const parentIdStr = body.classes.toString();
+    classIds.push(parentIdStr);
+
+    // Step 2 & 3: Cek ke tabel class untuk child yang memiliki parent_id tersebut
+    const children = await dbNetsuite("class")
+      .select("netsuite_id")
+      .where("parent_id", parentIdStr)
+      .andWhere("is_delete", false)
+      .whereNull("deleted_at");
+
+    // Step 4 & 5: Masukan daftar netsuite_id tersebut
+    if (children && children.length > 0) {
+      children.forEach((child) => {
+        if (child.netsuite_id) classIds.push(child.netsuite_id.toString());
+      });
+    }
+  }
+
+  // Step 6: Apply class filter
+  if (classIds.length > 0) {
+    query = query.whereIn("t.class_id", classIds);
+  }
+
+  // Dibungkus dalam object karena knex query builder bersifat "thenable" -
+  // jika di-return langsung dari async function, `await` akan meng-eksekusi
+  // query tersebut (memanggil .then()-nya) alih-alih mengembalikan builder-nya.
+  return { query };
+};
+
+/**
  * Get transfer orders dari DB Netsuite (bridge_sanbox.transfer_orders)
  */
 const getTransferOrders = async (body) => {
@@ -78,75 +159,7 @@ const getTransferOrders = async (body) => {
       ? body.sort_by
       : "created_at";
 
-    let query = dbNetsuite("transfer_orders as t")
-      .where("t.is_delete", false)
-      .whereNotNull("t.netsuite_id")
-      .where("t.netsuite_id", "!=", "");
-
-    if (body.search) {
-      query = query.where(function () {
-        this.whereILike("t.tranid", `%${body.search}%`)
-          .orWhereILike("t.netsuite_id", `%${body.search}%`)
-          .orWhereILike("t.memo", `%${body.search}%`);
-      });
-    }
-    if (body.from_location_id) {
-      query = query.where("t.from_location_id", body.from_location_id);
-    }
-    if (body.to_location_id) {
-      query = query.where("t.to_location_id", body.to_location_id);
-    }
-    if (body.status_name && body.status_name.length) {
-      const statusNames = Array.isArray(body.status_name)
-        ? body.status_name
-        : [body.status_name];
-      query = query.whereIn("t.status_name", statusNames);
-    }
-    if (body.status_code && body.status_code.length) {
-      const statusCodes = Array.isArray(body.status_code)
-        ? body.status_code
-        : [body.status_code];
-      query = query.whereIn("t.status_code", statusCodes);
-    }
-    // tran_date disimpan sebagai text format D/M/YYYY (mis. "9/7/2026")
-    if (body.start_date) {
-      query = query.whereRaw(
-        "to_date(t.tran_date, 'FMDD/FMMM/YYYY') >= ?::date",
-        [body.start_date],
-      );
-    }
-    if (body.end_date) {
-      query = query.whereRaw(
-        "to_date(t.tran_date, 'FMDD/FMMM/YYYY') <= ?::date",
-        [body.end_date],
-      );
-    }
-
-    // Handle classes filter (parent and children)
-    let classIds = [];
-    if (body.classes) {
-      const parentIdStr = body.classes.toString();
-      classIds.push(parentIdStr);
-
-      // Step 2 & 3: Cek ke tabel class untuk child yang memiliki parent_id tersebut
-      const children = await dbNetsuite("class")
-        .select("netsuite_id")
-        .where("parent_id", parentIdStr)
-        .andWhere("is_delete", false)
-        .whereNull("deleted_at");
-
-      // Step 4 & 5: Masukan daftar netsuite_id tersebut
-      if (children && children.length > 0) {
-        children.forEach((child) => {
-          if (child.netsuite_id) classIds.push(child.netsuite_id.toString());
-        });
-      }
-    }
-
-    // Step 6: Apply class filter
-    if (classIds.length > 0) {
-      query = query.whereIn("t.class_id", classIds);
-    }
+    const { query } = await buildTransferOrdersFilteredQuery(body);
 
     const countResult = await query.clone().count("* as total").first();
     const total = parseInt(countResult.total) || 0;
@@ -1410,6 +1423,283 @@ const getFileRecordByShareUrl = async (shareUrl) => {
   return record;
 };
 
+/**
+ * Export transfer orders (sesuai filter get-list) ke file Excel, upload ke
+ * Nextcloud folder NetSuite/TransferOrders/Export, lalu kembalikan share link.
+ */
+const exportTransferOrders = async (body) => {
+  try {
+    if (!body.start_date || !body.end_date) {
+      throw {
+        message: "start_date dan end_date wajib diisi untuk proses export",
+        statusCode: 400,
+      };
+    }
+
+    const startDate = moment(
+      body.start_date,
+      ["YYYY-MM-DD", moment.ISO_8601],
+      true,
+    );
+    const endDate = moment(
+      body.end_date,
+      ["YYYY-MM-DD", moment.ISO_8601],
+      true,
+    );
+
+    if (!startDate.isValid() || !endDate.isValid()) {
+      throw {
+        message:
+          "Format start_date dan end_date tidak valid (gunakan YYYY-MM-DD)",
+        statusCode: 400,
+      };
+    }
+
+    if (endDate.isBefore(startDate)) {
+      throw {
+        message: "end_date tidak boleh lebih kecil dari start_date",
+        statusCode: 400,
+      };
+    }
+
+    const rangeDays = endDate.diff(startDate, "days") + 1;
+    if (rangeDays > 14) {
+      throw {
+        message: "Rentang start_date dan end_date maksimal 14 hari (2 minggu)",
+        statusCode: 400,
+      };
+    }
+
+    const ExcelJS = require("exceljs");
+    const nextcloud = require("../../utils/nextcloud");
+
+    const limit = parseInt(body.limit) || 1000;
+    const sortOrder = body.sort_order ? body.sort_order.toUpperCase() : "DESC";
+    const validSortColumns = [
+      "netsuite_id",
+      "tranid",
+      "tran_date",
+      "status_code",
+      "status_name",
+      "from_location_id",
+      "to_location_id",
+      "last_modified_netsuite",
+      "created_at",
+      "updated_at",
+    ];
+    const orderCol = validSortColumns.includes(body.sort_by)
+      ? body.sort_by
+      : "created_at";
+
+    const includeChild =
+      body.include_child === true || body.include_child === "true";
+
+    const { query: filteredQuery } =
+      await buildTransferOrdersFilteredQuery(body);
+
+    const baseSelect = [
+      "t.id",
+      "t.netsuite_id",
+      "t.tranid",
+      "t.status_name",
+      "t.from_location_name",
+      "t.to_location_name",
+      "t.memo",
+      "t.customform_display",
+      dbNetsuite.raw(
+        "COALESCE(NULLIF(t.subsidiary_name, ''), s.subsidiary_name) AS subsidiary_name",
+      ),
+      dbNetsuite.raw(
+        "COALESCE(NULLIF(t.department_name, ''), d.name) AS department_name",
+      ),
+      dbNetsuite.raw(
+        "COALESCE(NULLIF(t.class_name, ''), c2.name) AS class_name",
+      ),
+      "t.incoterm_name",
+      dbNetsuite.raw(
+        "COALESCE(NULLIF(t.employee_name, ''), gse.employee_name) AS employee_name",
+      ),
+      dbNetsuite.raw(
+        "COALESCE(NULLIF(t.customer_name, ''), c3.name) AS customer_name",
+      ),
+      dbNetsuite.raw(
+        "COALESCE(NULLIF(t.logistic_vendor_name, ''), v2.entity_id) AS logistic_vendor_name",
+      ),
+      "t.tran_date",
+      "t.datecreated",
+      "t.last_modified_netsuite",
+      dbNetsuite.raw(
+        "CASE WHEN NULLIF(t.custbody_msi_createdby_api, '') IS NULL THEN t.created_by_netsuite_name ELSE COALESCE(NULLIF(created_emp.employee_name, ''), '') END AS created_by_name",
+      ),
+      "updated_emp.employee_name as updated_by_name",
+      "t.created_at",
+      "t.updated_at",
+    ];
+    if (includeChild) {
+      baseSelect.push("t.items");
+    }
+
+    const rows = await filteredQuery
+      .leftJoin(
+        "gate_sso_employees as created_emp",
+        dbNetsuite.raw("t.created_by::text = created_emp.employee_id::text"),
+      )
+      .leftJoin(
+        "gate_sso_employees as updated_emp",
+        dbNetsuite.raw("t.updated_by::text = updated_emp.employee_id::text"),
+      )
+      .leftJoin(
+        "customforms as c",
+        dbNetsuite.raw("c.customform_id::text = t.customform::text"),
+      )
+      .leftJoin(
+        "subsidiarys as s",
+        dbNetsuite.raw("s.netsuite_id::text = t.subsidiary_id::text"),
+      )
+      .leftJoin(
+        "departments as d",
+        dbNetsuite.raw("d.netsuite_id::text = t.department_id::text"),
+      )
+      .leftJoin(
+        "class as c2",
+        dbNetsuite.raw("c2.netsuite_id::text = t.class_id::text"),
+      )
+      .leftJoin(
+        "gate_sso_employees as gse",
+        dbNetsuite.raw("gse.employee_id_netsuite::text = t.employee_id::text"),
+      )
+      .leftJoin(
+        "customers as c3",
+        dbNetsuite.raw("c3.netsuite_id::text = t.customer_id::text"),
+      )
+      .leftJoin(
+        "vendors as v2",
+        dbNetsuite.raw("v2.netsuite_id::text = t.logistic_vendor_id::text"),
+      )
+      .select(baseSelect)
+      .orderBy(`t.${orderCol}`, sortOrder)
+      .limit(limit);
+
+    // Jika include_child true, pecah kolom jsonb "items" jadi 1 row per line item,
+    // digabung dengan kolom header transfer order (header akan terduplikasi
+    // sebanyak jumlah line item-nya)
+    let exportRows = rows;
+    if (includeChild) {
+      exportRows = [];
+      rows.forEach((row) => {
+        const { items: childItems, ...header } = row;
+        const children = parseJsonColumn(childItems, []);
+
+        if (Array.isArray(children) && children.length > 0) {
+          children.forEach((child) => {
+            exportRows.push({
+              ...header,
+              item_name: child.item_name,
+              line_number: child.line_number,
+              units: child.units,
+              closed: child.closed,
+              packed: child.packed,
+              picked: child.picked,
+              shipped: child.shipped,
+              quantity: child.quantity,
+              received: child.received,
+              backorder: child.backorder,
+              committed: child.committed,
+              fulfilled: child.fulfilled,
+              item_from_location_name: child.from_location_name,
+              expected_receipt_date: child.expected_receipt_date,
+              description: child.description,
+            });
+          });
+        } else {
+          exportRows.push(header);
+        }
+      });
+    }
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Transfer Orders");
+
+    sheet.columns = [
+      { header: "Document Number", key: "tranid", width: 20 },
+      // { header: "NetSuite ID", key: "netsuite_id", width: 15 },
+      { header: "Transaction Date", key: "tran_date", width: 16 },
+      { header: "From Location", key: "from_location_name", width: 25 },
+      { header: "To Location", key: "to_location_name", width: 25 },
+      { header: "Status", key: "status_name", width: 28 },
+      { header: "Memo", key: "memo", width: 40 },
+      { header: "Custom Form", key: "customform_display", width: 20 },
+      { header: "Subsidiary", key: "subsidiary_name", width: 25 },
+      { header: "Department", key: "department_name", width: 25 },
+      { header: "Class", key: "class_name", width: 25 },
+      { header: "Incoterm", key: "incoterm_name", width: 15 },
+      { header: "Employee", key: "employee_name", width: 25 },
+      { header: "Customer", key: "customer_name", width: 25 },
+      { header: "Logistic Vendor", key: "logistic_vendor_name", width: 25 },
+      { header: "Date Created", key: "datecreated", width: 16 },
+      { header: "Last Modified", key: "last_modified_netsuite", width: 20 },
+      { header: "Created By", key: "created_by_name", width: 25 },
+      { header: "Updated By", key: "updated_by_name", width: 25 },
+      { header: "Created At", key: "created_at", width: 20 },
+      { header: "Updated At", key: "updated_at", width: 20 },
+    ];
+
+    if (includeChild) {
+      sheet.columns = [
+        ...sheet.columns,
+        { header: "Line Number", key: "line_number", width: 12 },
+        { header: "Item Name", key: "item_name", width: 25 },
+        { header: "Description", key: "description", width: 30 },
+        { header: "Item From Location", key: "item_from_location_name", width: 25 },
+        { header: "Units", key: "units", width: 12 },
+        { header: "Quantity", key: "quantity", width: 12 },
+        { header: "Committed", key: "committed", width: 12 },
+        { header: "Picked", key: "picked", width: 12 },
+        { header: "Packed", key: "packed", width: 12 },
+        { header: "Shipped", key: "shipped", width: 12 },
+        { header: "Fulfilled", key: "fulfilled", width: 12 },
+        { header: "Received", key: "received", width: 12 },
+        { header: "Backorder", key: "backorder", width: 12 },
+        { header: "Closed", key: "closed", width: 10 },
+        { header: "Expected Receipt Date", key: "expected_receipt_date", width: 20 },
+      ];
+    }
+    sheet.getRow(1).font = { bold: true };
+
+    exportRows.forEach((row) => sheet.addRow(row));
+
+    const buffer = await workbook.xlsx.writeBuffer();
+
+    const dateRangeLabel = [body.start_date, body.end_date]
+      .filter(Boolean)
+      .join("_to_");
+    const rangeSuffix = dateRangeLabel
+      ? dateRangeLabel.replace(/[^0-9a-zA-Z_-]/g, "-")
+      : moment().format("YYYY-MM-DD");
+
+    const fileName = `TransferOrders_Export_${rangeSuffix}_${Date.now()}.xlsx`;
+    const exportDir = "/NetSuite/TransferOrders/Export";
+    const filePath = `${exportDir}/${fileName}`;
+
+    await nextcloud.ensureDirectoryExists(exportDir);
+    await nextcloud.client.putFileContents(filePath, buffer);
+    const shareUrl = await nextcloud.generateShareLink(filePath);
+
+    return {
+      file_url: shareUrl + "/download",
+      file_name: fileName,
+      total_data: rows.length,
+      total_rows: exportRows.length,
+    };
+  } catch (error) {
+    if (error.statusCode) throw error;
+    throw {
+      message: error.message || "Failed to export transfer orders",
+      statusCode: 500,
+    };
+  }
+};
+
 module.exports = {
   normalizeTransferOrderPayloadForBridge,
   getTransferOrderFinalizeTargets,
@@ -1438,4 +1728,5 @@ module.exports = {
   deleteFileRecord,
   updateFileRecordFields,
   getFileRecordByShareUrl,
+  exportTransferOrders,
 };
