@@ -34,6 +34,31 @@ const getList = async (req, res) => {
 };
 
 /**
+ * Export transfer orders (sesuai filter get-list) ke Excel, upload ke Nextcloud,
+ * dan kembalikan link share untuk download file tersebut
+ */
+const exportList = async (req, res) => {
+  try {
+    const result = await service.exportTransferOrders(req.body);
+
+    return baseResponse(res, {
+      data: {
+        success: true,
+        data: result,
+        message: "Export transfer orders berhasil, silakan download file melalui file_url",
+      },
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+      errors: error.errors || error,
+    });
+  }
+};
+
+/**
  * Get transfer orders list
  */
 const getListMobile = async (req, res) => {
@@ -618,6 +643,7 @@ const updateUpload = async (req, res) => {
 
 module.exports = {
   getList,
+  exportList,
   getListMobile,
   getById,
   syncById,

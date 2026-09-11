@@ -1410,6 +1410,118 @@ const getFileRecordByShareUrl = async (shareUrl) => {
   return record;
 };
 
+/**
+ * Export transfer orders (sesuai filter get-list) ke file Excel, upload ke
+ * Nextcloud folder NetSuite/TransferOrders/Export, lalu kembalikan share link.
+ */
+const exportTransferOrders = async (body) => {
+  try {
+    if (!body.start_date || !body.end_date) {
+      throw {
+        message: "start_date dan end_date wajib diisi untuk proses export",
+        statusCode: 400,
+      };
+    }
+
+    const startDate = moment(
+      body.start_date,
+      ["YYYY-MM-DD", moment.ISO_8601],
+      true,
+    );
+    const endDate = moment(
+      body.end_date,
+      ["YYYY-MM-DD", moment.ISO_8601],
+      true,
+    );
+
+    if (!startDate.isValid() || !endDate.isValid()) {
+      throw {
+        message:
+          "Format start_date dan end_date tidak valid (gunakan YYYY-MM-DD)",
+        statusCode: 400,
+      };
+    }
+
+    if (endDate.isBefore(startDate)) {
+      throw {
+        message: "end_date tidak boleh lebih kecil dari start_date",
+        statusCode: 400,
+      };
+    }
+
+    const rangeDays = endDate.diff(startDate, "days") + 1;
+    if (rangeDays > 14) {
+      throw {
+        message: "Rentang start_date dan end_date maksimal 14 hari (2 minggu)",
+        statusCode: 400,
+      };
+    }
+
+    const ExcelJS = require("exceljs");
+    const nextcloud = require("../../utils/nextcloud");
+
+    const exportBody = {
+      ...body,
+      page: 1,
+      limit: parseInt(body.limit) || 1000,
+    };
+
+    const { items } = await getTransferOrders(exportBody);
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Transfer Orders");
+
+    sheet.columns = [
+      { header: "Tran ID", key: "tranid", width: 20 },
+      { header: "NetSuite ID", key: "netsuite_id", width: 15 },
+      { header: "Status Code", key: "status_code", width: 20 },
+      { header: "Status Name", key: "status_name", width: 28 },
+      { header: "From Location", key: "from_location_name", width: 25 },
+      { header: "To Location", key: "to_location_name", width: 25 },
+      { header: "Memo", key: "memo", width: 40 },
+      { header: "Transaction Date", key: "tran_date", width: 16 },
+      { header: "Date Created", key: "datecreated", width: 16 },
+      { header: "Last Modified", key: "last_modified_netsuite", width: 20 },
+      { header: "Created By", key: "created_by_name", width: 25 },
+      { header: "Updated By", key: "updated_by_name", width: 25 },
+      { header: "Created At", key: "created_at", width: 20 },
+      { header: "Updated At", key: "updated_at", width: 20 },
+    ];
+    sheet.getRow(1).font = { bold: true };
+
+    items.forEach((item) => sheet.addRow(item));
+
+    const buffer = await workbook.xlsx.writeBuffer();
+
+    const dateRangeLabel = [body.start_date, body.end_date]
+      .filter(Boolean)
+      .join("_to_");
+    const rangeSuffix = dateRangeLabel
+      ? dateRangeLabel.replace(/[^0-9a-zA-Z_-]/g, "-")
+      : moment().format("YYYY-MM-DD");
+
+    const fileName = `TransferOrders_Export_${rangeSuffix}_${Date.now()}.xlsx`;
+    const exportDir = "/NetSuite/TransferOrders/Export";
+    const filePath = `${exportDir}/${fileName}`;
+
+    await nextcloud.ensureDirectoryExists(exportDir);
+    await nextcloud.client.putFileContents(filePath, buffer);
+    const shareUrl = await nextcloud.generateShareLink(filePath);
+
+    return {
+      file_url: shareUrl + "/download",
+      file_name: fileName,
+      total_data: items.length,
+    };
+  } catch (error) {
+    if (error.statusCode) throw error;
+    throw {
+      message: error.message || "Failed to export transfer orders",
+      statusCode: 500,
+    };
+  }
+};
+
 module.exports = {
   normalizeTransferOrderPayloadForBridge,
   getTransferOrderFinalizeTargets,
@@ -1438,4 +1550,5 @@ module.exports = {
   deleteFileRecord,
   updateFileRecordFields,
   getFileRecordByShareUrl,
+  exportTransferOrders,
 };

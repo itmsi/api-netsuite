@@ -17,6 +17,14 @@ const upload = multer({
 router.post("/get-list", verifyToken, controller.getList);
 
 /**
+ * @route   POST /api/transfer-orders/export
+ * @desc    Export transfer orders (sesuai filter get-list) ke Excel, upload ke Nextcloud
+ *          folder NetSuite/TransferOrders/Export, dan kembalikan link share download
+ * @access  Private
+ */
+router.post("/export", verifyToken, controller.exportList);
+
+/**
  * @route   POST /api/transfer-orders/get-list
  * @desc    Get transfer orders from local database (bridge_sanbox.transfer_orders) with pagination
  * @access  Private
