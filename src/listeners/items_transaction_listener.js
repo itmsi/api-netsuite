@@ -21,6 +21,7 @@ const methodExecution = async (payload, channel, msg, functionType) => {
     noteTitle,
     trandate,
     memo,
+    created_by,
     file,
     userEmail,
   } = payload;
@@ -40,6 +41,7 @@ const methodExecution = async (payload, channel, msg, functionType) => {
             noteTitle,
             trandate,
             memo,
+            created_by,
           })
         : await itemsService.createItemFulfillment({
             transaction_type,
@@ -49,6 +51,7 @@ const methodExecution = async (payload, channel, msg, functionType) => {
             noteTitle,
             trandate,
             memo,
+            created_by,
             ship_status: "shipped",
           });
 
