@@ -498,7 +498,7 @@ const itemsPaths = {
       tags: ["Items"],
       summary: "Get fulfillments dari local database",
       description:
-        "Fetch fulfillments dari tabel lokal bridge_sanbox.fulfillments dengan pagination dan filter sederhana.",
+        "Fetch fulfillments dari tabel lokal bridge_sanbox.fulfillments dengan pagination dan filter sederhana. Mendukung filter source_type (source_type) dan source_type_display (source_type_display).",
       security: [{ bearerAuth: [] }],
       requestBody: {
         required: true,

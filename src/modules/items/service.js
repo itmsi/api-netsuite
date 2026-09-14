@@ -810,6 +810,17 @@ const getItemFulfillments = async (body) => {
       query = query.where("location", body.location);
     }
 
+    if (body.source_type) {
+      query = query.where("source_type", body.source_type);
+    }
+
+    if (body.source_type_display) {
+      query = query.whereILike(
+        "source_type_display",
+        `%${body.source_type_display}%`,
+      );
+    }
+
     // Handle classes filter (parent and children)
     let classIds = [];
     if (body.classes) {

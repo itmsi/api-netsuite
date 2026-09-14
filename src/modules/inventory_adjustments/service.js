@@ -178,6 +178,17 @@ const getInventoryAdjustmentsList = async (body) => {
       query = query.where("t.customer_id", body.customer_id);
     }
 
+    if (body.approval_status) {
+      query = query.where("t.custbody_me_approval_status", body.approval_status);
+    }
+
+    if (body.approval_status_display) {
+      query = query.whereILike(
+        "t.custbody_me_approval_status_display",
+        `%${body.approval_status_display}%`,
+      );
+    }
+
     // Handle class filter (parent and children)
     let classIds = [];
     if (body.classes) {
