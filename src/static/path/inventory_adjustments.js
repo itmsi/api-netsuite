@@ -102,7 +102,7 @@ const inventoryAdjustmentsPaths = {
       tags: ["Inventory Adjustments"],
       summary: "Create inventory adjustment via bridge API",
       description:
-        "Hit bridge API `POST /api/v1/bridge/inventory/adjustments` untuk membuat inventory adjustment baru di NetSuite.",
+        "Hit bridge API `POST /api/v1/bridge/inventory/adjustments` untuk membuat inventory adjustment baru di NetSuite. trandate menerima format DD-MM-YYYY (contoh 21-09-2026) dan diteruskan ke NetSuite, custbody_me_opening_balance bertipe boolean dengan default false.",
       security: [{ bearerAuth: [] }],
       requestBody: {
         required: true,
