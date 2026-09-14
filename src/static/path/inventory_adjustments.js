@@ -8,7 +8,7 @@ const inventoryAdjustmentsPaths = {
       tags: ["Inventory Adjustments"],
       summary: "Get list of inventory adjustments",
       description:
-        "Fetch inventory adjustments dengan pagination dari database lokal (bridge_sanbox.inventory_adjustments).",
+        "Fetch inventory adjustments dengan pagination dari database lokal (bridge_sanbox.inventory_adjustments). Mendukung filter approval_status (custbody_me_approval_status) dan approval_status_display (custbody_me_approval_status_display).",
       security: [{ bearerAuth: [] }],
       requestBody: {
         required: false,

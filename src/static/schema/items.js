@@ -416,6 +416,19 @@ const itemsSchemas = {
       entity_id: { type: "string", nullable: true, example: "12345" },
       location: { type: "string", nullable: true, example: "10" },
       classes: { type: "string", nullable: true, example: "2" },
+      source_type: {
+        type: "string",
+        nullable: true,
+        description: "Filter berdasarkan kolom source_type (exact match)",
+        example: "salesorder",
+      },
+      source_type_display: {
+        type: "string",
+        nullable: true,
+        description:
+          "Filter berdasarkan kolom source_type_display (partial match)",
+        example: "Sales Order",
+      },
     },
   },
   FulfillmentItem: {
@@ -437,6 +450,12 @@ const itemsSchemas = {
         example: "SO-123",
       },
       postingperiod: { type: "string", nullable: true, example: "Mar 2026" },
+      source_type: { type: "string", nullable: true, example: "salesorder" },
+      source_type_display: {
+        type: "string",
+        nullable: true,
+        example: "Sales Order",
+      },
       last_modified: {
         type: "string",
         nullable: true,

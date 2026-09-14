@@ -39,6 +39,18 @@ const inventoryAdjustmentsSchemas = {
         description: "Filter berdasarkan class (parent), termasuk children-nya",
         example: 3,
       },
+      approval_status: {
+        type: "string",
+        description:
+          "Filter berdasarkan kolom custbody_me_approval_status (exact match)",
+        example: "1",
+      },
+      approval_status_display: {
+        type: "string",
+        description:
+          "Filter berdasarkan kolom custbody_me_approval_status_display (partial match)",
+        example: "Pending Approval",
+      },
     },
   },
   InventoryAdjustmentItem: {
