@@ -713,7 +713,7 @@ const itemsPaths = {
       tags: ["Items"],
       summary: "Get item serial numbers by netsuite_item_id",
       description:
-        "Fetch item serial numbers dari tabel lokal bridge_sanbox.item_serial_numbers, difilter berdasarkan netsuite_item_id (kolom netsuite_id di tabel items) dan is_used, dengan pagination dan search.",
+        "Fetch item serial numbers dari tabel lokal bridge_sanbox.item_serial_numbers, difilter berdasarkan netsuite_item_id (kolom netsuite_id di tabel items), is_used, dan location_id (kolom inventorylocationId), dengan pagination dan search. Response di-left join ke tabel locations (inventorylocationId = locations.netsuite_id) untuk mengambil locations.name sebagai location_name.",
       security: [{ bearerAuth: [] }],
       requestBody: {
         required: true,

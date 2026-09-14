@@ -1351,6 +1351,13 @@ const getItemSerialNumbersList = async (body) => {
       query = query.where("isn.item_id", body.netsuite_item_id.toString());
     }
 
+    if (body.location_id) {
+      query = query.where(
+        dbNetsuite.raw('isn."inventorylocationId"::integer'),
+        parseInt(body.location_id),
+      );
+    }
+
     if (
       body.is_used !== undefined &&
       body.is_used !== null &&
@@ -1378,10 +1385,16 @@ const getItemSerialNumbersList = async (body) => {
 
     const rows = await query
       .clone()
+      .leftJoin(
+        "locations as l",
+        dbNetsuite.raw("l.netsuite_id::integer"),
+        dbNetsuite.raw('isn."inventorylocationId"::integer'),
+      )
       .select([
         "isn.id",
         "isn.item_id",
         "isn.inventorylocationId",
+        "l.name as location_name",
         "isn.serial_number",
         "isn.is_used",
         "isn.created_at",
