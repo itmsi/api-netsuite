@@ -810,6 +810,12 @@ const itemsSchemas = {
         description: "Berdasarkan kolom netsuite_id di tabel items",
         example: "26606",
       },
+      location_id: {
+        type: "integer",
+        nullable: true,
+        description: "Filter berdasarkan kolom inventorylocationId",
+        example: 114,
+      },
     },
   },
   ItemSerialNumbersListResponse: {
@@ -827,6 +833,11 @@ const itemsSchemas = {
                 id: { type: "string", example: "07ce4ae8-b792-43b0-a236-e1e9095deb63" },
                 item_id: { type: "string", example: "26606" },
                 inventorylocationId: { type: "string", example: "114" },
+                location_name: {
+                  type: "string",
+                  nullable: true,
+                  example: "Main Warehouse",
+                },
                 serial_number: {
                   type: "string",
                   example: "202608030001-01",

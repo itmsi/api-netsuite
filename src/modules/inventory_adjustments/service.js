@@ -1,6 +1,7 @@
 const axios = require("axios");
 const knex = require("knex");
 const authService = require("../auth/service");
+const { dateStrConvertion } = require("../../utils/date");
 
 // Knex instance untuk DB Netsuite (bridge_sanbox)
 const dbNetsuite = knex({
@@ -179,7 +180,10 @@ const getInventoryAdjustmentsList = async (body) => {
     }
 
     if (body.approval_status) {
-      query = query.where("t.custbody_me_approval_status", body.approval_status);
+      query = query.where(
+        "t.custbody_me_approval_status",
+        body.approval_status,
+      );
     }
 
     if (body.approval_status_display) {
@@ -333,6 +337,8 @@ const createInventoryAdjustment = async (body, user) => {
 
     const payload = {
       ...body,
+      trandate: body.trandate || null,
+      custbody_me_opening_balance: body.custbody_me_opening_balance ?? false,
       created_by: body.created_by || user?.employee_id || user?.user_id || null,
     };
 

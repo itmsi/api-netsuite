@@ -277,6 +277,12 @@ const inventoryAdjustmentsSchemas = {
       department: { type: "integer", example: 103 },
       class: { type: "integer", example: 3 },
       adjlocation: { type: "integer", example: 2 },
+      trandate: {
+        type: "string",
+        nullable: true,
+        description: "Format tanggal DD-MM-YYYY",
+        example: "21-09-2026",
+      },
       memo: {
         type: "string",
         nullable: true,
@@ -309,6 +315,11 @@ const inventoryAdjustmentsSchemas = {
         type: "string",
         nullable: true,
         example: "Purchase Order #PO-IEC-2026-000032",
+      },
+      custbody_me_opening_balance: {
+        type: "boolean",
+        default: false,
+        example: false,
       },
       lines: {
         type: "array",

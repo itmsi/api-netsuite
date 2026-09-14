@@ -1,17 +1,17 @@
-const axios = require('axios');
-const knex = require('knex');
-const authService = require('../auth/service');
+const axios = require("axios");
+const knex = require("knex");
+const authService = require("../auth/service");
 
 // Knex instance untuk DB Netsuite (bridge_sanbox)
 const dbNetsuite = knex({
-  client: 'pg',
+  client: "pg",
   connection: {
-    host: process.env.DB_HOST_NETSUITE || 'localhost',
+    host: process.env.DB_HOST_NETSUITE || "localhost",
     port: parseInt(process.env.DB_PORT_NETSUITE) || 9541,
-    user: process.env.DB_USER_NETSUITE || 'msiserver',
+    user: process.env.DB_USER_NETSUITE || "msiserver",
     password: process.env.DB_PASS_NETSUITE,
-    database: process.env.DB_NAME_NETSUITE || 'bridge_sanbox'
-  }
+    database: process.env.DB_NAME_NETSUITE || "bridge_sanbox",
+  },
 });
 
 /**
@@ -32,35 +32,51 @@ const getLocationsList = async (body) => {
   try {
     const page = parseInt(body.page) || 1;
     const limit = parseInt(body.limit) || 10;
-    const sortOrder = body.sort_order ? body.sort_order.toUpperCase() : 'DESC';
+    const sortOrder = body.sort_order ? body.sort_order.toUpperCase() : "DESC";
     const offset = (page - 1) * limit;
 
     // Kolom yang boleh dijadikan sort_by
     const validSortColumns = [
-      'netsuite_id', 'name', 'subsidiary_id', 'subsidiary_name',
-      'location_type', 'timezone', 'last_modified_netsuite', 'created_at', 'updated_at'
+      "netsuite_id",
+      "name",
+      "subsidiary_id",
+      "subsidiary_name",
+      "location_type",
+      "timezone",
+      "last_modified_netsuite",
+      "created_at",
+      "updated_at",
     ];
-    const sortByRaw = body.sort_by === 'created_at' ? 'last_modified_netsuite' : (body.sort_by || 'last_modified_netsuite');
-    const orderCol = validSortColumns.includes(sortByRaw) ? sortByRaw : 'last_modified_netsuite';
+    const sortByRaw =
+      body.sort_by === "created_at"
+        ? "last_modified_netsuite"
+        : body.sort_by || "last_modified_netsuite";
+    const orderCol = validSortColumns.includes(sortByRaw)
+      ? sortByRaw
+      : "last_modified_netsuite";
 
-    let query = dbNetsuite('locations').where('is_deleted', false).where('is_inactive', false);
+    let query = dbNetsuite("locations")
+      .where("is_deleted", false)
+      .where("is_inactive", false);
 
     // Filter opsional
     if (body.search) {
-      query = query.whereILike('name', `%${body.search}%`);
+      query = query
+        .whereILike("name", `%${body.search}%`)
+        .orWhereILike("netsuite_id", `%${body.search}%`);
     }
     if (body.subsidiary_id) {
-      query = query.where('subsidiary_id', String(body.subsidiary_id));
+      query = query.where("subsidiary_id", String(body.subsidiary_id));
     }
     // is_parent: filter berdasarkan parent_id null/bukan null
-    if (body.is_parent === true || body.is_parent === 'true') {
-      query = query.whereNull('parent_id');
-    } else if (body.is_parent === false || body.is_parent === 'false') {
-      query = query.whereNotNull('parent_id');
+    if (body.is_parent === true || body.is_parent === "true") {
+      query = query.whereNull("parent_id");
+    } else if (body.is_parent === false || body.is_parent === "false") {
+      query = query.whereNotNull("parent_id");
     }
 
     // Hitung total
-    const countResult = await query.clone().count('* as total').first();
+    const countResult = await query.clone().count("* as total").first();
     const total = parseInt(countResult.total) || 0;
     const totalPages = Math.ceil(total / limit);
 
@@ -68,36 +84,40 @@ const getLocationsList = async (body) => {
     const rows = await query
       .clone()
       .select([
-        'netsuite_id as id',
-        'name',
-        'is_inactive',
-        'parent_id',
-        'parent_name',
-        'subsidiary_id',
-        'subsidiary_name',
-        'location_type',
-        'location_type_name',
-        'timezone',
-        'make_inventory_available',
-        'last_modified_netsuite'
+        "netsuite_id as id",
+        "name",
+        "is_inactive",
+        "parent_id",
+        "parent_name",
+        "subsidiary_id",
+        "subsidiary_name",
+        "location_type",
+        "location_type_name",
+        "timezone",
+        "make_inventory_available",
+        "last_modified_netsuite",
       ])
       .orderBy(orderCol, sortOrder)
       .limit(limit)
       .offset(offset);
 
     // Format last_modified ke "D/M/YYYY"
-    const items = rows.map(row => ({
-      ...row,
-      last_modified: formatLastModified(row.last_modified_netsuite)
-    })).map(({ last_modified_netsuite, ...rest }) => rest);
+    const items = rows
+      .map((row) => ({
+        ...row,
+        last_modified: formatLastModified(row.last_modified_netsuite),
+      }))
+      .map(({ last_modified_netsuite, ...rest }) => rest);
 
     return {
       items,
-      pagination: { page, limit, total, totalPages }
+      pagination: { page, limit, total, totalPages },
     };
-
   } catch (error) {
-    throw { message: error.message || 'Failed to fetch locations from database', statusCode: 500 };
+    throw {
+      message: error.message || "Failed to fetch locations from database",
+      statusCode: 500,
+    };
   }
 };
 
@@ -111,7 +131,8 @@ const syncLocationsList = async (body) => {
     const token = tokenResponse.data.access_token;
 
     // 2. Fetch dari bridge API
-    const baseUrl = process.env.BRIDGE_BASE_URL || 'https://api-bridge-sb.motorsights.com';
+    const baseUrl =
+      process.env.BRIDGE_BASE_URL || "https://api-bridge-sb.motorsights.com";
     const url = `${baseUrl}/api/v1/bridge/locations/get`;
 
     const filters = {};
@@ -122,16 +143,19 @@ const syncLocationsList = async (body) => {
     const requestData = {
       page: body.page || 1,
       page_size: body.limit || 10,
-      sort_by: body.sort_by === 'created_at' ? 'last_modified_netsuite' : (body.sort_by || 'last_modified_netsuite'),
-      sort_order: body.sort_order ? body.sort_order.toUpperCase() : 'DESC',
-      filters
+      sort_by:
+        body.sort_by === "created_at"
+          ? "last_modified_netsuite"
+          : body.sort_by || "last_modified_netsuite",
+      sort_order: body.sort_order ? body.sort_order.toUpperCase() : "DESC",
+      filters,
     };
 
     const response = await axios.post(url, requestData, {
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      }
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
     });
 
     const resData = response.data;
@@ -142,23 +166,24 @@ const syncLocationsList = async (body) => {
         page: resData.page || resData.pageIndex || body.page || 1,
         limit: resData.page_size || resData.pageSize || body.limit || 10,
         total: resData.total_records || resData.totalRows || 0,
-        totalPages: resData.total_pages || resData.totalPages || 0
-      }
+        totalPages: resData.total_pages || resData.totalPages || 0,
+      },
     };
-
   } catch (error) {
     if (error.response) {
       throw {
-        message: error.response.data.message || 'Failed to sync locations from bridge API',
+        message:
+          error.response.data.message ||
+          "Failed to sync locations from bridge API",
         statusCode: error.response.status,
-        errors: error.response.data
+        errors: error.response.data,
       };
     }
     throw { message: error.message, statusCode: 500 };
   }
 };
 
-const { pgCore: db } = require('../../config/database');
+const { pgCore: db } = require("../../config/database");
 
 /**
  * Memproses sync ke tabel terms di gate_sso
@@ -182,24 +207,30 @@ const processLocationsSync = async (records) => {
         timezone: record.timezone || null,
         make_inventory_available: record.make_inventory_available || null,
         data: record.data ? JSON.stringify(record.data) : null,
-        last_modified_netsuite: record.last_modified_netsuite ? new Date(record.last_modified_netsuite) : null,
+        last_modified_netsuite: record.last_modified_netsuite
+          ? new Date(record.last_modified_netsuite)
+          : null,
         is_deleted: record.is_deleted || null,
         created_at: db.fn.now(),
         updated_at: db.fn.now(),
       };
 
-      const existing = await trx('locations').where('netsuite_id', data.netsuite_id.toString()).first();
+      const existing = await trx("locations")
+        .where("netsuite_id", data.netsuite_id.toString())
+        .first();
       if (existing) {
-        await trx('locations').where('netsuite_id', data.netsuite_id.toString()).update(data);
+        await trx("locations")
+          .where("netsuite_id", data.netsuite_id.toString())
+          .update(data);
       } else {
         data.created_at = db.fn.now();
-        await trx('locations').insert(data);
+        await trx("locations").insert(data);
       }
     }
     await trx.commit();
   } catch (error) {
     await trx.rollback();
-    console.error('Error syncing locations to gate_sso:', error);
+    console.error("Error syncing locations to gate_sso:", error);
     throw error;
   }
 };
@@ -207,5 +238,5 @@ const processLocationsSync = async (records) => {
 module.exports = {
   getLocationsList,
   syncLocationsList,
-  processLocationsSync
+  processLocationsSync,
 };
