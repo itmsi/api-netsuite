@@ -55,61 +55,78 @@ const methodExecution = async (payload, channel, msg, functionType) => {
             ship_status: "shipped",
           });
 
-    const netsuiteId =
+    /**
+     * khusus untuk createItemReceipt, bridge API bisa mengembalikan lebih dari
+     * satu goods_receipts (misal terpecah per lokasi), jadi netsuite_id
+     * diambil dari result.goods_receipts dan di-looping sampai array terakhir.
+     */
+    const documents =
       functionType === "receipts"
-        ? result?.goods_receipts?.[0]?.id
-        : result?.fulfillment_id;
-
-    const documentNo =
-      functionType === "receipts"
-        ? result?.goods_receipts?.[0]?.tranid
-        : result?.document_no;
+        ? (result?.goods_receipts || []).map((gr) => ({
+            netsuiteId: gr?.id,
+            documentNo: gr?.tranid,
+          }))
+        : [
+            {
+              netsuiteId: result?.fulfillment_id,
+              documentNo: result?.document_no,
+            },
+          ];
 
     console.info(
-      `[Worker] Item ${functionType} created, netsuite_id: ${netsuiteId}, document_no: ${documentNo}`,
+      `[Worker] Item ${functionType} created, documents:`,
+      documents,
     );
 
-    let attachedFile = file;
+    for (const { netsuiteId, documentNo } of documents) {
+      if (!netsuiteId) continue;
 
-    if (documentNo && file?.storagePath) {
-      try {
-        const currentDir = path.dirname(file.storagePath);
-        const fileName = path.basename(file.storagePath);
-        const newDir = `${currentDir}/${documentNo}`;
-        const newPath = `${newDir}/${fileName}`;
+      let attachedFile = file;
 
-        await nextcloud.ensureDirectoryExists(newDir);
-        await nextcloud.moveFile(file.storagePath, newPath);
+      if (documentNo && file?.storagePath) {
+        try {
+          const currentDir = path.dirname(file.storagePath);
+          const fileName = path.basename(file.storagePath);
+          const newDir = `${currentDir}/${documentNo}`;
+          const newPath = `${newDir}/${fileName}`;
 
-        attachedFile = { ...file, storagePath: newPath };
-      } catch (moveError) {
-        console.error(
-          `[Worker] Failed to move file into document folder ${documentNo}:`,
-          moveError.message,
+          await nextcloud.ensureDirectoryExists(newDir);
+          if (documents.length > 1) {
+            await nextcloud.copyFile(file.storagePath, newPath);
+          } else {
+            await nextcloud.moveFile(file.storagePath, newPath);
+          }
+
+          attachedFile = { ...file, storagePath: newPath };
+        } catch (moveError) {
+          console.error(
+            `[Worker] Failed to move file into document folder ${documentNo}:`,
+            moveError.message,
+          );
+        }
+      }
+
+      if (attachedFile) {
+        const exchangeName = EXCHANGES.ITEM_ATTACH_FILE;
+        const queueName = QUEUE.ITEM_ATTACH_FILE;
+
+        await publishToRabbitMqQueueSingle(
+          exchangeName,
+          queueName,
+          {
+            netsuite_id: netsuiteId,
+            type: `${transaction_type}_${functionType}`,
+            file: attachedFile,
+            userEmail,
+          },
+          {
+            durable: true,
+            arguments: {
+              "x-dead-letter-exchange": `${exchangeName}-retry`,
+            },
+          },
         );
       }
-    }
-
-    if (netsuiteId && attachedFile) {
-      const exchangeName = EXCHANGES.ITEM_ATTACH_FILE;
-      const queueName = QUEUE.ITEM_ATTACH_FILE;
-
-      await publishToRabbitMqQueueSingle(
-        exchangeName,
-        queueName,
-        {
-          netsuite_id: netsuiteId,
-          type: `${transaction_type}_${functionType}`,
-          file: attachedFile,
-          userEmail,
-        },
-        {
-          durable: true,
-          arguments: {
-            "x-dead-letter-exchange": `${exchangeName}-retry`,
-          },
-        },
-      );
     }
 
     channel.ack(msg);

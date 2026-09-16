@@ -58,6 +58,15 @@ const moveFile = async (fromPath, toPath) => {
 };
 
 /**
+ * Copy a file within Nextcloud, keeping the source intact
+ * @param {string} fromPath Current path of the file
+ * @param {string} toPath Destination path
+ */
+const copyFile = async (fromPath, toPath) => {
+  await client.copyFile(fromPath, toPath);
+};
+
+/**
  * Generate a public share link using Nextcloud OCS API
  * @param {string} path Path to the file in Nextcloud
  * @returns {string} Public share URL
@@ -99,6 +108,7 @@ module.exports = {
   toPascalCase,
   ensureDirectoryExists,
   moveFile,
+  copyFile,
   generateShareLink,
   NEXTCLOUD_UPLOAD_DIR
 };
