@@ -625,9 +625,7 @@ const getItemReceiptById = async (id) => {
       dbNetsuite("receives as t")
         .leftJoin(
           "gate_sso_employees as created_emp",
-          dbNetsuite.raw(
-            "t.created_by::text = created_emp.employee_id::text",
-          ),
+          dbNetsuite.raw("t.created_by::text = created_emp.employee_id::text"),
         )
         .select([
           "id",
@@ -669,7 +667,42 @@ const getItemReceiptById = async (id) => {
           ),
           "created_by_name_netsuite as created_by_netsuite",
           "updated_at",
-          "lines",
+          dbNetsuite.raw(`
+            (
+              SELECT jsonb_agg(
+                jsonb_build_object(
+                    'item', line->>'item',
+                    'line', line->>'line',
+                    'memo', line->>'memo',
+                    -----'rate', line->>'rate',
+                    'rate', 0,
+                    'class', line->>'class',
+                    ----'amount', line->>'amount',
+                    'amount', 0,
+                    'line_id', line->>'line_id',
+                    'on_hand', (line->>'on_hand')::numeric,
+                    'restock', (line->>'restock')::boolean,
+                    'currency', line->>'currency',
+                    'itemtype', line->>'itemtype',
+                    'location', line->>'location',
+                    'quantity', line->>'quantity',
+                    'department', line->>'department',
+                    'description', line->>'description',
+                    'landed_cost', line->>'landed_cost',
+                    'item_display', line->>'item_display',
+                    'class_display', line->>'class_display',
+                    'inventorydetail', line->>'inventorydetail',
+                    'currency_display', line->>'currency_display',
+                    'item_displayname', line->>'item_displayname',
+                    'location_display', line->>'location_display',
+                    'department_display', line->>'department_display',
+                    'cseg_msi_pro_segmen', line->>'cseg_msi_pro_segmen',
+                    'cseg_msi_pro_segmen_display', line->>'cseg_msi_pro_segmen_display'
+                ) ORDER BY (line->>'line')::numeric ASC
+              )
+              FROM jsonb_array_elements(t.lines) AS line
+            ) AS lines
+          `),
           "files",
           "user_notes",
         ]);
@@ -881,9 +914,7 @@ const getItemFulfillmentById = async (id) => {
         .where("is_delete", false)
         .leftJoin(
           "gate_sso_employees as created_emp",
-          dbNetsuite.raw(
-            "t.created_by::text = created_emp.employee_id::text",
-          ),
+          dbNetsuite.raw("t.created_by::text = created_emp.employee_id::text"),
         )
         .select(FULFILLMENT_COLUMNS);
 
