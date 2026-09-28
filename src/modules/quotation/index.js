@@ -58,4 +58,15 @@ router.put(
   controller.update
 );
 
+/**
+ * @route   POST /api/netsuite/quotation/print
+ * @desc    Print quotation via bridge API
+ * @access  Private
+ */
+router.post(
+  '/print',
+  verifyToken,
+  controller.print
+);
+
 module.exports = router;

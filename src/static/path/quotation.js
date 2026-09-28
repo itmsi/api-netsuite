@@ -316,6 +316,62 @@ const quotationPaths = {
         }
       }
     }
+  },
+  '/quotation/print': {
+    post: {
+      tags: ['Quotation'],
+      summary: 'Print a quotation',
+      description: 'Print quotation via bridge API dan mengembalikan konten PDF dalam base64',
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: ['recId'],
+              properties: {
+                recId: { type: 'integer', example: 55967 }
+              }
+            }
+          }
+        }
+      },
+      responses: {
+        200: {
+          description: 'Print successful',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  success: { type: 'boolean', example: true },
+                  mimeType: { type: 'string', example: 'application/pdf' },
+                  fileName: { type: 'string', example: 'QUO_55967.pdf' },
+                  fileContent: { type: 'string', description: 'Base64 encoded PDF content' }
+                }
+              }
+            }
+          }
+        },
+        401: {
+          description: 'Unauthorized - Token tidak valid atau tidak ada',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+            }
+          }
+        },
+        500: {
+          description: 'Internal Server Error',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+            }
+          }
+        }
+      }
+    }
   }
 };
 
