@@ -1,0 +1,44 @@
+/**
+ * Swagger API Path Definitions for Log Activities Module
+ */
+
+const errorContent = {
+  'application/json': {
+    schema: { $ref: '#/components/schemas/ErrorResponse' }
+  }
+};
+
+const logActivitiesPaths = {
+  '/log-activities/get': {
+    post: {
+      tags: ['Log Activities'],
+      summary: 'Get list of log activities',
+      description: 'Fetch log activities dengan pagination dari database bridge. `type_data` apps mengambil dari tabel log_activities (filter client_id), netsuite (default) dari tabel log_activities_netsuite (filter created_by). `client` (default ITI) dicocokkan ke api_clients.name. `start_date`/`end_date` memfilter kolom created_at.',
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: { $ref: '#/components/schemas/LogActivitiesRequest' }
+          }
+        }
+      },
+      responses: {
+        200: {
+          description: 'Success',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/LogActivitiesListResponse' }
+            }
+          }
+        },
+        400: { description: 'Bad Request (type_data / client / format tanggal tidak valid)', content: errorContent },
+        401: { description: 'Unauthorized', content: errorContent },
+        404: { description: 'Client tidak ditemukan di api_clients', content: errorContent },
+        500: { description: 'Internal Server Error', content: errorContent }
+      }
+    }
+  }
+};
+
+module.exports = logActivitiesPaths;

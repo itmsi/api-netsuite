@@ -57,6 +57,7 @@ const quotationSchema = require('./schema/quotation');
 const itemTypeSchema = require('./schema/item_type');
 const attachFileSchema = require('./schema/attach_file');
 const inventoryAdjustmentsSchema = require('./schema/inventory_adjustments');
+const logActivitiesSchema = require('./schema/log_activities');
 
 // Import paths
 // Tambahkan path module Anda di sini
@@ -88,6 +89,7 @@ const quotationPaths = require('./path/quotation');
 const itemTypePaths = require('./path/item_type');
 const attachFilePaths = require('./path/attach_file');
 const inventoryAdjustmentsPaths = require('./path/inventory_adjustments');
+const logActivitiesPaths = require('./path/log_activities');
 
 // Combine all schemas
 const schemas = {
@@ -120,6 +122,7 @@ const schemas = {
   ...itemTypeSchema,
   ...attachFileSchema,
   ...inventoryAdjustmentsSchema,
+  ...logActivitiesSchema,
   // ...yourModuleSchema,
 };
 
@@ -153,6 +156,7 @@ const paths = {
   ...itemTypePaths,
   ...attachFilePaths,
   ...inventoryAdjustmentsPaths,
+  ...logActivitiesPaths,
   // ...yourModulePaths,
 };
 
