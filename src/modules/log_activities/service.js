@@ -37,14 +37,21 @@ const SOURCES = {
     clientColumn: 'client_id',
     select: ['url', 'url as function_name', 'payload', 'response', 'created_at', dbNetsuite.raw('NULL as updated_at')],
     searchColumns: ['url'],
-    sortColumns: ['created_at', 'url']
+    sortColumns: ['created_at', 'url'],
+    functionColumn: 'url',
+    exactFilters: [],
+    // Jangan tampilkan log dari endpoint log_activities itu sendiri
+    excludeUrls: ['/api/v1/bridge/log_activities/get']
   },
   netsuite: {
     table: 'log_activities_netsuite',
     clientColumn: 'created_by',
     select: ['url', 'function as function_name', 'payload', 'response', 'created_at', 'updated_at'],
     searchColumns: ['url', 'function'],
-    sortColumns: ['created_at', 'updated_at', 'url', 'function']
+    sortColumns: ['created_at', 'updated_at', 'url', 'function'],
+    functionColumn: 'function',
+    exactFilters: ['aggregate_id', 'aggregate_type', 'code'],
+    excludeUrls: []
   }
 };
 
@@ -103,6 +110,22 @@ const getLogActivitiesList = async (body = {}) => {
 
     if (startDate) query = query.where('created_at', '>=', startDate);
     if (endDate) query = query.where('created_at', '<=', endDate);
+
+    if (source.excludeUrls.length) {
+      // url NULL tetap ikut (whereNotIn saja akan membuang NULL)
+      query = query.where((qb) => qb.whereNotIn('url', source.excludeUrls).orWhereNull('url'));
+    }
+
+    if (body.function_name) {
+      query = query.whereILike(source.functionColumn, `%${body.function_name}%`);
+    }
+
+    // Filter khusus netsuite: aggregate_id, aggregate_type, code (exact match)
+    source.exactFilters.forEach((col) => {
+      if (body[col] !== undefined && body[col] !== null && body[col] !== '') {
+        query = query.where(col, String(body[col]));
+      }
+    });
 
     if (body.search) {
       query = query.where((qb) => {

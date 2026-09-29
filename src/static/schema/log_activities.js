@@ -14,7 +14,11 @@ const logActivitiesSchemas = {
       type_data: { type: 'string', enum: ['apps', 'netsuite'], default: 'netsuite', example: 'apps', description: 'apps -> log_activities, netsuite -> log_activities_netsuite' },
       client: { type: 'string', enum: ['ITI', 'MSI'], default: 'ITI', example: 'ITI', description: 'Nama client di api_clients' },
       start_date: { type: 'string', nullable: true, example: '2026-09-29 00:00:00.000 +0700', description: 'Filter created_at >= start_date. Format yyyy-MM-dd HH:mm:ss.SSS Z' },
-      end_date: { type: 'string', nullable: true, example: '2026-09-29 23:59:59.999 +0700', description: 'Filter created_at <= end_date. Format yyyy-MM-dd HH:mm:ss.SSS Z' }
+      end_date: { type: 'string', nullable: true, example: '2026-09-29 23:59:59.999 +0700', description: 'Filter created_at <= end_date. Format yyyy-MM-dd HH:mm:ss.SSS Z' },
+      function_name: { type: 'string', nullable: true, example: 'SalesOrder', description: 'Filter contains (case-insensitive). apps -> kolom url, netsuite -> kolom function' },
+      aggregate_id: { type: 'string', nullable: true, example: '93040', description: 'Khusus type_data netsuite (exact match). Diabaikan untuk apps' },
+      aggregate_type: { type: 'string', nullable: true, example: 'sales_order', description: 'Khusus type_data netsuite (exact match). Diabaikan untuk apps' },
+      code: { type: 'string', nullable: true, example: '', description: 'Khusus type_data netsuite (exact match). Diabaikan untuk apps' }
     }
   },
   LogActivityItem: {
