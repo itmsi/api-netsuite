@@ -24,6 +24,30 @@ const getList = async (req, res) => {
   }
 };
 
+/**
+ * Get log activity by id (dari DB bridge)
+ */
+const getById = async (req, res) => {
+  try {
+    const result = await service.getLogActivityById(req.params.id, req.query);
+    return baseResponse(res, {
+      data: {
+        success: true,
+        data: result,
+        message: 'Data log activity berhasil diambil'
+      }
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || 'Internal Server Error',
+      errors: error.errors || error
+    });
+  }
+};
+
 module.exports = {
-  getList
+  getList,
+  getById
 };
