@@ -24,6 +24,7 @@ const logActivitiesSchemas = {
   LogActivityItem: {
     type: 'object',
     properties: {
+      id: { type: 'string', example: '1', description: 'ID log activity (dipakai untuk GET /log-activities/{id})' },
       client: { type: 'string', example: 'ITI' },
       type_data: { type: 'string', example: 'apps' },
       url: { type: 'string', example: '/api/v1/bridge/sales-orders/get' },
@@ -49,6 +50,14 @@ const logActivitiesSchemas = {
         }
       },
       message: { type: 'string', example: 'Data log activities berhasil diambil' }
+    }
+  },
+  LogActivityDetailResponse: {
+    type: 'object',
+    properties: {
+      success: { type: 'boolean', example: true },
+      data: { $ref: '#/components/schemas/LogActivityItem' },
+      message: { type: 'string', example: 'Data log activity berhasil diambil' }
     }
   }
 };

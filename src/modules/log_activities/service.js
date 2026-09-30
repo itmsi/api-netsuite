@@ -35,7 +35,7 @@ const SOURCES = {
   apps: {
     table: 'log_activities',
     clientColumn: 'client_id',
-    select: ['url', 'url as function_name', 'payload', 'response', 'created_at', dbNetsuite.raw('NULL as updated_at')],
+    select: ['id', 'url', 'url as function_name', 'payload', 'response', 'created_at', dbNetsuite.raw('NULL as updated_at')],
     searchColumns: ['url'],
     sortColumns: ['created_at', 'url'],
     functionColumn: 'url',
@@ -46,7 +46,7 @@ const SOURCES = {
   netsuite: {
     table: 'log_activities_netsuite',
     clientColumn: 'created_by',
-    select: ['url', 'function as function_name', 'payload', 'response', 'created_at', 'updated_at'],
+    select: ['id', 'url', 'function as function_name', 'payload', 'response', 'created_at', 'updated_at'],
     searchColumns: ['url', 'function'],
     sortColumns: ['created_at', 'updated_at', 'url', 'function'],
     functionColumn: 'function',
@@ -70,16 +70,33 @@ const parseDate = (value, field) => {
 
 const formatDate = (value) => (value ? moment(value).utcOffset(OUTPUT_UTC_OFFSET).format(DATE_FORMAT) : null);
 
+const parseTypeData = (value) => {
+  const typeData = value ? String(value).toLowerCase() : 'netsuite';
+  if (!TYPE_DATA.includes(typeData)) {
+    throw badRequest(`type_data tidak valid, pilihan: ${TYPE_DATA.join(' / ')}`);
+  }
+  return typeData;
+};
+
+const mapItem = (row, client, typeData) => ({
+  id: row.id,
+  client,
+  type_data: typeData,
+  url: row.url,
+  function_name: row.function_name,
+  payload: row.payload,
+  response: row.response,
+  created_at: formatDate(row.created_at),
+  updated_at: formatDate(row.updated_at)
+});
+
 /**
  * Get log activities dari DB Netsuite (bridge_sanbox)
  * - type_data apps     -> log_activities (filter client_id)
  * - type_data netsuite -> log_activities_netsuite (filter created_by)
  */
 const getLogActivitiesList = async (body = {}) => {
-  const typeData = body.type_data ? String(body.type_data).toLowerCase() : 'netsuite';
-  if (!TYPE_DATA.includes(typeData)) {
-    throw badRequest(`type_data tidak valid, pilihan: ${TYPE_DATA.join(' / ')}`);
-  }
+  const typeData = parseTypeData(body.type_data);
 
   const client = body.client ? String(body.client).toUpperCase() : 'ITI';
   if (!CLIENTS.includes(client)) {
@@ -145,16 +162,7 @@ const getLogActivitiesList = async (body = {}) => {
       .limit(limit)
       .offset(offset);
 
-    const items = rows.map((row) => ({
-      client,
-      type_data: typeData,
-      url: row.url,
-      function_name: row.function_name,
-      payload: row.payload,
-      response: row.response,
-      created_at: formatDate(row.created_at),
-      updated_at: formatDate(row.updated_at)
-    }));
+    const items = rows.map((row) => mapItem(row, client, typeData));
 
     return {
       items,
@@ -166,6 +174,39 @@ const getLogActivitiesList = async (body = {}) => {
   }
 };
 
+/**
+ * Get detail log activity by id
+ * - type_data apps     -> log_activities
+ * - type_data netsuite -> log_activities_netsuite
+ */
+const getLogActivityById = async (id, query = {}) => {
+  const typeData = parseTypeData(query.type_data);
+  const source = SOURCES[typeData];
+
+  try {
+    const row = await dbNetsuite(`${source.table} as l`)
+      // client_id (apps) bertipe varchar sedangkan api_clients.id uuid -> samakan tipe via text
+      .leftJoin('api_clients as c', dbNetsuite.raw('??::text', [`l.${source.clientColumn}`]), dbNetsuite.raw('c.id::text'))
+      .select([...source.select.map((col) => (typeof col === 'string' ? `l.${col}` : col)), 'c.name as client_name'])
+      .where('l.id', id)
+      .first();
+
+    if (!row) {
+      throw { message: `Log activity dengan id ${id} tidak ditemukan`, statusCode: 404 };
+    }
+
+    return mapItem(row, row.client_name || null, typeData);
+  } catch (error) {
+    if (error.statusCode) throw error;
+    // id tidak sesuai tipe kolom (mis. bukan angka/uuid) -> anggap tidak ditemukan
+    if (error.code === '22P02') {
+      throw { message: `Log activity dengan id ${id} tidak ditemukan`, statusCode: 404 };
+    }
+    throw { message: error.message || 'Failed to fetch log activity from database', statusCode: 500 };
+  }
+};
+
 module.exports = {
-  getLogActivitiesList
+  getLogActivitiesList,
+  getLogActivityById
 };

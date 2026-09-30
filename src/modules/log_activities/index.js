@@ -14,4 +14,15 @@ router.post(
   controller.getList
 );
 
+/**
+ * @route   GET /api/netsuite/log-activities/:id
+ * @desc    Get detail log activity by id (query type_data: apps / netsuite)
+ * @access  Private
+ */
+router.get(
+  '/:id',
+  verifyToken,
+  controller.getById
+);
+
 module.exports = router;

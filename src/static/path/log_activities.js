@@ -38,6 +38,45 @@ const logActivitiesPaths = {
         500: { description: 'Internal Server Error', content: errorContent }
       }
     }
+  },
+  '/log-activities/{id}': {
+    get: {
+      tags: ['Log Activities'],
+      summary: 'Get log activity by id',
+      description: 'Ambil detail satu log activity berdasarkan id. `type_data` apps mengambil dari tabel log_activities, netsuite (default) dari tabel log_activities_netsuite. Nama client diambil dari api_clients.',
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        {
+          name: 'id',
+          in: 'path',
+          required: true,
+          description: 'ID log activity',
+          schema: { type: 'string' },
+          example: '1'
+        },
+        {
+          name: 'type_data',
+          in: 'query',
+          required: false,
+          description: 'apps -> log_activities, netsuite -> log_activities_netsuite',
+          schema: { type: 'string', enum: ['apps', 'netsuite'], default: 'netsuite' }
+        }
+      ],
+      responses: {
+        200: {
+          description: 'Success',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/LogActivityDetailResponse' }
+            }
+          }
+        },
+        400: { description: 'Bad Request (type_data tidak valid)', content: errorContent },
+        401: { description: 'Unauthorized', content: errorContent },
+        404: { description: 'Log activity tidak ditemukan', content: errorContent },
+        500: { description: 'Internal Server Error', content: errorContent }
+      }
+    }
   }
 };
 
