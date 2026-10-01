@@ -1,5 +1,10 @@
 const knex = require("knex");
 const moment = require("moment");
+const {
+  resolveModuleName,
+  findRoutesByModuleName,
+  listModuleNames,
+} = require("./module_names");
 
 // Knex instance untuk DB Netsuite (bridge_sanbox)
 const dbNetsuite = knex({
@@ -39,6 +44,7 @@ const SOURCES = {
       "id",
       "url",
       "url as function_name",
+      "method",
       "status_code",
       "status as status_message",
       "payload",
@@ -50,6 +56,8 @@ const SOURCES = {
     sortColumns: ["created_at", "url"],
     functionColumn: "url",
     exactFilters: [],
+    // module_name diturunkan dari url + method (lihat module_names.js)
+    hasModuleName: true,
     // Jangan tampilkan log dari endpoint log_activities itu sendiri
     excludeUrls: ["/api/v1/bridge/log_activities/get"],
   },
@@ -60,6 +68,7 @@ const SOURCES = {
       "id",
       "url",
       "function as function_name",
+      dbNetsuite.raw("NULL as method"),
       "status_code",
       "status_messsage as status_message",
       "payload",
@@ -71,6 +80,8 @@ const SOURCES = {
     sortColumns: ["created_at", "updated_at", "url", "function"],
     functionColumn: "function",
     exactFilters: ["aggregate_id", "aggregate_type", "code"],
+    // url berisi RESTlet NetSuite, tidak ada di BRIDGE_ROUTES -> module_name selalu null
+    hasModuleName: false,
     excludeUrls: [],
   },
 };
@@ -83,6 +94,7 @@ const SOURCES_LIST = {
       "id",
       "url",
       "url as function_name",
+      "method",
       "status_code",
       "status as status_message",
       "created_at",
@@ -92,6 +104,8 @@ const SOURCES_LIST = {
     sortColumns: ["created_at", "url"],
     functionColumn: "url",
     exactFilters: [],
+    // module_name diturunkan dari url + method (lihat module_names.js)
+    hasModuleName: true,
     // Jangan tampilkan log dari endpoint log_activities itu sendiri
     excludeUrls: ["/api/v1/bridge/log_activities/get"],
   },
@@ -102,6 +116,7 @@ const SOURCES_LIST = {
       "id",
       "url",
       "function as function_name",
+      dbNetsuite.raw("NULL as method"),
       "status_code",
       "status_messsage as status_message",
       "created_at",
@@ -111,6 +126,8 @@ const SOURCES_LIST = {
     sortColumns: ["created_at", "updated_at", "url", "function"],
     functionColumn: "function",
     exactFilters: ["aggregate_id", "aggregate_type", "code"],
+    // url berisi RESTlet NetSuite, tidak ada di BRIDGE_ROUTES -> module_name selalu null
+    hasModuleName: false,
     excludeUrls: [],
   },
 };
@@ -143,7 +160,7 @@ const formatDate = (value) =>
   value ? moment(value).utcOffset(OUTPUT_UTC_OFFSET).format(DATE_FORMAT) : null;
 
 const parseTypeData = (value) => {
-  const typeData = value ? String(value).toLowerCase() : "netsuite";
+  const typeData = value ? String(value).toLowerCase() : "apps";
   if (!TYPE_DATA.includes(typeData)) {
     throw badRequest(
       `type_data tidak valid, pilihan: ${TYPE_DATA.join(" / ")}`,
@@ -152,11 +169,34 @@ const parseTypeData = (value) => {
   return typeData;
 };
 
+/**
+ * module_name boleh string atau array string. Kosong -> null (tanpa filter)
+ */
+const parseModuleNames = (value) => {
+  if (value === undefined || value === null || value === "") return null;
+  const names = (Array.isArray(value) ? value : [value])
+    .map((v) => String(v).trim())
+    .filter(Boolean);
+  if (!names.length) return null;
+
+  const routes = names.map((name) => {
+    const found = findRoutesByModuleName(name);
+    if (!found.length) {
+      throw badRequest(
+        `module_name "${name}" tidak valid, lihat daftar di POST /api/netsuite/log-activities/module-names`,
+      );
+    }
+    return found;
+  });
+  return routes.flat();
+};
+
 const mapItem = (row, client, typeData) => ({
   id: row.id,
   client,
   type_data: typeData,
   url: row.url,
+  module_name: resolveModuleName(row.url, row.method),
   function_name: row.function_name,
   status_code: row.status_code,
   status_message: row.status_message,
@@ -184,6 +224,8 @@ const getLogActivitiesList = async (body = {}) => {
   if (startDate && endDate && startDate > endDate) {
     throw badRequest("start_date tidak boleh lebih besar dari end_date");
   }
+
+  const moduleRoutes = parseModuleNames(body.module_name);
 
   try {
     const source = SOURCES_LIST[typeData];
@@ -228,6 +270,29 @@ const getLogActivitiesList = async (body = {}) => {
         source.functionColumn,
         `%${body.function_name}%`,
       );
+    }
+
+    if (moduleRoutes) {
+      if (!source.hasModuleName) {
+        // log netsuite tidak punya module_name -> tidak ada yang cocok
+        query = query.whereRaw("1 = 0");
+      } else {
+        // Cocokkan method + pola url, dan pastikan url tidak lebih dulu
+        // cocok dengan route lain yang lebih spesifik (sama seperti resolveModuleName)
+        query = query.where((qb) => {
+          moduleRoutes.forEach((route) => {
+            qb.orWhere((q) => {
+              q.whereRaw("upper(method) = ?", [route.method]).whereRaw(
+                "url ~ ?",
+                [route.regex],
+              );
+              route.shadowedBy.forEach((regex) =>
+                q.whereRaw("url !~ ?", [regex]),
+              );
+            });
+          });
+        });
+      }
     }
 
     // Filter khusus netsuite: aggregate_id, aggregate_type, code (exact match)
@@ -322,7 +387,43 @@ const getLogActivityById = async (id, query = {}) => {
   }
 };
 
+const MODULE_NAME_SORT_COLUMNS = ["module_name", "url"];
+
+/**
+ * Daftar module_name (sumber BRIDGE_ROUTES.md) untuk pilihan filter
+ * sort_by selain module_name / url -> urutan sesuai BRIDGE_ROUTES.md
+ */
+const getModuleNames = (body = {}) => {
+  const page = parseInt(body.page) || 1;
+  const limit = parseInt(body.limit) || parseInt(body.page_size) || 10;
+  const search = body.search ? String(body.search).toLowerCase() : "";
+
+  let items = listModuleNames().filter(
+    (item) =>
+      !search ||
+      item.module_name.toLowerCase().includes(search) ||
+      item.url.toLowerCase().includes(search),
+  );
+
+  if (MODULE_NAME_SORT_COLUMNS.includes(body.sort_by)) {
+    const direction =
+      String(body.sort_order).toUpperCase() === "DESC" ? -1 : 1;
+    items = [...items].sort(
+      (a, b) => a[body.sort_by].localeCompare(b[body.sort_by]) * direction,
+    );
+  }
+
+  const total = items.length;
+  const offset = (page - 1) * limit;
+
+  return {
+    items: items.slice(offset, offset + limit),
+    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+  };
+};
+
 module.exports = {
   getLogActivitiesList,
   getLogActivityById,
+  getModuleNames,
 };

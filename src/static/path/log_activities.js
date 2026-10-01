@@ -13,7 +13,7 @@ const logActivitiesPaths = {
     post: {
       tags: ['Log Activities'],
       summary: 'Get list of log activities',
-      description: 'Fetch log activities dengan pagination dari database bridge. `type_data` apps mengambil dari tabel log_activities (filter client_id), netsuite (default) dari tabel log_activities_netsuite (filter created_by). `client` (default ITI) dicocokkan ke api_clients.name. `start_date`/`end_date` memfilter kolom created_at. `function_name` memfilter kolom url (apps) atau function (netsuite). `aggregate_id`, `aggregate_type`, `code` hanya berlaku untuk netsuite. Untuk apps, log dengan url `/api/v1/bridge/log_activities/get` tidak ditampilkan.',
+      description: 'Fetch log activities dengan pagination dari database bridge. `type_data` apps mengambil dari tabel log_activities (filter client_id), netsuite (default) dari tabel log_activities_netsuite (filter created_by). `client` (default ITI) dicocokkan ke api_clients.name. `start_date`/`end_date` memfilter kolom created_at. `function_name` memfilter kolom url (apps) atau function (netsuite). `aggregate_id`, `aggregate_type`, `code` hanya berlaku untuk netsuite. Untuk apps, log dengan url `/api/v1/bridge/log_activities/get` tidak ditampilkan. `module_name` (khusus apps) memfilter berdasarkan module_name dari BRIDGE_ROUTES.md, lihat POST /log-activities/module-names.',
       security: [{ bearerAuth: [] }],
       requestBody: {
         required: true,
@@ -32,9 +32,37 @@ const logActivitiesPaths = {
             }
           }
         },
-        400: { description: 'Bad Request (type_data / client / format tanggal tidak valid)', content: errorContent },
+        400: { description: 'Bad Request (type_data / client / format tanggal / module_name tidak valid)', content: errorContent },
         401: { description: 'Unauthorized', content: errorContent },
         404: { description: 'Client tidak ditemukan di api_clients', content: errorContent },
+        500: { description: 'Internal Server Error', content: errorContent }
+      }
+    }
+  },
+  '/log-activities/module-names': {
+    post: {
+      tags: ['Log Activities'],
+      summary: 'Get list of module_name',
+      description: 'Daftar module_name (sumber BRIDGE_ROUTES.md) dengan pagination, untuk filter `module_name` di POST /log-activities/get. Contoh: POST /api/v1/bridge/customers/get -> `customers get`. `search` mencari di module_name / url. `sort_by` module_name / url, selain itu urutan sesuai BRIDGE_ROUTES.md.',
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: false,
+        content: {
+          'application/json': {
+            schema: { $ref: '#/components/schemas/LogActivityModuleNamesRequest' }
+          }
+        }
+      },
+      responses: {
+        200: {
+          description: 'Success',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/LogActivityModuleNamesResponse' }
+            }
+          }
+        },
+        401: { description: 'Unauthorized', content: errorContent },
         500: { description: 'Internal Server Error', content: errorContent }
       }
     }
