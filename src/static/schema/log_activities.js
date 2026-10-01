@@ -24,7 +24,20 @@ const logActivitiesSchemas = {
       function_name: { type: 'string', nullable: true, example: 'SalesOrder', description: 'Filter contains (case-insensitive). apps -> kolom url, netsuite -> kolom function' },
       aggregate_id: { type: 'string', nullable: true, example: '93040', description: 'Khusus type_data netsuite (exact match). Diabaikan untuk apps' },
       aggregate_type: { type: 'string', nullable: true, example: 'sales_order', description: 'Khusus type_data netsuite (exact match). Diabaikan untuk apps' },
-      code: { type: 'string', nullable: true, example: '', description: 'Khusus type_data netsuite (exact match). Diabaikan untuk apps' }
+      code: { type: 'string', nullable: true, example: '', description: 'Khusus type_data netsuite (exact match). Diabaikan untuk apps' },
+      status_code: {
+        oneOf: [{ type: 'string' }, { type: 'integer' }, { type: 'array', items: { type: 'string' } }],
+        nullable: true,
+        example: '200',
+        description: 'Filter kolom status_code (exact match). Boleh string / angka / array, mis. ["400", "500"]. Berlaku untuk apps & netsuite'
+      },
+      status: {
+        type: 'string',
+        enum: ['success', 'error'],
+        nullable: true,
+        example: 'success',
+        description: 'success -> status_code 2xx, error -> status_code selain 2xx (termasuk kosong). Berlaku untuk apps & netsuite'
+      }
     }
   },
   LogActivityItem: {

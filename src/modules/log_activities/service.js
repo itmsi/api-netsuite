@@ -20,6 +20,7 @@ const dbNetsuite = knex({
 
 const TYPE_DATA = ["apps", "netsuite"];
 const CLIENTS = ["ITI", "MSI"];
+const LOG_STATUSES = ["success", "error"];
 
 // Format tanggal request & response: yyyy-MM-dd HH:mm:ss.SSS Z
 const DATE_FORMAT = "YYYY-MM-DD HH:mm:ss.SSS ZZ";
@@ -227,6 +228,11 @@ const getLogActivitiesList = async (body = {}) => {
 
   const moduleRoutes = parseModuleNames(body.module_name);
 
+  const logStatus = body.status ? String(body.status).trim().toLowerCase() : null;
+  if (logStatus && !LOG_STATUSES.includes(logStatus)) {
+    throw badRequest(`status tidak valid, pilihan: ${LOG_STATUSES.join(" / ")}`);
+  }
+
   try {
     const source = SOURCES_LIST[typeData];
     const page = parseInt(body.page) || 1;
@@ -293,6 +299,27 @@ const getLogActivitiesList = async (body = {}) => {
           });
         });
       }
+    }
+
+    // Filter status_code (exact match), boleh string / angka / array
+    const statusCodes = (
+      Array.isArray(body.status_code) ? body.status_code : [body.status_code]
+    )
+      .filter((v) => v !== undefined && v !== null && v !== "")
+      .map((v) => String(v).trim());
+    if (statusCodes.length) {
+      query = query.whereIn("status_code", statusCodes);
+    }
+
+    // Filter status: success -> status_code 2xx, error -> selain 2xx (termasuk null)
+    if (logStatus === "success") {
+      query = query.whereRaw("status_code ~ '^2[0-9]{2}$'");
+    } else if (logStatus === "error") {
+      query = query.where((qb) =>
+        qb
+          .whereNull("status_code")
+          .orWhereRaw("status_code !~ '^2[0-9]{2}$'"),
+      );
     }
 
     // Filter khusus netsuite: aggregate_id, aggregate_type, code (exact match)
