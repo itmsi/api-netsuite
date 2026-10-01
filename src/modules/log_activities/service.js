@@ -158,7 +158,7 @@ const mapItem = (row, client, typeData) => ({
   type_data: typeData,
   url: row.url,
   function_name: row.function_name,
-  ststus_code: row.status_code,
+  status_code: row.status_code,
   status_message: row.status_message,
   payload: row.payload,
   response: row.response,
