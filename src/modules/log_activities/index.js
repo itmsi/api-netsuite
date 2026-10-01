@@ -15,6 +15,17 @@ router.post(
 );
 
 /**
+ * @route   POST /api/netsuite/log-activities/module-names
+ * @desc    Get daftar module_name untuk filter (sumber BRIDGE_ROUTES.md)
+ * @access  Private
+ */
+router.post(
+  '/module-names',
+  verifyToken,
+  controller.getModuleNames
+);
+
+/**
  * @route   GET /api/netsuite/log-activities/:id
  * @desc    Get detail log activity by id (query type_data: apps / netsuite)
  * @access  Private

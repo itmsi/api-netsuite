@@ -47,7 +47,31 @@ const getById = async (req, res) => {
   }
 };
 
+/**
+ * Get daftar module_name (sumber BRIDGE_ROUTES.md)
+ */
+const getModuleNames = async (req, res) => {
+  try {
+    const result = service.getModuleNames(req.body);
+    return baseResponse(res, {
+      data: {
+        success: true,
+        data: result,
+        message: 'Data module name berhasil diambil'
+      }
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || 'Internal Server Error',
+      errors: error.errors || error
+    });
+  }
+};
+
 module.exports = {
   getList,
-  getById
+  getById,
+  getModuleNames
 };
