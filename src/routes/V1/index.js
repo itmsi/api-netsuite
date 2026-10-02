@@ -85,6 +85,9 @@ routing.use(`${API_TAG}/sales-orders`, salesOrdersModule);
 const transferOrdersModule = require('../../modules/transfer_orders');
 routing.use(`${API_TAG}/transfer-orders`, transferOrdersModule);
 
+const logActivitiesModule = require('../../modules/log_activities');
+routing.use(`${API_TAG}/log-activities`, logActivitiesModule);
+
 // Example:
 // const yourModule = require('../../modules/yourModule')
 // routing.use(`${API_TAG}/your-endpoint`, yourModule)
