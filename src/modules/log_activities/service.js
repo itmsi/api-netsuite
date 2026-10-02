@@ -414,11 +414,11 @@ const getLogActivityById = async (id, query = {}) => {
   }
 };
 
-const MODULE_NAME_SORT_COLUMNS = ["module_name", "url"];
+const MODULE_NAME_SORT_COLUMNS = ["module_name"];
 
 /**
- * Daftar module_name (sumber BRIDGE_ROUTES.md) untuk pilihan filter
- * sort_by selain module_name / url -> urutan sesuai BRIDGE_ROUTES.md
+ * Daftar module_name unik (sumber BRIDGE_ROUTES.md) untuk pilihan filter
+ * sort_by selain module_name -> urutan sesuai BRIDGE_ROUTES.md
  */
 const getModuleNames = (body = {}) => {
   const page = parseInt(body.page) || 1;
@@ -426,10 +426,7 @@ const getModuleNames = (body = {}) => {
   const search = body.search ? String(body.search).toLowerCase() : "";
 
   let items = listModuleNames().filter(
-    (item) =>
-      !search ||
-      item.module_name.toLowerCase().includes(search) ||
-      item.url.toLowerCase().includes(search),
+    (item) => !search || item.module_name.toLowerCase().includes(search),
   );
 
   if (MODULE_NAME_SORT_COLUMNS.includes(body.sort_by)) {
