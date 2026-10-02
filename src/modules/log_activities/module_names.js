@@ -9,85 +9,309 @@
 
 // [module, method, path, module_name]
 const BRIDGE_ROUTES = [
-
   // customer
-  ["customer", "POST", "/api/v1/bridge/customers/get", "customers get"],
-  ["customer", "POST", "/api/v1/bridge/customers/returns", "customers returns"],
-  ["customer", "GET", "/api/v1/bridge/customers/:id", "customers"],
-  ["customer", "GET", "/api/v1/bridge/customers/netsuite/:netsuite_id", "customers netsuite"],
-  ["customer", "GET", "/api/v1/bridge/customers/netsuite/read", "customers netsuite read"],
-  ["customer", "POST", "/api/v1/bridge/customers/create", "customers create"],
-  ["customer", "POST", "/api/v1/bridge/customers/update", "customers update"],
-  ["customer", "POST", "/api/v1/bridge/customers/search", "customers search"],
-  ["customer", "POST", "/api/v1/bridge/customers/return-receipt", "customers return-receipt"],
-  ["customer", "POST", "/api/v1/bridge/customers/return-receipt/sync/netsuite/:netsuite_id", "customers return-receipt sync netsuite"],
-  ["customer", "POST", "/api/v1/bridge/customers/sync/netsuite/:netsuite_id", "customers sync netsuite"],
+  ["customer", "POST", "/api/v1/bridge/customers/get", "get customers"],
+  [
+    "customer",
+    "POST",
+    "/api/v1/bridge/customers/returns",
+    "get customers returns",
+  ],
+  ["customer", "GET", "/api/v1/bridge/customers/:id", "get customers"],
+  [
+    "customer",
+    "GET",
+    "/api/v1/bridge/customers/netsuite/:netsuite_id",
+    "get customers",
+  ],
+  [
+    "customer",
+    "GET",
+    "/api/v1/bridge/customers/netsuite/read",
+    "get customers",
+  ],
+  ["customer", "POST", "/api/v1/bridge/customers/create", "create customers"],
+  ["customer", "POST", "/api/v1/bridge/customers/update", "update customers"],
+  ["customer", "POST", "/api/v1/bridge/customers/search", "get customers"],
+  [
+    "customer",
+    "POST",
+    "/api/v1/bridge/customers/return-receipt",
+    "create customers return receipt",
+  ],
+  [
+    "customer",
+    "POST",
+    "/api/v1/bridge/customers/return-receipt/sync/netsuite/:netsuite_id",
+    "sync customers return receipt",
+  ],
+  [
+    "customer",
+    "POST",
+    "/api/v1/bridge/customers/sync/netsuite/:netsuite_id",
+    "sync customers",
+  ],
 
   // vendor
-  ["vendor", "POST", "/api/v1/bridge/vendors/get", "vendors get"],
-  ["vendor", "GET", "/api/v1/bridge/vendors/:id", "vendors"],
-  ["vendor", "GET", "/api/v1/bridge/vendors/netsuite/:netsuite_id", "vendors netsuite"],
-  ["vendor", "POST", "/api/v1/bridge/vendors/search", "vendors search"],
+  ["vendor", "POST", "/api/v1/bridge/vendors/get", "get vendors"],
+  ["vendor", "GET", "/api/v1/bridge/vendors/:id", "get vendors"],
+  [
+    "vendor",
+    "GET",
+    "/api/v1/bridge/vendors/netsuite/:netsuite_id",
+    "get vendors",
+  ],
+  ["vendor", "POST", "/api/v1/bridge/vendors/search", "get vendors"],
 
   // items
-  ["items", "POST", "/api/v1/bridge/items/get", "items get"],
-  ["items", "GET", "/api/v1/bridge/items/:id", "items"],
-  ["items", "GET", "/api/v1/bridge/items/netsuite/:netsuite_id", "items netsuite"],
-  ["items", "POST", "/api/v1/bridge/items/search", "items search"],
-  ["items", "POST", "/api/v1/bridge/items/item-receipt", "items item-receipt"],
-  ["items", "POST", "/api/v1/bridge/items/item-fulfillment", "items item-fulfillment"],
-  ["items", "POST", "/api/v1/bridge/items/sync/netsuite/:netsuite_id", "items sync netsuite"],
-  ["items", "POST", "/api/v1/bridge/items/sync/locations", "items sync locations"],
-  ["items", "POST", "/api/v1/bridge/items/sync/type-id", "items sync type-id"],
-  ["items", "POST", "/api/v1/bridge/items/:netsuite_id/type-id", "items type-id"],
+  ["items", "POST", "/api/v1/bridge/items/get", "get items"],
+  ["items", "GET", "/api/v1/bridge/items/:id", "get items"],
+  ["items", "GET", "/api/v1/bridge/items/netsuite/:netsuite_id", "get items"],
+  ["items", "POST", "/api/v1/bridge/items/search", "get items"],
+  [
+    "items",
+    "POST",
+    "/api/v1/bridge/items/item-receipt",
+    "create items receipt",
+  ],
+  [
+    "items",
+    "POST",
+    "/api/v1/bridge/items/item-fulfillment",
+    "create items fulfillment",
+  ],
+  [
+    "items",
+    "POST",
+    "/api/v1/bridge/items/sync/netsuite/:netsuite_id",
+    "sync items",
+  ],
+  ["items", "POST", "/api/v1/bridge/items/sync/locations", "sync items"],
+  ["items", "POST", "/api/v1/bridge/items/sync/type-id", "sync items"],
+  ["items", "POST", "/api/v1/bridge/items/:netsuite_id/type-id", "sync items"],
 
   // purchase_order
-  ["purchase_order", "POST", "/api/v1/bridge/purchase-orders/get", "purchase-orders get"],
-  ["purchase_order", "GET", "/api/v1/bridge/purchase-orders/:id", "purchase-orders"],
-  ["purchase_order", "GET", "/api/v1/bridge/purchase-orders/netsuite/:netsuite_id", "purchase-orders netsuite"],
-  ["purchase_order", "POST", "/api/v1/bridge/purchase-orders/search", "purchase-orders search"],
-  ["purchase_order", "POST", "/api/v1/bridge/purchase-orders/get-list", "purchase-orders get-list"],
-  ["purchase_order", "GET", "/api/v1/bridge/purchase-orders/sync/:id", "purchase-orders sync by id"],
-  ["purchase_order", "POST", "/api/v1/bridge/purchase-orders/sync/findById", "purchase-orders sync findById"],
-  ["purchase_order", "POST", "/api/v1/bridge/purchase-orders/sync/:netsuite_id/:internal_id", "purchase-orders sync by netsuite_id internal_id"],
-  ["purchase_order", "POST", "/api/v1/bridge/purchase-orders/create", "purchase-orders create"],
-  ["purchase_order", "POST", "/api/v1/bridge/purchase-orders/update", "purchase-orders update"],
-  ["purchase_order", "POST", "/api/v1/bridge/purchase-orders/approval", "purchase-orders approval"],
-  ["purchase_order", "POST", "/api/v1/bridge/purchase-orders/print", "purchase-orders print"],
-  ["purchase_order", "POST", "/api/v1/bridge/purchase-orders/receive-item", "purchase-orders receive-item"],
-  ["purchase_order", "POST", "/api/v1/bridge/purchase-orders/sync-all", "purchase-orders sync-all"],
+  [
+    "purchase_order",
+    "POST",
+    "/api/v1/bridge/purchase-orders/get",
+    "get purchase orders",
+  ],
+  [
+    "purchase_order",
+    "GET",
+    "/api/v1/bridge/purchase-orders/:id",
+    "get purchase orders",
+  ],
+  [
+    "purchase_order",
+    "GET",
+    "/api/v1/bridge/purchase-orders/netsuite/:netsuite_id",
+    "get purchase orders",
+  ],
+  [
+    "purchase_order",
+    "POST",
+    "/api/v1/bridge/purchase-orders/search",
+    "get purchase orders",
+  ],
+  [
+    "purchase_order",
+    "POST",
+    "/api/v1/bridge/purchase-orders/get-list",
+    "get purchase orders",
+  ],
+  [
+    "purchase_order",
+    "GET",
+    "/api/v1/bridge/purchase-orders/sync/:id",
+    "sync purchase orders",
+  ],
+  [
+    "purchase_order",
+    "POST",
+    "/api/v1/bridge/purchase-orders/sync/findById",
+    "sync purchase orders",
+  ],
+  [
+    "purchase_order",
+    "POST",
+    "/api/v1/bridge/purchase-orders/sync/:netsuite_id/:internal_id",
+    "sync purchase orders",
+  ],
+  [
+    "purchase_order",
+    "POST",
+    "/api/v1/bridge/purchase-orders/create",
+    "create purchase orders",
+  ],
+  [
+    "purchase_order",
+    "POST",
+    "/api/v1/bridge/purchase-orders/update",
+    "update purchase orders",
+  ],
+  [
+    "purchase_order",
+    "POST",
+    "/api/v1/bridge/purchase-orders/approval",
+    "create approve purchase orders",
+  ],
+  [
+    "purchase_order",
+    "POST",
+    "/api/v1/bridge/purchase-orders/print",
+    "print purchase orders",
+  ],
+  [
+    "purchase_order",
+    "POST",
+    "/api/v1/bridge/purchase-orders/receive-item",
+    "create purchase orders receive item",
+  ],
+  [
+    "purchase_order",
+    "POST",
+    "/api/v1/bridge/purchase-orders/sync-all",
+    "sync purchase orders",
+  ],
 
   // inbound_shipment
-  ["inbound_shipment", "POST", "/api/v1/bridge/inbound-shipments/get", "inbound-shipments get"],
-  ["inbound_shipment", "GET", "/api/v1/bridge/inbound-shipments/:id", "inbound-shipments"],
-  ["inbound_shipment", "GET", "/api/v1/bridge/inbound-shipments/netsuite/:netsuite_id", "inbound-shipments netsuite"],
-  ["inbound_shipment", "POST", "/api/v1/bridge/inbound-shipments/search", "inbound-shipments search"],
-  ["inbound_shipment", "POST", "/api/v1/bridge/inbound-shipments/receive", "inbound-shipments receive"],
-  ["inbound_shipment", "POST", "/api/v1/bridge/inbound-shipments/receive-partial", "inbound-shipments receive-partial"],
+  [
+    "inbound_shipment",
+    "POST",
+    "/api/v1/bridge/inbound-shipments/get",
+    "get inbound shipments",
+  ],
+  [
+    "inbound_shipment",
+    "GET",
+    "/api/v1/bridge/inbound-shipments/:id",
+    "get inbound shipments",
+  ],
+  [
+    "inbound_shipment",
+    "GET",
+    "/api/v1/bridge/inbound-shipments/netsuite/:netsuite_id",
+    "get inbound shipments",
+  ],
+  [
+    "inbound_shipment",
+    "POST",
+    "/api/v1/bridge/inbound-shipments/search",
+    "get inbound shipments",
+  ],
+  [
+    "inbound_shipment",
+    "POST",
+    "/api/v1/bridge/inbound-shipments/receive",
+    "create inbound shipments receive",
+  ],
+  [
+    "inbound_shipment",
+    "POST",
+    "/api/v1/bridge/inbound-shipments/receive-partial",
+    "create inbound shipments receive partial",
+  ],
 
   // sync
   ["sync", "POST", "/api/v1/bridge/admin/sync", "admin sync"],
   ["sync", "GET", "/api/v1/bridge/admin/sync/job/:jobId", "admin sync job"],
-  ["sync", "GET", "/api/v1/bridge/admin/sync/status/:module", "admin sync status"],
+  [
+    "sync",
+    "GET",
+    "/api/v1/bridge/admin/sync/status/:module",
+    "admin sync status",
+  ],
   ["sync", "GET", "/api/v1/bridge/admin/sync/failed", "admin sync failed"],
-  ["sync", "POST", "/api/v1/bridge/admin/sync/failed/:jobId/retry", "admin sync failed retry"],
+  [
+    "sync",
+    "POST",
+    "/api/v1/bridge/admin/sync/failed/:jobId/retry",
+    "admin sync failed retry",
+  ],
 
   // api_client
-  ["api_client", "GET", "/api/v1/bridge/admin/api-clients", "admin api-clients"],
-  ["api_client", "GET", "/api/v1/bridge/admin/api-clients/:id", "admin api-clients detail"],
-  ["api_client", "POST", "/api/v1/bridge/admin/api-clients", "admin api-clients create"],
-  ["api_client", "PUT", "/api/v1/bridge/admin/api-clients/:id", "admin api-clients update"],
-  ["api_client", "POST", "/api/v1/bridge/admin/api-clients/:id/regenerate-secret", "admin api-clients regenerate-secret"],
-  ["api_client", "POST", "/api/v1/bridge/admin/api-clients/:id/toggle-status", "admin api-clients toggle-status"],
-  ["api_client", "DELETE", "/api/v1/bridge/admin/api-clients/:id", "admin api-clients delete"],
+  [
+    "api_client",
+    "GET",
+    "/api/v1/bridge/admin/api-clients",
+    "admin api-clients",
+  ],
+  [
+    "api_client",
+    "GET",
+    "/api/v1/bridge/admin/api-clients/:id",
+    "admin api-clients detail",
+  ],
+  [
+    "api_client",
+    "POST",
+    "/api/v1/bridge/admin/api-clients",
+    "admin api-clients create",
+  ],
+  [
+    "api_client",
+    "PUT",
+    "/api/v1/bridge/admin/api-clients/:id",
+    "admin api-clients update",
+  ],
+  [
+    "api_client",
+    "POST",
+    "/api/v1/bridge/admin/api-clients/:id/regenerate-secret",
+    "admin api-clients regenerate-secret",
+  ],
+  [
+    "api_client",
+    "POST",
+    "/api/v1/bridge/admin/api-clients/:id/toggle-status",
+    "admin api-clients toggle-status",
+  ],
+  [
+    "api_client",
+    "DELETE",
+    "/api/v1/bridge/admin/api-clients/:id",
+    "admin api-clients delete",
+  ],
 
   // netsuite_scripts
-  ["netsuite_scripts", "GET", "/api/v1/bridge/admin/netsuite-scripts", "admin netsuite-scripts"],
-  ["netsuite_scripts", "GET", "/api/v1/bridge/admin/netsuite-scripts/module/:module", "admin netsuite-scripts module"],
-  ["netsuite_scripts", "GET", "/api/v1/bridge/admin/netsuite-scripts/:module/:operation", "admin netsuite-scripts detail"],
-  ["netsuite_scripts", "POST", "/api/v1/bridge/admin/netsuite-scripts", "admin netsuite-scripts create"],
-  ["netsuite_scripts", "PUT", "/api/v1/bridge/admin/netsuite-scripts/:module/:operation", "admin netsuite-scripts update"],
-  ["netsuite_scripts", "DELETE", "/api/v1/bridge/admin/netsuite-scripts/:module/:operation", "admin netsuite-scripts delete"],
+  [
+    "netsuite_scripts",
+    "GET",
+    "/api/v1/bridge/admin/netsuite-scripts",
+    "admin netsuite-scripts",
+  ],
+  [
+    "netsuite_scripts",
+    "GET",
+    "/api/v1/bridge/admin/netsuite-scripts/module/:module",
+    "admin netsuite-scripts module",
+  ],
+  [
+    "netsuite_scripts",
+    "GET",
+    "/api/v1/bridge/admin/netsuite-scripts/:module/:operation",
+    "admin netsuite-scripts detail",
+  ],
+  [
+    "netsuite_scripts",
+    "POST",
+    "/api/v1/bridge/admin/netsuite-scripts",
+    "admin netsuite-scripts create",
+  ],
+  [
+    "netsuite_scripts",
+    "PUT",
+    "/api/v1/bridge/admin/netsuite-scripts/:module/:operation",
+    "admin netsuite-scripts update",
+  ],
+  [
+    "netsuite_scripts",
+    "DELETE",
+    "/api/v1/bridge/admin/netsuite-scripts/:module/:operation",
+    "admin netsuite-scripts delete",
+  ],
 
   // auth
   ["auth", "POST", "/api/v1/bridge/auth/token", "auth token"],
@@ -98,196 +322,611 @@ const BRIDGE_ROUTES = [
   ["reconcile", "GET", "/api/v1/reconcile/:module", "reconcile"],
 
   // webhook
-  ["webhook", "POST", "/api/v1/bridge/webhook/auth/login", "webhook auth login"],
+  [
+    "webhook",
+    "POST",
+    "/api/v1/bridge/webhook/auth/login",
+    "webhook auth login",
+  ],
   ["webhook", "POST", "/api/v1/bridge/webhook/logs", "webhook logs"],
-  ["webhook", "POST", "/api/v1/bridge/webhook/logs/:id/retry", "webhook logs retry"],
-  ["webhook", "GET", "/api/v1/bridge/webhook/subscribers", "webhook subscribers"],
-  ["webhook", "GET", "/api/v1/bridge/webhook/subscribers/:id", "webhook subscribers detail"],
-  ["webhook", "POST", "/api/v1/bridge/webhook/subscribers", "webhook subscribers create"],
-  ["webhook", "PUT", "/api/v1/bridge/webhook/subscribers/:id", "webhook subscribers update"],
-  ["webhook", "DELETE", "/api/v1/bridge/webhook/subscribers/:id", "webhook subscribers delete"],
-  ["webhook", "POST", "/api/v1/bridge/webhook/trigger-test", "webhook trigger-test"],
+  [
+    "webhook",
+    "POST",
+    "/api/v1/bridge/webhook/logs/:id/retry",
+    "webhook logs retry",
+  ],
+  [
+    "webhook",
+    "GET",
+    "/api/v1/bridge/webhook/subscribers",
+    "webhook subscribers",
+  ],
+  [
+    "webhook",
+    "GET",
+    "/api/v1/bridge/webhook/subscribers/:id",
+    "webhook subscribers detail",
+  ],
+  [
+    "webhook",
+    "POST",
+    "/api/v1/bridge/webhook/subscribers",
+    "webhook subscribers create",
+  ],
+  [
+    "webhook",
+    "PUT",
+    "/api/v1/bridge/webhook/subscribers/:id",
+    "webhook subscribers update",
+  ],
+  [
+    "webhook",
+    "DELETE",
+    "/api/v1/bridge/webhook/subscribers/:id",
+    "webhook subscribers delete",
+  ],
+  [
+    "webhook",
+    "POST",
+    "/api/v1/bridge/webhook/trigger-test",
+    "webhook trigger-test",
+  ],
 
   // quotation
-  ["quotation", "POST", "/api/v1/bridge/quotations/get", "quotations get"],
-  ["quotation", "GET", "/api/v1/bridge/quotations/:id", "quotations"],
-  ["quotation", "GET", "/api/v1/bridge/quotations/sync/:id", "quotations sync"],
-  ["quotation", "GET", "/api/v1/bridge/quotations/netsuite/:netsuite_id", "quotations netsuite"],
-  ["quotation", "POST", "/api/v1/bridge/quotations/search", "quotations search"],
-  ["quotation", "POST", "/api/v1/bridge/quotations/create", "quotations create"],
-  ["quotation", "POST", "/api/v1/bridge/quotations/update", "quotations update"],
-  ["quotation", "POST", "/api/v1/bridge/quotations/print", "quotations print"],
+  ["quotation", "POST", "/api/v1/bridge/quotations/get", "get quotations"],
+  ["quotation", "GET", "/api/v1/bridge/quotations/:id", "get quotations"],
+  ["quotation", "GET", "/api/v1/bridge/quotations/sync/:id", "sync quotations"],
+  [
+    "quotation",
+    "GET",
+    "/api/v1/bridge/quotations/netsuite/:netsuite_id",
+    "get quotations netsuite",
+  ],
+  [
+    "quotation",
+    "POST",
+    "/api/v1/bridge/quotations/search",
+    "get quotations search",
+  ],
+  [
+    "quotation",
+    "POST",
+    "/api/v1/bridge/quotations/create",
+    "create quotations",
+  ],
+  [
+    "quotation",
+    "POST",
+    "/api/v1/bridge/quotations/update",
+    "update quotations",
+  ],
+  ["quotation", "POST", "/api/v1/bridge/quotations/print", "print quotations"],
 
   // bills
-  ["bills", "POST", "/api/v1/bridge/bills/get", "bills get"],
-  ["bills", "GET", "/api/v1/bridge/bills/:id", "bills"],
-  ["bills", "GET", "/api/v1/bridge/bills/netsuite/:netsuite_id", "bills netsuite"],
-  ["bills", "POST", "/api/v1/bridge/bills/search", "bills search"],
+  ["bills", "POST", "/api/v1/bridge/bills/get", "get bills"],
+  ["bills", "GET", "/api/v1/bridge/bills/:id", "get bills"],
+  ["bills", "GET", "/api/v1/bridge/bills/netsuite/:netsuite_id", "get bills"],
+  ["bills", "POST", "/api/v1/bridge/bills/search", "get bills"],
 
   // bills_payments
-  ["bills_payments", "POST", "/api/v1/bridge/bills-payments/get", "bills-payments get"],
-  ["bills_payments", "GET", "/api/v1/bridge/bills-payments/:id", "bills-payments"],
-  ["bills_payments", "GET", "/api/v1/bridge/bills-payments/sync/:id", "bills-payments sync"],
-  ["bills_payments", "GET", "/api/v1/bridge/bills-payments/netsuite/:netsuite_id", "bills-payments netsuite"],
-  ["bills_payments", "POST", "/api/v1/bridge/bills-payments/search", "bills-payments search"],
+  [
+    "bills_payments",
+    "POST",
+    "/api/v1/bridge/bills-payments/get",
+    "get bills payments",
+  ],
+  [
+    "bills_payments",
+    "GET",
+    "/api/v1/bridge/bills-payments/:id",
+    "get bills payments",
+  ],
+  [
+    "bills_payments",
+    "GET",
+    "/api/v1/bridge/bills-payments/sync/:id",
+    "sync bills payments",
+  ],
+  [
+    "bills_payments",
+    "GET",
+    "/api/v1/bridge/bills-payments/netsuite/:netsuite_id",
+    "get bills payments",
+  ],
+  [
+    "bills_payments",
+    "POST",
+    "/api/v1/bridge/bills-payments/search",
+    "get bills payments",
+  ],
 
   // sales_order
-  ["sales_order", "POST", "/api/v1/bridge/sales-orders/get", "sales-orders get"],
-  ["sales_order", "POST", "/api/v1/bridge/sales-orders/search", "sales-orders search"],
-  ["sales_order", "POST", "/api/v1/bridge/sales-orders/create", "sales-orders create"],
-  ["sales_order", "POST", "/api/v1/bridge/sales-orders/update", "sales-orders update"],
-  ["sales_order", "POST", "/api/v1/bridge/sales-orders/update/:id", "sales-orders update by id"],
-  ["sales_order", "GET", "/api/v1/bridge/sales-orders/sync/:id", "sales-orders sync by id"],
-  ["sales_order", "POST", "/api/v1/bridge/sales-orders/sync/:netsuite_id/:internal_id", "sales-orders sync by netsuite_id internal_id"],
+  [
+    "sales_order",
+    "POST",
+    "/api/v1/bridge/sales-orders/get",
+    "get sales orders",
+  ],
+  [
+    "sales_order",
+    "POST",
+    "/api/v1/bridge/sales-orders/search",
+    "get sales orders",
+  ],
+  [
+    "sales_order",
+    "POST",
+    "/api/v1/bridge/sales-orders/create",
+    "create sales orders",
+  ],
+  [
+    "sales_order",
+    "POST",
+    "/api/v1/bridge/sales-orders/update",
+    "update sales orders",
+  ],
+  [
+    "sales_order",
+    "POST",
+    "/api/v1/bridge/sales-orders/update/:id",
+    "update sales orders",
+  ],
+  [
+    "sales_order",
+    "GET",
+    "/api/v1/bridge/sales-orders/sync/:id",
+    "sync sales orders",
+  ],
+  [
+    "sales_order",
+    "POST",
+    "/api/v1/bridge/sales-orders/sync/:netsuite_id/:internal_id",
+    "sync sales orders",
+  ],
 
   // locations
-  ["locations", "POST", "/api/v1/bridge/locations/get", "locations get"],
-  ["locations", "POST", "/api/v1/bridge/locations/search", "locations search"],
+  ["locations", "POST", "/api/v1/bridge/locations/get", "get locations"],
+  ["locations", "POST", "/api/v1/bridge/locations/search", "get locations"],
 
   // vendor_returns
-  ["vendor_returns", "POST", "/api/v1/bridge/vendor-returns", "vendor-returns"],
-  ["vendor_returns", "POST", "/api/v1/bridge/vendor-returns/get", "vendor-returns get"],
-  ["vendor_returns", "POST", "/api/v1/bridge/vendor-returns/search", "vendor-returns search"],
-  ["vendor_returns", "POST", "/api/v1/bridge/vendor-returns/sync/netsuite/:netsuite_id", "vendor-returns sync netsuite"],
+  [
+    "vendor_returns",
+    "POST",
+    "/api/v1/bridge/vendor-returns",
+    "get vendor returns",
+  ],
+  [
+    "vendor_returns",
+    "POST",
+    "/api/v1/bridge/vendor-returns/get",
+    "get vendor returns",
+  ],
+  [
+    "vendor_returns",
+    "POST",
+    "/api/v1/bridge/vendor-returns/search",
+    "get vendor returns",
+  ],
+  [
+    "vendor_returns",
+    "POST",
+    "/api/v1/bridge/vendor-returns/sync/netsuite/:netsuite_id",
+    "sync vendor returns",
+  ],
 
   // sales_delivery
-  ["sales_delivery", "POST", "/api/v1/bridge/sales-deliveries/get", "sales-deliveries get"],
-  ["sales_delivery", "POST", "/api/v1/bridge/sales-deliveries", "sales-deliveries"],
+  [
+    "sales_delivery",
+    "POST",
+    "/api/v1/bridge/sales-deliveries/get",
+    "get sales deliveries",
+  ],
+  [
+    "sales_delivery",
+    "POST",
+    "/api/v1/bridge/sales-deliveries",
+    "create sales deliveries",
+  ],
 
   // inventory
-  ["inventory", "POST", "/api/v1/bridge/inventory/adjustments/get", "inventory adjustments get"],
-  ["inventory", "POST", "/api/v1/bridge/inventory/adjustments/get-status", "inventory adjustments get-status"],
-  ["inventory", "POST", "/api/v1/bridge/inventory/adjustments/sync/:netsuite_id", "inventory adjustments sync"],
-  ["inventory", "POST", "/api/v1/bridge/inventory/adjustments", "inventory adjustments"],
-  ["inventory", "POST", "/api/v1/bridge/inventory/transfer", "inventory transfer"],
-  ["inventory", "POST", "/api/v1/bridge/inventory/transfer/get", "inventory transfer get"],
-  ["inventory", "POST", "/api/v1/bridge/inventory/transfer/sync/:netsuite_id", "inventory transfer sync"],
-  ["inventory", "POST", "/api/v1/bridge/inventory/transfer/:id", "inventory transfer by id"],
+  [
+    "inventory",
+    "POST",
+    "/api/v1/bridge/inventory/adjustments/get",
+    "get inventory adjustments",
+  ],
+  [
+    "inventory",
+    "POST",
+    "/api/v1/bridge/inventory/adjustments/get-status",
+    "get inventory adjustments status",
+  ],
+  [
+    "inventory",
+    "POST",
+    "/api/v1/bridge/inventory/adjustments/sync/:netsuite_id",
+    "sync inventory adjustments",
+  ],
+  [
+    "inventory",
+    "POST",
+    "/api/v1/bridge/inventory/adjustments",
+    "create inventory adjustments",
+  ],
+  [
+    "inventory",
+    "POST",
+    "/api/v1/bridge/inventory/transfer",
+    "create inventory transfer",
+  ],
+  [
+    "inventory",
+    "POST",
+    "/api/v1/bridge/inventory/transfer/get",
+    "get inventory transfer",
+  ],
+  [
+    "inventory",
+    "POST",
+    "/api/v1/bridge/inventory/transfer/sync/:netsuite_id",
+    "sync inventory transfer",
+  ],
+  [
+    "inventory",
+    "POST",
+    "/api/v1/bridge/inventory/transfer/:id",
+    "get inventory transfer",
+  ],
 
   // transfer_order
-  ["transfer_order", "POST", "/api/v1/bridge/transfer-orders/get", "transfer-orders get"],
-  ["transfer_order", "POST", "/api/v1/bridge/transfer-orders/sync/:netsuite_id", "transfer-orders sync"],
-  ["transfer_order", "POST", "/api/v1/bridge/transfer-orders/item-receipt", "transfer-orders item-receipt"],
-  ["transfer_order", "POST", "/api/v1/bridge/transfer-orders/create", "transfer-orders create"],
-  ["transfer_order", "POST", "/api/v1/bridge/transfer-orders/update", "transfer-orders update"],
+  [
+    "transfer_order",
+    "POST",
+    "/api/v1/bridge/transfer-orders/get",
+    "get transfer-orders",
+  ],
+  [
+    "transfer_order",
+    "POST",
+    "/api/v1/bridge/transfer-orders/sync/:netsuite_id",
+    "sync transfer-orders",
+  ],
+  [
+    "transfer_order",
+    "POST",
+    "/api/v1/bridge/transfer-orders/item-receipt",
+    "create transfer-orders item receipt",
+  ],
+  [
+    "transfer_order",
+    "POST",
+    "/api/v1/bridge/transfer-orders/create",
+    "create transfer orders",
+  ],
+  [
+    "transfer_order",
+    "POST",
+    "/api/v1/bridge/transfer-orders/update",
+    "update transfer orders",
+  ],
 
   // customform
-  ["customform", "POST", "/api/v1/bridge/customform/get", "customform get"],
-  ["customform", "POST", "/api/v1/bridge/customform/create", "customform create"],
-  ["customform", "GET", "/api/v1/bridge/customform/:id", "customform detail"],
-  ["customform", "PUT", "/api/v1/bridge/customform/:id", "customform update"],
-  ["customform", "DELETE", "/api/v1/bridge/customform/:id", "customform delete"],
+  ["customform", "POST", "/api/v1/bridge/customform/get", "get customform"],
+  [
+    "customform",
+    "POST",
+    "/api/v1/bridge/customform/create",
+    "create customform",
+  ],
+  ["customform", "GET", "/api/v1/bridge/customform/:id", "get customform"],
+  ["customform", "PUT", "/api/v1/bridge/customform/:id", "update customform"],
+  [
+    "customform",
+    "DELETE",
+    "/api/v1/bridge/customform/:id",
+    "delete customform",
+  ],
 
   // subsidiary
-  ["subsidiary", "POST", "/api/v1/bridge/subsidiary/get", "subsidiary get"],
-  ["subsidiary", "POST", "/api/v1/bridge/subsidiary/sync/netsuite/:netsuite_id", "subsidiary sync netsuite"],
-  ["subsidiary", "POST", "/api/v1/bridge/subsidiary/create", "subsidiary create"],
-  ["subsidiary", "GET", "/api/v1/bridge/subsidiary/:id", "subsidiary detail"],
-  ["subsidiary", "PUT", "/api/v1/bridge/subsidiary/:id", "subsidiary update"],
-  ["subsidiary", "DELETE", "/api/v1/bridge/subsidiary/:id", "subsidiary delete"],
+  ["subsidiary", "POST", "/api/v1/bridge/subsidiary/get", "get subsidiary"],
+  [
+    "subsidiary",
+    "POST",
+    "/api/v1/bridge/subsidiary/sync/netsuite/:netsuite_id",
+    "sync subsidiary",
+  ],
+  [
+    "subsidiary",
+    "POST",
+    "/api/v1/bridge/subsidiary/create",
+    "create subsidiary",
+  ],
+  ["subsidiary", "GET", "/api/v1/bridge/subsidiary/:id", "get subsidiary"],
+  ["subsidiary", "PUT", "/api/v1/bridge/subsidiary/:id", "update subsidiary"],
+  [
+    "subsidiary",
+    "DELETE",
+    "/api/v1/bridge/subsidiary/:id",
+    "delete subsidiary",
+  ],
 
   // currency
-  ["currency", "POST", "/api/v1/bridge/currency/get", "currency get"],
-  ["currency", "POST", "/api/v1/bridge/currency/create", "currency create"],
-  ["currency", "GET", "/api/v1/bridge/currency/:id", "currency detail"],
-  ["currency", "PUT", "/api/v1/bridge/currency/:id", "currency update"],
-  ["currency", "DELETE", "/api/v1/bridge/currency/:id", "currency delete"],
+  ["currency", "POST", "/api/v1/bridge/currency/get", "get currency"],
+  ["currency", "POST", "/api/v1/bridge/currency/create", "create currency"],
+  ["currency", "GET", "/api/v1/bridge/currency/:id", "get currency"],
+  ["currency", "PUT", "/api/v1/bridge/currency/:id", "update currency"],
+  ["currency", "DELETE", "/api/v1/bridge/currency/:id", "delete currency"],
 
   // term
-  ["term", "POST", "/api/v1/bridge/term/get", "term get"],
-  ["term", "POST", "/api/v1/bridge/term/sync", "term sync"],
-  ["term", "POST", "/api/v1/bridge/term/create", "term create"],
-  ["term", "GET", "/api/v1/bridge/term/:id", "term detail"],
-  ["term", "PUT", "/api/v1/bridge/term/:id", "term update"],
-  ["term", "DELETE", "/api/v1/bridge/term/:id", "term delete"],
+  ["term", "POST", "/api/v1/bridge/term/get", "get term"],
+  ["term", "POST", "/api/v1/bridge/term/sync", "sync term"],
+  ["term", "POST", "/api/v1/bridge/term/create", "create term"],
+  ["term", "GET", "/api/v1/bridge/term/:id", "get term"],
+  ["term", "PUT", "/api/v1/bridge/term/:id", "update term"],
+  ["term", "DELETE", "/api/v1/bridge/term/:id", "delete term"],
 
   // log_activities
-  ["log_activities", "POST", "/api/v1/bridge/log_activities/get", "log_activities get"],
+  [
+    "log_activities",
+    "POST",
+    "/api/v1/bridge/log_activities/get",
+    "get log activities",
+  ],
 
   // custbody_me_project_location
-  ["custbody_me_project_location", "POST", "/api/v1/bridge/custbody_me_project_location/get", "custbody_me_project_location get"],
-  ["custbody_me_project_location", "POST", "/api/v1/bridge/custbody_me_project_location/create", "custbody_me_project_location create"],
-  ["custbody_me_project_location", "GET", "/api/v1/bridge/custbody_me_project_location/:id", "custbody_me_project_location detail"],
-  ["custbody_me_project_location", "PUT", "/api/v1/bridge/custbody_me_project_location/:id", "custbody_me_project_location update"],
-  ["custbody_me_project_location", "DELETE", "/api/v1/bridge/custbody_me_project_location/:id", "custbody_me_project_location delete"],
+  [
+    "custbody_me_project_location",
+    "POST",
+    "/api/v1/bridge/custbody_me_project_location/get",
+    "get custbody_me_project_location",
+  ],
+  [
+    "custbody_me_project_location",
+    "POST",
+    "/api/v1/bridge/custbody_me_project_location/create",
+    "create custbody_me_project_location",
+  ],
+  [
+    "custbody_me_project_location",
+    "GET",
+    "/api/v1/bridge/custbody_me_project_location/:id",
+    "get custbody_me_project_location",
+  ],
+  [
+    "custbody_me_project_location",
+    "PUT",
+    "/api/v1/bridge/custbody_me_project_location/:id",
+    "update custbody_me_project_location",
+  ],
+  [
+    "custbody_me_project_location",
+    "DELETE",
+    "/api/v1/bridge/custbody_me_project_location/:id",
+    "delete custbody_me_project_location",
+  ],
 
   // custbody_me_saving_type
-  ["custbody_me_saving_type", "POST", "/api/v1/bridge/custbody_me_saving_type/get", "custbody_me_saving_type get"],
-  ["custbody_me_saving_type", "POST", "/api/v1/bridge/custbody_me_saving_type/create", "custbody_me_saving_type create"],
-  ["custbody_me_saving_type", "GET", "/api/v1/bridge/custbody_me_saving_type/:id", "custbody_me_saving_type detail"],
-  ["custbody_me_saving_type", "PUT", "/api/v1/bridge/custbody_me_saving_type/:id", "custbody_me_saving_type update"],
-  ["custbody_me_saving_type", "DELETE", "/api/v1/bridge/custbody_me_saving_type/:id", "custbody_me_saving_type delete"],
+  [
+    "custbody_me_saving_type",
+    "POST",
+    "/api/v1/bridge/custbody_me_saving_type/get",
+    "get custbody_me_saving_type",
+  ],
+  [
+    "custbody_me_saving_type",
+    "POST",
+    "/api/v1/bridge/custbody_me_saving_type/create",
+    "create custbody_me_saving_type",
+  ],
+  [
+    "custbody_me_saving_type",
+    "GET",
+    "/api/v1/bridge/custbody_me_saving_type/:id",
+    "get custbody_me_saving_type",
+  ],
+  [
+    "custbody_me_saving_type",
+    "PUT",
+    "/api/v1/bridge/custbody_me_saving_type/:id",
+    "update custbody_me_saving_type",
+  ],
+  [
+    "custbody_me_saving_type",
+    "DELETE",
+    "/api/v1/bridge/custbody_me_saving_type/:id",
+    "delete custbody_me_saving_type",
+  ],
 
   // class
-  ["class", "POST", "/api/v1/bridge/class/get", "class get"],
-  ["class", "POST", "/api/v1/bridge/class/create", "class create"],
-  ["class", "GET", "/api/v1/bridge/class/:id", "class detail"],
-  ["class", "PUT", "/api/v1/bridge/class/:id", "class update"],
-  ["class", "DELETE", "/api/v1/bridge/class/:id", "class delete"],
+  ["class", "POST", "/api/v1/bridge/class/get", "get class"],
+  ["class", "POST", "/api/v1/bridge/class/create", "create class"],
+  ["class", "GET", "/api/v1/bridge/class/:id", "get class"],
+  ["class", "PUT", "/api/v1/bridge/class/:id", "update class"],
+  ["class", "DELETE", "/api/v1/bridge/class/:id", "delete class"],
 
   // project_segmentations
-  ["project_segmentations", "POST", "/api/v1/bridge/project-segmentations/get", "project-segmentations get"],
-  ["project_segmentations", "POST", "/api/v1/bridge/project-segmentations/create", "project-segmentations create"],
-  ["project_segmentations", "GET", "/api/v1/bridge/project-segmentations/:id", "project-segmentations detail"],
-  ["project_segmentations", "PUT", "/api/v1/bridge/project-segmentations/:id", "project-segmentations update"],
-  ["project_segmentations", "DELETE", "/api/v1/bridge/project-segmentations/:id", "project-segmentations delete"],
+  [
+    "project_segmentations",
+    "POST",
+    "/api/v1/bridge/project-segmentations/get",
+    "get project segmentations",
+  ],
+  [
+    "project_segmentations",
+    "POST",
+    "/api/v1/bridge/project-segmentations/create",
+    "create project segmentations",
+  ],
+  [
+    "project_segmentations",
+    "GET",
+    "/api/v1/bridge/project-segmentations/:id",
+    "get project segmentations",
+  ],
+  [
+    "project_segmentations",
+    "PUT",
+    "/api/v1/bridge/project-segmentations/:id",
+    "update project segmentations",
+  ],
+  [
+    "project_segmentations",
+    "DELETE",
+    "/api/v1/bridge/project-segmentations/:id",
+    "delete project segmentations",
+  ],
 
   // department
-  ["department", "POST", "/api/v1/bridge/department/get", "department get"],
-  ["department", "POST", "/api/v1/bridge/department/create", "department create"],
-  ["department", "GET", "/api/v1/bridge/department/:id", "department detail"],
-  ["department", "PUT", "/api/v1/bridge/department/:id", "department update"],
-  ["department", "DELETE", "/api/v1/bridge/department/:id", "department delete"],
+  ["department", "POST", "/api/v1/bridge/department/get", "get department"],
+  [
+    "department",
+    "POST",
+    "/api/v1/bridge/department/create",
+    "create department",
+  ],
+  ["department", "GET", "/api/v1/bridge/department/:id", "get department"],
+  ["department", "PUT", "/api/v1/bridge/department/:id", "update department"],
+  [
+    "department",
+    "DELETE",
+    "/api/v1/bridge/department/:id",
+    "delete department",
+  ],
 
   // taxcode
-  ["taxcode", "POST", "/api/v1/bridge/taxcode/get", "taxcode get"],
-  ["taxcode", "POST", "/api/v1/bridge/taxcode/create", "taxcode create"],
-  ["taxcode", "GET", "/api/v1/bridge/taxcode/:id", "taxcode detail"],
-  ["taxcode", "PUT", "/api/v1/bridge/taxcode/:id", "taxcode update"],
-  ["taxcode", "DELETE", "/api/v1/bridge/taxcode/:id", "taxcode delete"],
+  ["taxcode", "POST", "/api/v1/bridge/taxcode/get", "get taxcode"],
+  ["taxcode", "POST", "/api/v1/bridge/taxcode/create", "create taxcode"],
+  ["taxcode", "GET", "/api/v1/bridge/taxcode/:id", "get taxcode"],
+  ["taxcode", "PUT", "/api/v1/bridge/taxcode/:id", "update taxcode"],
+  ["taxcode", "DELETE", "/api/v1/bridge/taxcode/:id", "delete taxcode"],
 
   // componen
-  ["componen", "GET", "/api/v1/bridge/componen", "componen"],
+  ["componen", "GET", "/api/v1/bridge/componen", "get componen"],
 
   // custbody_me_pr_type
-  ["custbody_me_pr_type", "POST", "/api/v1/bridge/custbody_me_pr_type/get", "custbody_me_pr_type get"],
-  ["custbody_me_pr_type", "POST", "/api/v1/bridge/custbody_me_pr_type/create", "custbody_me_pr_type create"],
-  ["custbody_me_pr_type", "GET", "/api/v1/bridge/custbody_me_pr_type/:id", "custbody_me_pr_type detail"],
-  ["custbody_me_pr_type", "PUT", "/api/v1/bridge/custbody_me_pr_type/:id", "custbody_me_pr_type update"],
-  ["custbody_me_pr_type", "DELETE", "/api/v1/bridge/custbody_me_pr_type/:id", "custbody_me_pr_type delete"],
+  [
+    "custbody_me_pr_type",
+    "POST",
+    "/api/v1/bridge/custbody_me_pr_type/get",
+    "get custbody_me_pr_type",
+  ],
+  [
+    "custbody_me_pr_type",
+    "POST",
+    "/api/v1/bridge/custbody_me_pr_type/create",
+    "create custbody_me_pr_type",
+  ],
+  [
+    "custbody_me_pr_type",
+    "GET",
+    "/api/v1/bridge/custbody_me_pr_type/:id",
+    "get custbody_me_pr_type",
+  ],
+  [
+    "custbody_me_pr_type",
+    "PUT",
+    "/api/v1/bridge/custbody_me_pr_type/:id",
+    "update custbody_me_pr_type",
+  ],
+  [
+    "custbody_me_pr_type",
+    "DELETE",
+    "/api/v1/bridge/custbody_me_pr_type/:id",
+    "delete custbody_me_pr_type",
+  ],
 
   // invoice_sales_order
-  ["invoice_sales_order", "POST", "/api/v1/bridge/invoice-sales-orders/get", "invoice-sales-orders get"],
+  [
+    "invoice_sales_order",
+    "POST",
+    "/api/v1/bridge/invoice-sales-orders/get",
+    "get invoice-sales-orders",
+  ],
 
   // outbox
   ["outbox", "GET", "/api/v1/bridge/outbox-events", "outbox-events"],
-  ["outbox", "POST", "/api/v1/bridge/outbox-events/get-list", "outbox-events get-list"],
-  ["outbox", "POST", "/api/v1/bridge/outbox-events/replay", "outbox-events replay"],
-  ["outbox", "GET", "/api/v1/bridge/outbox-events/:id", "outbox-events detail"],
+  [
+    "outbox",
+    "POST",
+    "/api/v1/bridge/outbox-events/get-list",
+    "get outbox-events",
+  ],
+  [
+    "outbox",
+    "POST",
+    "/api/v1/bridge/outbox-events/replay",
+    "replay outbox-events",
+  ],
+  [
+    "outbox",
+    "GET",
+    "/api/v1/bridge/outbox-events/:id",
+    "get outbox-events detail",
+  ],
 
   // bank
-  ["bank", "POST", "/api/v1/bridge/bank/get", "bank get"],
+  ["bank", "POST", "/api/v1/bridge/bank/get", "get bank"],
 
   // receive
-  ["receive", "POST", "/api/v1/bridge/receives/get-list", "receives get-list"],
-  ["receive", "GET", "/api/v1/bridge/receives/sync/:id", "receives sync"],
-  ["receive", "POST", "/api/v1/bridge/receives/update/:id", "receives update"],
+  ["receive", "POST", "/api/v1/bridge/receives/get-list", "get receives"],
+  ["receive", "GET", "/api/v1/bridge/receives/sync/:id", "sync receives"],
+  ["receive", "POST", "/api/v1/bridge/receives/update/:id", "update receives"],
 
   // fulfillment
-  ["fulfillment", "POST", "/api/v1/bridge/fulfillments/get-list", "fulfillments get-list"],
-  ["fulfillment", "GET", "/api/v1/bridge/fulfillments/sync/:id", "fulfillments sync"],
-  ["fulfillment", "POST", "/api/v1/bridge/fulfillments/update/:id", "fulfillments update"],
+  [
+    "fulfillment",
+    "POST",
+    "/api/v1/bridge/fulfillments/get-list",
+    "get fulfillments",
+  ],
+  [
+    "fulfillment",
+    "GET",
+    "/api/v1/bridge/fulfillments/sync/:id",
+    "sync fulfillments",
+  ],
+  [
+    "fulfillment",
+    "POST",
+    "/api/v1/bridge/fulfillments/update/:id",
+    "update fulfillments",
+  ],
 
   // logging
-  ["logging", "POST", "/api/v1/bridge/logging/activity/get", "logging activity get"],
-  ["logging", "POST", "/api/v1/bridge/logging/activity/retry", "logging activity retry"],
+  [
+    "logging",
+    "POST",
+    "/api/v1/bridge/logging/activity/get",
+    "get logging activity",
+  ],
+  [
+    "logging",
+    "POST",
+    "/api/v1/bridge/logging/activity/retry",
+    "retry logging activity",
+  ],
 
   // attach_file
-  ["attach_file", "GET", "/api/v1/bridge/attach_file", "attach_file"],
-  ["attach_file", "POST", "/api/v1/bridge/attach_file", "attach_file create"],
-  ["attach_file", "PUT", "/api/v1/bridge/attach_file/:id", "attach_file update"],
-  ["attach_file", "DELETE", "/api/v1/bridge/attach_file/:id", "attach_file delete"],
-  ["attach_file", "PUT", "/api/v1/bridge/attach_file/delete/:id", "attach_file delete"],
+  ["attach_file", "GET", "/api/v1/bridge/attach_file", "get attach_file"],
+  ["attach_file", "POST", "/api/v1/bridge/attach_file", "create attach_file"],
+  [
+    "attach_file",
+    "PUT",
+    "/api/v1/bridge/attach_file/:id",
+    "update attach_file",
+  ],
+  [
+    "attach_file",
+    "DELETE",
+    "/api/v1/bridge/attach_file/:id",
+    "delete attach_file",
+  ],
+  [
+    "attach_file",
+    "PUT",
+    "/api/v1/bridge/attach_file/delete/:id",
+    "delete attach_file",
+  ],
 ];
 
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -295,23 +934,25 @@ const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const segmentsOf = (path) => path.split("/").filter(Boolean);
 const isParam = (segment) => segment.startsWith(":");
 
-const ROUTES = BRIDGE_ROUTES.map(([module, method, path, moduleName], index) => {
-  const segments = segmentsOf(path);
-  const staticCount = segments.filter((s) => !isParam(s)).length;
-  return {
-    module,
-    method,
-    path,
-    moduleName,
-    index,
-    segments,
-    staticCount,
-    // Regex dipakai di JS dan PostgreSQL (~). Query string / trailing slash diabaikan.
-    regex: `^/${segments
-      .map((s) => (isParam(s) ? "[^/?#]+" : escapeRegex(s)))
-      .join("/")}/?([?#].*)?$`,
-  };
-})
+const ROUTES = BRIDGE_ROUTES.map(
+  ([module, method, path, moduleName], index) => {
+    const segments = segmentsOf(path);
+    const staticCount = segments.filter((s) => !isParam(s)).length;
+    return {
+      module,
+      method,
+      path,
+      moduleName,
+      index,
+      segments,
+      staticCount,
+      // Regex dipakai di JS dan PostgreSQL (~). Query string / trailing slash diabaikan.
+      regex: `^/${segments
+        .map((s) => (isParam(s) ? "[^/?#]+" : escapeRegex(s)))
+        .join("/")}/?([?#].*)?$`,
+    };
+  },
+)
   // Route yang lebih spesifik (lebih banyak segmen statis) dicek lebih dulu
   .sort((a, b) => b.staticCount - a.staticCount || a.index - b.index);
 
@@ -349,16 +990,17 @@ const findRoutesByModuleName = (moduleName) => {
 };
 
 /**
- * Daftar module_name unik beserta endpoint-nya (urutan sesuai BRIDGE_ROUTES.md)
+ * Daftar module_name unik (urutan sesuai BRIDGE_ROUTES.md)
+ * Duplikat dibandingkan tanpa beda huruf besar/kecil & spasi berlebih
  */
 const listModuleNames = () => {
   const map = new Map();
   [...ROUTES]
     .sort((a, b) => a.index - b.index)
     .forEach((r) => {
-      // url = endpoint pertama dari module_name tsb
-      if (!map.has(r.moduleName)) {
-        map.set(r.moduleName, { module_name: r.moduleName, url: r.path });
+      const key = r.moduleName.trim().toLowerCase().replace(/\s+/g, " ");
+      if (!map.has(key)) {
+        map.set(key, { module_name: r.moduleName.trim() });
       }
     });
   return [...map.values()];
