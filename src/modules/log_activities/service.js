@@ -2,6 +2,7 @@ const knex = require("knex");
 const moment = require("moment");
 const {
   resolveModuleName,
+  resolveModuleNameByAggregateType,
   findRoutesByModuleName,
   listModuleNames,
 } = require("./module_names");
@@ -172,10 +173,6 @@ const parseTypeData = (value) => {
   return typeData;
 };
 
-// aggregate_type -> module_name: karakter - dan _ diganti spasi
-const aggregateTypeToModuleName = (value) =>
-  value ? String(value).replace(/[-_]/g, " ") : null;
-
 // Bentuk pembanding module_name netsuite: huruf kecil, - _ dan spasi berlebih jadi satu spasi
 const normalizeAggregateType = (value) =>
   String(value).toLowerCase().replace(/[-_\s]+/g, " ").trim();
@@ -183,7 +180,8 @@ const normalizeAggregateType = (value) =>
 /**
  * module_name boleh string atau array string. Kosong -> null (tanpa filter)
  * - apps     -> daftar route BRIDGE_ROUTES yang cocok
- * - netsuite -> daftar aggregate_type yang sudah dinormalisasi
+ * - netsuite -> { aggregateTypes: aggregate_type dari BRIDGE_ROUTES (module_names.js),
+ *                 names: module_name dinormalisasi, dicocokkan langsung ke aggregate_type }
  */
 const parseModuleNames = (value, typeData) => {
   if (value === undefined || value === null || value === "") return null;
@@ -193,7 +191,15 @@ const parseModuleNames = (value, typeData) => {
   if (!names.length) return null;
 
   if (typeData === "netsuite") {
-    return [...new Set(names.map(normalizeAggregateType))];
+    const aggregateTypes = names.flatMap((name) =>
+      findRoutesByModuleName(name).flatMap((route) => route.aggregateTypes),
+    );
+    return {
+      aggregateTypes: [
+        ...new Set(aggregateTypes.map((type) => type.toLowerCase())),
+      ],
+      names: [...new Set(names.map(normalizeAggregateType))],
+    };
   }
 
   const routes = names.map((name) => {
@@ -215,7 +221,7 @@ const mapItem = (row, client, typeData) => ({
   url: row.url,
   module_name:
     typeData === "netsuite"
-      ? aggregateTypeToModuleName(row.aggregate_type)
+      ? resolveModuleNameByAggregateType(row.aggregate_type)
       : resolveModuleName(row.url, row.method),
   function_name: row.function_name,
   status_code: row.status_code,
@@ -299,9 +305,17 @@ const getLogActivitiesList = async (body = {}) => {
 
     if (moduleRoutes) {
       if (!source.hasModuleName) {
-        // log netsuite: module_name dicocokkan ke aggregate_type (abaikan huruf besar/kecil, - _ dan spasi)
+        // log netsuite: aggregate_type sesuai mapping module_names.js, atau
+        // aggregate_type yang sama dengan module_name (abaikan huruf besar/kecil, - _ dan spasi)
+        const { aggregateTypes, names } = moduleRoutes;
         query = query.where((qb) => {
-          moduleRoutes.forEach((name) => {
+          if (aggregateTypes.length) {
+            qb.orWhereIn(
+              dbNetsuite.raw("lower(aggregate_type)"),
+              aggregateTypes,
+            );
+          }
+          names.forEach((name) => {
             qb.orWhereRaw(
               "trim(regexp_replace(lower(aggregate_type), '[-_[:space:]]+', ' ', 'g')) = ?",
               [name],

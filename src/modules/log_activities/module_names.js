@@ -5,17 +5,27 @@
  * module_name = segmen path setelah /api/v1/bridge (tanpa parameter), dipisah spasi.
  * Contoh: POST /api/v1/bridge/customers/get -> "customers get"
  * Jika nama bentrok, diberi akhiran: detail / create / update / delete / by <param>.
+ *
+ * aggregate_type (opsional) = nilai kolom aggregate_type di tabel log_activities_netsuite
+ * untuk module_name tsb, boleh string atau array string. Dipakai untuk type_data netsuite.
  */
 
-// [module, method, path, module_name]
+// [module, method, path, module_name, aggregate_type?]
 const BRIDGE_ROUTES = [
   // customer
-  ["customer", "POST", "/api/v1/bridge/customers/get", "get customers"],
+  [
+    "customer",
+    "POST",
+    "/api/v1/bridge/customers/get",
+    "get customers",
+    "customers_getList",
+  ],
   [
     "customer",
     "POST",
     "/api/v1/bridge/customers/returns",
     "get customers returns",
+    "customer_returns_getList",
   ],
   ["customer", "GET", "/api/v1/bridge/customers/:id", "get customers"],
   [
@@ -30,8 +40,20 @@ const BRIDGE_ROUTES = [
     "/api/v1/bridge/customers/netsuite/read",
     "get customers",
   ],
-  ["customer", "POST", "/api/v1/bridge/customers/create", "create customers"],
-  ["customer", "POST", "/api/v1/bridge/customers/update", "update customers"],
+  [
+    "customer",
+    "POST",
+    "/api/v1/bridge/customers/create",
+    "create customers",
+    "customers_create",
+  ],
+  [
+    "customer",
+    "POST",
+    "/api/v1/bridge/customers/update",
+    "update customers",
+    "customers_update",
+  ],
   ["customer", "POST", "/api/v1/bridge/customers/search", "get customers"],
   [
     "customer",
@@ -44,16 +66,24 @@ const BRIDGE_ROUTES = [
     "POST",
     "/api/v1/bridge/customers/return-receipt/sync/netsuite/:netsuite_id",
     "sync customers return receipt",
+    "customer_returns_syncById",
   ],
   [
     "customer",
     "POST",
     "/api/v1/bridge/customers/sync/netsuite/:netsuite_id",
     "sync customers",
+    "customers_syncById",
   ],
 
   // vendor
-  ["vendor", "POST", "/api/v1/bridge/vendors/get", "get vendors"],
+  [
+    "vendor",
+    "POST",
+    "/api/v1/bridge/vendors/get",
+    "get vendors",
+    "vendor_getList",
+  ],
   ["vendor", "GET", "/api/v1/bridge/vendors/:id", "get vendors"],
   [
     "vendor",
@@ -64,7 +94,7 @@ const BRIDGE_ROUTES = [
   ["vendor", "POST", "/api/v1/bridge/vendors/search", "get vendors"],
 
   // items
-  ["items", "POST", "/api/v1/bridge/items/get", "get items"],
+  ["items", "POST", "/api/v1/bridge/items/get", "get items", "item_getList"],
   ["items", "GET", "/api/v1/bridge/items/:id", "get items"],
   ["items", "GET", "/api/v1/bridge/items/netsuite/:netsuite_id", "get items"],
   ["items", "POST", "/api/v1/bridge/items/search", "get items"],
@@ -73,12 +103,22 @@ const BRIDGE_ROUTES = [
     "POST",
     "/api/v1/bridge/items/item-receipt",
     "create items receipt",
+    [
+      "item_receipt_create",
+      "purchase_order_item_receipt_create",
+      "transfer_order_item_receipt_create",
+    ],
   ],
   [
     "items",
     "POST",
     "/api/v1/bridge/items/item-fulfillment",
     "create items fulfillment",
+    [
+      "item_fulfillment_create",
+      "purchase_order_item_fulfillment_create",
+      "transfer_order_item_fulfillment_create",
+    ],
   ],
   [
     "items",
@@ -120,12 +160,18 @@ const BRIDGE_ROUTES = [
     "POST",
     "/api/v1/bridge/purchase-orders/get-list",
     "get purchase orders",
+    ["purchase_order_getList", "purchase_order_list"],
   ],
   [
     "purchase_order",
     "GET",
     "/api/v1/bridge/purchase-orders/sync/:id",
     "sync purchase orders",
+    [
+      "purchase_order_syncById",
+      "purchase_order_sync_by_id",
+      "purchase_order_sync",
+    ],
   ],
   [
     "purchase_order",
@@ -144,30 +190,35 @@ const BRIDGE_ROUTES = [
     "POST",
     "/api/v1/bridge/purchase-orders/create",
     "create purchase orders",
+    "purchase_order_create",
   ],
   [
     "purchase_order",
     "POST",
     "/api/v1/bridge/purchase-orders/update",
     "update purchase orders",
+    "purchase_order_update",
   ],
   [
     "purchase_order",
     "POST",
     "/api/v1/bridge/purchase-orders/approval",
     "create approve purchase orders",
+    "purchase_order_approval",
   ],
   [
     "purchase_order",
     "POST",
     "/api/v1/bridge/purchase-orders/print",
     "print purchase orders",
+    "purchase_order_print",
   ],
   [
     "purchase_order",
     "POST",
     "/api/v1/bridge/purchase-orders/receive-item",
     "create purchase orders receive item",
+    "purchase_order_receive_item",
   ],
   [
     "purchase_order",
@@ -182,6 +233,7 @@ const BRIDGE_ROUTES = [
     "POST",
     "/api/v1/bridge/inbound-shipments/get",
     "get inbound shipments",
+    "inbound_shipment_getList",
   ],
   [
     "inbound_shipment",
@@ -206,6 +258,7 @@ const BRIDGE_ROUTES = [
     "POST",
     "/api/v1/bridge/inbound-shipments/receive",
     "create inbound shipments receive",
+    "inbound_shipment_receive",
   ],
   [
     "inbound_shipment",
@@ -373,8 +426,20 @@ const BRIDGE_ROUTES = [
   ],
 
   // quotation
-  ["quotation", "POST", "/api/v1/bridge/quotations/get", "get quotations"],
-  ["quotation", "GET", "/api/v1/bridge/quotations/:id", "get quotations"],
+  [
+    "quotation",
+    "POST",
+    "/api/v1/bridge/quotations/get",
+    "get quotations",
+    "quotation_getList",
+  ],
+  [
+    "quotation",
+    "GET",
+    "/api/v1/bridge/quotations/:id",
+    "get quotations",
+    "quotation_getById",
+  ],
   ["quotation", "GET", "/api/v1/bridge/quotations/sync/:id", "sync quotations"],
   [
     "quotation",
@@ -393,14 +458,22 @@ const BRIDGE_ROUTES = [
     "POST",
     "/api/v1/bridge/quotations/create",
     "create quotations",
+    "quotation_create",
   ],
   [
     "quotation",
     "POST",
     "/api/v1/bridge/quotations/update",
     "update quotations",
+    "quotation_update",
   ],
-  ["quotation", "POST", "/api/v1/bridge/quotations/print", "print quotations"],
+  [
+    "quotation",
+    "POST",
+    "/api/v1/bridge/quotations/print",
+    "print quotations",
+    "quotation_print",
+  ],
 
   // bills
   ["bills", "POST", "/api/v1/bridge/bills/get", "get bills"],
@@ -414,6 +487,7 @@ const BRIDGE_ROUTES = [
     "POST",
     "/api/v1/bridge/bills-payments/get",
     "get bills payments",
+    "bill_payments_getList",
   ],
   [
     "bills_payments",
@@ -446,6 +520,7 @@ const BRIDGE_ROUTES = [
     "POST",
     "/api/v1/bridge/sales-orders/get",
     "get sales orders",
+    "sales_order_getList",
   ],
   [
     "sales_order",
@@ -458,12 +533,14 @@ const BRIDGE_ROUTES = [
     "POST",
     "/api/v1/bridge/sales-orders/create",
     "create sales orders",
+    "sales_order_create",
   ],
   [
     "sales_order",
     "POST",
     "/api/v1/bridge/sales-orders/update",
     "update sales orders",
+    "sales_order_update",
   ],
   [
     "sales_order",
@@ -476,6 +553,7 @@ const BRIDGE_ROUTES = [
     "GET",
     "/api/v1/bridge/sales-orders/sync/:id",
     "sync sales orders",
+    "sales_order_syncById",
   ],
   [
     "sales_order",
@@ -485,7 +563,13 @@ const BRIDGE_ROUTES = [
   ],
 
   // locations
-  ["locations", "POST", "/api/v1/bridge/locations/get", "get locations"],
+  [
+    "locations",
+    "POST",
+    "/api/v1/bridge/locations/get",
+    "get locations",
+    "location_getList",
+  ],
   ["locations", "POST", "/api/v1/bridge/locations/search", "get locations"],
 
   // vendor_returns
@@ -534,6 +618,7 @@ const BRIDGE_ROUTES = [
     "POST",
     "/api/v1/bridge/inventory/adjustments/get",
     "get inventory adjustments",
+    "inventory_adjustment_get",
   ],
   [
     "inventory",
@@ -546,36 +631,42 @@ const BRIDGE_ROUTES = [
     "POST",
     "/api/v1/bridge/inventory/adjustments/sync/:netsuite_id",
     "sync inventory adjustments",
+    "inventory_adjustment_syncById",
   ],
   [
     "inventory",
     "POST",
     "/api/v1/bridge/inventory/adjustments",
     "create inventory adjustments",
+    "inventory_adjustment_create",
   ],
   [
     "inventory",
     "POST",
     "/api/v1/bridge/inventory/transfer",
     "create inventory transfer",
+    "inventory_transfer_create",
   ],
   [
     "inventory",
     "POST",
     "/api/v1/bridge/inventory/transfer/get",
     "get inventory transfer",
+    "inventory_transfer_get",
   ],
   [
     "inventory",
     "POST",
     "/api/v1/bridge/inventory/transfer/sync/:netsuite_id",
     "sync inventory transfer",
+    "inventory_transfer_syncById",
   ],
   [
     "inventory",
     "POST",
     "/api/v1/bridge/inventory/transfer/:id",
-    "get inventory transfer",
+    "update inventory transfer",
+    "inventory_transfer_update",
   ],
 
   // transfer_order
@@ -584,30 +675,35 @@ const BRIDGE_ROUTES = [
     "POST",
     "/api/v1/bridge/transfer-orders/get",
     "get transfer orders",
+    "transfer_order_getList",
   ],
   [
     "transfer_order",
     "POST",
     "/api/v1/bridge/transfer-orders/sync/:netsuite_id",
     "sync transfer orders",
+    "transfer_order_syncById",
   ],
   [
     "transfer_order",
     "POST",
     "/api/v1/bridge/transfer-orders/item-receipt",
     "create transfer orders item receipt",
+    "transfer_order_item_receipt_create",
   ],
   [
     "transfer_order",
     "POST",
     "/api/v1/bridge/transfer-orders/create",
     "create transfer orders",
+    "transfer_order_create",
   ],
   [
     "transfer_order",
     "POST",
     "/api/v1/bridge/transfer-orders/update",
     "update transfer orders",
+    "transfer_order_update",
   ],
 
   // customform
@@ -628,12 +724,19 @@ const BRIDGE_ROUTES = [
   ],
 
   // subsidiary
-  ["subsidiary", "POST", "/api/v1/bridge/subsidiary/get", "get subsidiary"],
+  [
+    "subsidiary",
+    "POST",
+    "/api/v1/bridge/subsidiary/get",
+    "get subsidiary",
+    "subsidiary_getList",
+  ],
   [
     "subsidiary",
     "POST",
     "/api/v1/bridge/subsidiary/sync/netsuite/:netsuite_id",
     "sync subsidiary",
+    "subsidiary_syncById",
   ],
   [
     "subsidiary",
@@ -658,7 +761,7 @@ const BRIDGE_ROUTES = [
   ["currency", "DELETE", "/api/v1/bridge/currency/:id", "delete currency"],
 
   // term
-  ["term", "POST", "/api/v1/bridge/term/get", "get term"],
+  ["term", "POST", "/api/v1/bridge/term/get", "get term", "term_getList"],
   ["term", "POST", "/api/v1/bridge/term/sync", "sync term"],
   ["term", "POST", "/api/v1/bridge/term/create", "create term"],
   ["term", "GET", "/api/v1/bridge/term/:id", "get term"],
@@ -738,7 +841,7 @@ const BRIDGE_ROUTES = [
   ],
 
   // class
-  ["class", "POST", "/api/v1/bridge/class/get", "get class"],
+  ["class", "POST", "/api/v1/bridge/class/get", "get class", "class_getList"],
   ["class", "POST", "/api/v1/bridge/class/create", "create class"],
   ["class", "GET", "/api/v1/bridge/class/:id", "get class"],
   ["class", "PUT", "/api/v1/bridge/class/:id", "update class"],
@@ -750,6 +853,7 @@ const BRIDGE_ROUTES = [
     "POST",
     "/api/v1/bridge/project-segmentations/get",
     "get project segmentations",
+    "project_segmentation_getList",
   ],
   [
     "project_segmentations",
@@ -777,7 +881,13 @@ const BRIDGE_ROUTES = [
   ],
 
   // department
-  ["department", "POST", "/api/v1/bridge/department/get", "get department"],
+  [
+    "department",
+    "POST",
+    "/api/v1/bridge/department/get",
+    "get department",
+    "departement_getList",
+  ],
   [
     "department",
     "POST",
@@ -841,6 +951,7 @@ const BRIDGE_ROUTES = [
     "POST",
     "/api/v1/bridge/invoice-sales-orders/get",
     "get sales invoice",
+    "sales_invoice_getList",
   ],
 
   // outbox
@@ -865,12 +976,30 @@ const BRIDGE_ROUTES = [
   ],
 
   // bank
-  ["bank", "POST", "/api/v1/bridge/bank/get", "get bank"],
+  ["bank", "POST", "/api/v1/bridge/bank/get", "get bank", "bank_get"],
 
   // receive
-  ["receive", "POST", "/api/v1/bridge/receives/get-list", "get receives"],
-  ["receive", "GET", "/api/v1/bridge/receives/sync/:id", "sync receives"],
-  ["receive", "POST", "/api/v1/bridge/receives/update/:id", "update receives"],
+  [
+    "receive",
+    "POST",
+    "/api/v1/bridge/receives/get-list",
+    "get receives",
+    ["receipt_getList", "receipt_getById"],
+  ],
+  [
+    "receive",
+    "GET",
+    "/api/v1/bridge/receives/sync/:id",
+    "sync receives",
+    "receipt_syncById",
+  ],
+  [
+    "receive",
+    "POST",
+    "/api/v1/bridge/receives/update/:id",
+    "update receives",
+    "receipt_update",
+  ],
 
   // fulfillment
   [
@@ -878,18 +1007,21 @@ const BRIDGE_ROUTES = [
     "POST",
     "/api/v1/bridge/fulfillments/get-list",
     "get fulfillments",
+    ["fulfillment_getList", "fulfillment_getById"],
   ],
   [
     "fulfillment",
     "GET",
     "/api/v1/bridge/fulfillments/sync/:id",
     "sync fulfillments",
+    "fulfillment_syncById",
   ],
   [
     "fulfillment",
     "POST",
     "/api/v1/bridge/fulfillments/update/:id",
     "update fulfillments",
+    "fulfillment_update",
   ],
 
   // logging
@@ -908,18 +1040,42 @@ const BRIDGE_ROUTES = [
 
   // attach_file
   ["attach_file", "GET", "/api/v1/bridge/attach_file", "get attach file"],
-  ["attach_file", "POST", "/api/v1/bridge/attach_file", "create attach file"],
+  [
+    "attach_file",
+    "POST",
+    "/api/v1/bridge/attach_file",
+    "create attach file",
+    [
+      "attachment_file_create",
+      "purchase_order_attachment_file",
+      "purchase_order_attachment_file_create",
+      "transfer_order_attachment_file_create",
+      "transfer_order_fulfillment_attachment_file_create",
+      "transfer_order_receipts_attachment_file_create",
+    ],
+  ],
   [
     "attach_file",
     "PUT",
     "/api/v1/bridge/attach_file/:id",
     "update attach file",
+    [
+      "attachment_file_update",
+      "purchase_order_attachment_file_update",
+      "transfer_order_attachment_file_update",
+    ],
   ],
   [
     "attach_file",
     "DELETE",
     "/api/v1/bridge/attach_file/:id",
     "delete attach file",
+    [
+      "attachment_file_delete",
+      "{type}_attachment_file_delete",
+      "purchase_order_attachment_file_delete",
+      "transfer_order_attachment_file_delete",
+    ],
   ],
   [
     "attach_file",
@@ -935,7 +1091,7 @@ const segmentsOf = (path) => path.split("/").filter(Boolean);
 const isParam = (segment) => segment.startsWith(":");
 
 const ROUTES = BRIDGE_ROUTES.map(
-  ([module, method, path, moduleName], index) => {
+  ([module, method, path, moduleName, aggregateType], index) => {
     const segments = segmentsOf(path);
     const staticCount = segments.filter((s) => !isParam(s)).length;
     return {
@@ -943,6 +1099,7 @@ const ROUTES = BRIDGE_ROUTES.map(
       method,
       path,
       moduleName,
+      aggregateTypes: [].concat(aggregateType || []),
       index,
       segments,
       staticCount,
@@ -989,6 +1146,31 @@ const findRoutesByModuleName = (moduleName) => {
   return ROUTES.filter((r) => r.moduleName.toLowerCase() === name);
 };
 
+// aggregate_type -> module_name (huruf kecil sebagai key)
+const MODULE_NAME_BY_AGGREGATE_TYPE = new Map();
+[...ROUTES]
+  .sort((a, b) => a.index - b.index)
+  .forEach((r) =>
+    r.aggregateTypes.forEach((type) => {
+      const key = type.toLowerCase();
+      if (!MODULE_NAME_BY_AGGREGATE_TYPE.has(key)) {
+        MODULE_NAME_BY_AGGREGATE_TYPE.set(key, r.moduleName);
+      }
+    }),
+  );
+
+/**
+ * module_name untuk log netsuite dari aggregate_type.
+ * Tidak ada di BRIDGE_ROUTES -> aggregate_type dengan - dan _ diganti spasi
+ */
+const resolveModuleNameByAggregateType = (aggregateType) => {
+  if (!aggregateType) return null;
+  return (
+    MODULE_NAME_BY_AGGREGATE_TYPE.get(String(aggregateType).toLowerCase()) ||
+    String(aggregateType).replace(/[-_]/g, " ")
+  );
+};
+
 /**
  * Daftar module_name unik (urutan sesuai BRIDGE_ROUTES.md)
  * Duplikat dibandingkan tanpa beda huruf besar/kecil & spasi berlebih
@@ -1009,6 +1191,7 @@ const listModuleNames = () => {
 module.exports = {
   ROUTES,
   resolveModuleName,
+  resolveModuleNameByAggregateType,
   findRoutesByModuleName,
   listModuleNames,
 };
