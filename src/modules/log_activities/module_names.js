@@ -236,43 +236,43 @@ const BRIDGE_ROUTES = [
     "api_client",
     "GET",
     "/api/v1/bridge/admin/api-clients",
-    "admin api-clients",
+    "admin api clients",
   ],
   [
     "api_client",
     "GET",
     "/api/v1/bridge/admin/api-clients/:id",
-    "admin api-clients detail",
+    "admin api clients detail",
   ],
   [
     "api_client",
     "POST",
     "/api/v1/bridge/admin/api-clients",
-    "admin api-clients create",
+    "admin api clients create",
   ],
   [
     "api_client",
     "PUT",
     "/api/v1/bridge/admin/api-clients/:id",
-    "admin api-clients update",
+    "admin api clients update",
   ],
   [
     "api_client",
     "POST",
     "/api/v1/bridge/admin/api-clients/:id/regenerate-secret",
-    "admin api-clients regenerate-secret",
+    "admin api clients regenerate secret",
   ],
   [
     "api_client",
     "POST",
     "/api/v1/bridge/admin/api-clients/:id/toggle-status",
-    "admin api-clients toggle-status",
+    "admin api clients toggle status",
   ],
   [
     "api_client",
     "DELETE",
     "/api/v1/bridge/admin/api-clients/:id",
-    "admin api-clients delete",
+    "admin api clients delete",
   ],
 
   // netsuite_scripts
@@ -280,37 +280,37 @@ const BRIDGE_ROUTES = [
     "netsuite_scripts",
     "GET",
     "/api/v1/bridge/admin/netsuite-scripts",
-    "admin netsuite-scripts",
+    "admin netsuite scripts",
   ],
   [
     "netsuite_scripts",
     "GET",
     "/api/v1/bridge/admin/netsuite-scripts/module/:module",
-    "admin netsuite-scripts module",
+    "admin netsuite scripts module",
   ],
   [
     "netsuite_scripts",
     "GET",
     "/api/v1/bridge/admin/netsuite-scripts/:module/:operation",
-    "admin netsuite-scripts detail",
+    "admin netsuite scripts detail",
   ],
   [
     "netsuite_scripts",
     "POST",
     "/api/v1/bridge/admin/netsuite-scripts",
-    "admin netsuite-scripts create",
+    "admin netsuite scripts create",
   ],
   [
     "netsuite_scripts",
     "PUT",
     "/api/v1/bridge/admin/netsuite-scripts/:module/:operation",
-    "admin netsuite-scripts update",
+    "admin netsuite scripts update",
   ],
   [
     "netsuite_scripts",
     "DELETE",
     "/api/v1/bridge/admin/netsuite-scripts/:module/:operation",
-    "admin netsuite-scripts delete",
+    "admin netsuite scripts delete",
   ],
 
   // auth
@@ -369,7 +369,7 @@ const BRIDGE_ROUTES = [
     "webhook",
     "POST",
     "/api/v1/bridge/webhook/trigger-test",
-    "webhook trigger-test",
+    "webhook trigger test",
   ],
 
   // quotation
@@ -583,19 +583,19 @@ const BRIDGE_ROUTES = [
     "transfer_order",
     "POST",
     "/api/v1/bridge/transfer-orders/get",
-    "get transfer-orders",
+    "get transfer orders",
   ],
   [
     "transfer_order",
     "POST",
     "/api/v1/bridge/transfer-orders/sync/:netsuite_id",
-    "sync transfer-orders",
+    "sync transfer orders",
   ],
   [
     "transfer_order",
     "POST",
     "/api/v1/bridge/transfer-orders/item-receipt",
-    "create transfer-orders item receipt",
+    "create transfer orders item receipt",
   ],
   [
     "transfer_order",
@@ -840,28 +840,28 @@ const BRIDGE_ROUTES = [
     "invoice_sales_order",
     "POST",
     "/api/v1/bridge/invoice-sales-orders/get",
-    "get invoice-sales-orders",
+    "get sales invoice",
   ],
 
   // outbox
-  ["outbox", "GET", "/api/v1/bridge/outbox-events", "outbox-events"],
+  ["outbox", "GET", "/api/v1/bridge/outbox-events", "outbox events"],
   [
     "outbox",
     "POST",
     "/api/v1/bridge/outbox-events/get-list",
-    "get outbox-events",
+    "get outbox events",
   ],
   [
     "outbox",
     "POST",
     "/api/v1/bridge/outbox-events/replay",
-    "replay outbox-events",
+    "replay outbox events",
   ],
   [
     "outbox",
     "GET",
     "/api/v1/bridge/outbox-events/:id",
-    "get outbox-events detail",
+    "get outbox events detail",
   ],
 
   // bank
@@ -907,25 +907,25 @@ const BRIDGE_ROUTES = [
   ],
 
   // attach_file
-  ["attach_file", "GET", "/api/v1/bridge/attach_file", "get attach_file"],
-  ["attach_file", "POST", "/api/v1/bridge/attach_file", "create attach_file"],
+  ["attach_file", "GET", "/api/v1/bridge/attach_file", "get attach file"],
+  ["attach_file", "POST", "/api/v1/bridge/attach_file", "create attach file"],
   [
     "attach_file",
     "PUT",
     "/api/v1/bridge/attach_file/:id",
-    "update attach_file",
+    "update attach file",
   ],
   [
     "attach_file",
     "DELETE",
     "/api/v1/bridge/attach_file/:id",
-    "delete attach_file",
+    "delete attach file",
   ],
   [
     "attach_file",
     "PUT",
     "/api/v1/bridge/attach_file/delete/:id",
-    "delete attach_file",
+    "delete attach file",
   ],
 ];
 
