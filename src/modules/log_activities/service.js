@@ -52,7 +52,7 @@ const SOURCES = {
       "payload",
       "response",
       "created_at",
-      dbNetsuite.raw("NULL as updated_at"),
+      "updated_at",
     ],
     searchColumns: ["url"],
     sortColumns: ["created_at", "url"],
@@ -101,7 +101,7 @@ const SOURCES_LIST = {
       "status_code",
       "status as status_message",
       "created_at",
-      dbNetsuite.raw("NULL as updated_at"),
+      "updated_at",
     ],
     searchColumns: ["url"],
     sortColumns: ["created_at", "url"],
@@ -175,7 +175,10 @@ const parseTypeData = (value) => {
 
 // Bentuk pembanding module_name netsuite: huruf kecil, - _ dan spasi berlebih jadi satu spasi
 const normalizeAggregateType = (value) =>
-  String(value).toLowerCase().replace(/[-_\s]+/g, " ").trim();
+  String(value)
+    .toLowerCase()
+    .replace(/[-_\s]+/g, " ")
+    .trim();
 
 /**
  * module_name boleh string atau array string. Kosong -> null (tanpa filter)
@@ -253,9 +256,13 @@ const getLogActivitiesList = async (body = {}) => {
 
   const moduleRoutes = parseModuleNames(body.module_name, typeData);
 
-  const logStatus = body.status ? String(body.status).trim().toLowerCase() : null;
+  const logStatus = body.status
+    ? String(body.status).trim().toLowerCase()
+    : null;
   if (logStatus && !LOG_STATUSES.includes(logStatus)) {
-    throw badRequest(`status tidak valid, pilihan: ${LOG_STATUSES.join(" / ")}`);
+    throw badRequest(
+      `status tidak valid, pilihan: ${LOG_STATUSES.join(" / ")}`,
+    );
   }
 
   try {
@@ -356,9 +363,7 @@ const getLogActivitiesList = async (body = {}) => {
       query = query.whereRaw("status_code ~ '^2[0-9]{2}$'");
     } else if (logStatus === "error") {
       query = query.where((qb) =>
-        qb
-          .whereNull("status_code")
-          .orWhereRaw("status_code !~ '^2[0-9]{2}$'"),
+        qb.whereNull("status_code").orWhereRaw("status_code !~ '^2[0-9]{2}$'"),
       );
     }
 
@@ -470,8 +475,7 @@ const getModuleNames = (body = {}) => {
   );
 
   if (MODULE_NAME_SORT_COLUMNS.includes(body.sort_by)) {
-    const direction =
-      String(body.sort_order).toUpperCase() === "DESC" ? -1 : 1;
+    const direction = String(body.sort_order).toUpperCase() === "DESC" ? -1 : 1;
     items = [...items].sort(
       (a, b) => a[body.sort_by].localeCompare(b[body.sort_by]) * direction,
     );
