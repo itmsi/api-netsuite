@@ -270,8 +270,16 @@ const resolveStatus = (row) => {
   };
 };
 
-const mapItem = (row, client, typeData) => {
-  const { status_code, status_message } = resolveStatus(row);
+// checkResponseStatus: true -> status_code/status_message disesuaikan isi response (list saja)
+const mapItem = (
+  row,
+  client,
+  typeData,
+  { checkResponseStatus = false } = {},
+) => {
+  const { status_code, status_message } = checkResponseStatus
+    ? resolveStatus(row)
+    : { status_code: row.status_code, status_message: row.status_message };
   return {
     id: row.id,
     client,
@@ -450,7 +458,9 @@ const getLogActivitiesList = async (body = {}) => {
       .limit(limit)
       .offset(offset);
 
-    const items = rows.map((row) => mapItem(row, client, typeData));
+    const items = rows.map((row) =>
+      mapItem(row, client, typeData, { checkResponseStatus: true }),
+    );
 
     return {
       items,
@@ -547,6 +557,7 @@ const getModuleNames = (body = {}) => {
 };
 
 module.exports = {
+  dbNetsuite,
   getLogActivitiesList,
   getLogActivityById,
   getModuleNames,

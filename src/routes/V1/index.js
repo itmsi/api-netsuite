@@ -88,6 +88,9 @@ routing.use(`${API_TAG}/transfer-orders`, transferOrdersModule);
 const logActivitiesModule = require('../../modules/log_activities');
 routing.use(`${API_TAG}/log-activities`, logActivitiesModule);
 
+const netsuiteScriptsModule = require('../../modules/netsuite_scripts');
+routing.use(`${API_TAG}/netsuite_scripts`, netsuiteScriptsModule);
+
 // Example:
 // const yourModule = require('../../modules/yourModule')
 // routing.use(`${API_TAG}/your-endpoint`, yourModule)
