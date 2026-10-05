@@ -58,6 +58,7 @@ const itemTypeSchema = require('./schema/item_type');
 const attachFileSchema = require('./schema/attach_file');
 const inventoryAdjustmentsSchema = require('./schema/inventory_adjustments');
 const logActivitiesSchema = require('./schema/log_activities');
+const netsuiteScriptsSchema = require('./schema/netsuite_scripts');
 
 // Import paths
 // Tambahkan path module Anda di sini
@@ -90,6 +91,7 @@ const itemTypePaths = require('./path/item_type');
 const attachFilePaths = require('./path/attach_file');
 const inventoryAdjustmentsPaths = require('./path/inventory_adjustments');
 const logActivitiesPaths = require('./path/log_activities');
+const netsuiteScriptsPaths = require('./path/netsuite_scripts');
 
 // Combine all schemas
 const schemas = {
@@ -123,6 +125,7 @@ const schemas = {
   ...attachFileSchema,
   ...inventoryAdjustmentsSchema,
   ...logActivitiesSchema,
+  ...netsuiteScriptsSchema,
   // ...yourModuleSchema,
 };
 
@@ -157,6 +160,7 @@ const paths = {
   ...attachFilePaths,
   ...inventoryAdjustmentsPaths,
   ...logActivitiesPaths,
+  ...netsuiteScriptsPaths,
   // ...yourModulePaths,
 };
 
