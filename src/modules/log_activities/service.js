@@ -1,3 +1,4 @@
+const http = require("http");
 const knex = require("knex");
 const moment = require("moment");
 const {
@@ -100,6 +101,7 @@ const SOURCES_LIST = {
       "method",
       "status_code",
       "status as status_message",
+      dbNetsuite.raw("response::text as response_text"),
       "created_at",
       "updated_at",
     ],
@@ -123,6 +125,7 @@ const SOURCES_LIST = {
       "status_code",
       "status_messsage as status_message",
       "aggregate_type",
+      dbNetsuite.raw("response::text as response_text"),
       "created_at",
       "updated_at",
     ],
@@ -217,23 +220,76 @@ const parseModuleNames = (value, typeData) => {
   return routes.flat();
 };
 
-const mapItem = (row, client, typeData) => ({
-  id: row.id,
-  client,
-  type_data: typeData,
-  url: row.url,
-  module_name:
-    typeData === "netsuite"
-      ? resolveModuleNameByAggregateType(row.aggregate_type)
-      : resolveModuleName(row.url, row.method),
-  function_name: row.function_name,
-  status_code: row.status_code,
-  status_message: row.status_message,
-  payload: row.payload,
-  response: row.response,
-  created_at: formatDate(row.created_at),
-  updated_at: formatDate(row.updated_at),
-});
+const isErrorIndicatedInResponse = (responseString) => {
+  if (!responseString) return false;
+  return (
+    /"success"\s*:\s*false/i.test(responseString) ||
+    /"status"\s*:\s*"error"/i.test(responseString) ||
+    /error/i.test(responseString)
+  );
+};
+
+const toResponseString = (row) => {
+  const value = row.response_text ?? row.response;
+  if (value === undefined || value === null) return null;
+  return typeof value === "string" ? value : JSON.stringify(value);
+};
+
+// Pesan error yang berasal dari input/data request -> 400, selain itu 500
+const CLIENT_ERROR_PATTERN =
+  /invalid|required|not found|tidak valid|tidak ditemukan|wajib|locked|duplicate|already exist/i;
+
+/**
+ * Tentukan status_code & status_message berdasarkan isi response:
+ * - status_code asli sudah 4xx/5xx -> tetap
+ * - response mengindikasikan error -> pakai kode dari response (status code NNN / statusCode),
+ *   kalau tidak ada -> 400 (error input/data) atau 500
+ */
+const resolveStatus = (row) => {
+  const original = {
+    status_code: row.status_code,
+    status_message: row.status_message,
+  };
+  if (/^[45]\d{2}$/.test(String(row.status_code ?? "").trim())) return original;
+
+  const responseString = toResponseString(row);
+  if (!isErrorIndicatedInResponse(responseString)) return original;
+
+  const match = responseString.match(
+    /status_?code["\s:]*([45]\d{2})\b|status code\s*([45]\d{2})\b/i,
+  );
+  const code = match
+    ? Number(match[1] || match[2])
+    : CLIENT_ERROR_PATTERN.test(responseString)
+      ? 400
+      : 500;
+
+  return {
+    status_code: String(code),
+    status_message: http.STATUS_CODES[code] || "Error",
+  };
+};
+
+const mapItem = (row, client, typeData) => {
+  const { status_code, status_message } = resolveStatus(row);
+  return {
+    id: row.id,
+    client,
+    type_data: typeData,
+    url: row.url,
+    module_name:
+      typeData === "netsuite"
+        ? resolveModuleNameByAggregateType(row.aggregate_type)
+        : resolveModuleName(row.url, row.method),
+    function_name: row.function_name,
+    status_code,
+    status_message,
+    payload: row.payload,
+    response: row.response,
+    created_at: formatDate(row.created_at),
+    updated_at: formatDate(row.updated_at),
+  };
+};
 
 /**
  * Get log activities dari DB Netsuite (bridge_sanbox)
