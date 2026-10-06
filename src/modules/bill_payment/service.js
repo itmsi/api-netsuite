@@ -47,6 +47,7 @@ const getBillPaymentById = async (id) => {
       "department",
       "location",
       "custbody_cseg_cn_cfi",
+      "balance",
       "total",
       "exchangerate",
       "trandate",
@@ -108,10 +109,8 @@ const getBillPaymentById = async (id) => {
       department: row.department || null,
       location: row.location || null,
       custbody_cseg_cn_cfi: row.custbody_cseg_cn_cfi || null,
-      total:
-        row.total !== null && row.total !== undefined
-          ? parseFloat(row.total)
-          : null,
+      balance: row.balance || null,
+      total: row.total || null,
       exchangerate:
         row.exchangerate !== null && row.exchangerate !== undefined
           ? parseFloat(row.exchangerate)
@@ -173,6 +172,7 @@ const getBillPaymentList = async (body) => {
       "department_display",
       "location",
       "location_display",
+      "balance",
       "total",
       "exchangerate",
       "trandate",
@@ -287,6 +287,7 @@ const getBillPaymentList = async (body) => {
         "bills_payments.department",
         "bills_payments.location",
         "bills_payments.custbody_cseg_cn_cfi",
+        "bills_payments.balance",
         "bills_payments.total",
         "bills_payments.exchangerate",
         "bills_payments.trandate",
@@ -333,8 +334,8 @@ const getBillPaymentList = async (body) => {
       department: r.department || null,
       location: r.location || null,
       custbody_cseg_cn_cfi: r.custbody_cseg_cn_cfi || null,
-      total:
-        r.total !== null && r.total !== undefined ? parseFloat(r.total) : null,
+      balance: r.balance || null,
+      total: r.total || null,
       exchangerate:
         r.exchangerate !== null && r.exchangerate !== undefined
           ? parseFloat(r.exchangerate)
