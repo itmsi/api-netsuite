@@ -229,6 +229,10 @@ const isErrorIndicatedInResponse = (responseString) => {
   );
 };
 
+// Versi SQL dari isErrorIndicatedInResponse (dipakai untuk filter status)
+const RESPONSE_ERROR_SQL =
+  "coalesce(response::text, '') ~* '\"success\"\\s*:\\s*false|error'";
+
 const toResponseString = (row) => {
   const value = row.response_text ?? row.response;
   if (value === undefined || value === null) return null;
@@ -422,12 +426,19 @@ const getLogActivitiesList = async (body = {}) => {
       query = query.whereIn("status_code", statusCodes);
     }
 
-    // Filter status: success -> status_code 2xx, error -> selain 2xx (termasuk null)
+    // Filter status (samakan dengan resolveStatus, karena NetSuite tetap kirim 200 saat error):
+    // success -> status_code 2xx dan response tidak mengindikasikan error
+    // error   -> selain 2xx (termasuk null), atau response mengindikasikan error
     if (logStatus === "success") {
-      query = query.whereRaw("status_code ~ '^2[0-9]{2}$'");
+      query = query
+        .whereRaw("status_code ~ '^2[0-9]{2}$'")
+        .whereNot((qb) => qb.whereRaw(RESPONSE_ERROR_SQL));
     } else if (logStatus === "error") {
       query = query.where((qb) =>
-        qb.whereNull("status_code").orWhereRaw("status_code !~ '^2[0-9]{2}$'"),
+        qb
+          .whereNull("status_code")
+          .orWhereRaw("status_code !~ '^2[0-9]{2}$'")
+          .orWhereRaw(RESPONSE_ERROR_SQL),
       );
     }
 
