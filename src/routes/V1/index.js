@@ -110,4 +110,7 @@ routing.use(`${API_TAG}/item_type`, itemTypeModule);
 const inventoryAdjustmentsModule = require('../../modules/inventory_adjustments');
 routing.use(`${API_TAG}/inventory_adjustments`, inventoryAdjustmentsModule);
 
+const approvalAllModule = require('../../modules/approval_all');
+routing.use(`${API_TAG}/approval-all`, approvalAllModule);
+
 module.exports = routing;

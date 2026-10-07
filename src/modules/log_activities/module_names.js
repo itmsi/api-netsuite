@@ -1083,6 +1083,13 @@ const BRIDGE_ROUTES = [
     "/api/v1/bridge/attach_file/delete/:id",
     "delete attach file",
   ],
+  [
+    "approval_all",
+    "POST",
+    "/api/v1/bridge/approval-all",
+    "Approval All",
+    "approval_all",
+  ],
 ];
 
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
