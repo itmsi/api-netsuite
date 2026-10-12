@@ -71,7 +71,7 @@ router.post(
 
 /**
  * @route   GET /api/netsuite/bill-payment/attachments-files/download/:file_netsuite_id
- * @desc    Download file attachment by file_netsuite_id (stream dari bridge API)
+ * @desc    Get link download file attachment by file_netsuite_id (signed URL dari bridge API)
  * @access  Private
  */
 router.get(

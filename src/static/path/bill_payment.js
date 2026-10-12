@@ -159,8 +159,8 @@ const billPaymentPaths = {
   '/bill-payment/attachments-files/download/{file_netsuite_id}': {
     get: {
       tags: ['Bill Payment'],
-      summary: 'Download file attachment bill payment',
-      description: 'Download file hasil convert berdasarkan file_netsuite_id (nilai `download_url` dari /attachments-files/get).',
+      summary: 'Get link download file attachment bill payment',
+      description: 'Ambil URL download (signed URL dari bridge API) file hasil convert berdasarkan file_netsuite_id (nilai `download_url` dari /attachments-files/get).',
       security: [{ bearerAuth: [] }],
       parameters: [
         {
@@ -173,8 +173,24 @@ const billPaymentPaths = {
       ],
       responses: {
         200: {
-          description: 'File (auto download)',
-          content: { 'application/octet-stream': { schema: { type: 'string', format: 'binary' } } }
+          description: 'Success',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  success: { type: 'boolean', example: true },
+                  data: {
+                    type: 'object',
+                    properties: {
+                      url: { type: 'string', description: 'Signed URL, dibuka langsung di browser untuk auto download', example: 'http://localhost:9570/api/v1/bridge/bills-payments/attachments-files/file/eyJpZCI6...' }
+                    }
+                  },
+                  message: { type: 'string', example: 'Link download file berhasil dibuat' }
+                }
+              }
+            }
+          }
         },
         401: {
           description: 'Unauthorized',

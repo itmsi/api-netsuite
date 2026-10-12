@@ -186,21 +186,20 @@ const syncAttachmentFileById = async (req, res) => {
 };
 
 /**
- * Download file attachment bill payment (stream dari bridge API)
+ * Link download file attachment bill payment (signed URL dari bridge API)
  */
 const downloadAttachmentFile = async (req, res) => {
   try {
-    const file = await service.downloadAttachmentFile(req.params.file_netsuite_id);
-
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename*=UTF-8''${encodeURIComponent(file.file_name || "file")}`,
+    const result = await service.downloadAttachmentFile(
+      req.params.file_netsuite_id,
     );
-    if (file.content_type) res.setHeader("Content-Type", file.content_type);
-    if (file.content_length) res.setHeader("Content-Length", file.content_length);
-
-    file.stream.on("error", () => res.destroy());
-    return file.stream.pipe(res);
+    return baseResponse(res, {
+      data: {
+        success: true,
+        data: result,
+        message: "Link download file berhasil dibuat",
+      },
+    });
   } catch (error) {
     const statusCode = error.statusCode || 500;
     return res.status(statusCode).json({
