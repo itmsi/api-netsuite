@@ -1,5 +1,4 @@
 const axios = require("axios");
-const knex = require("knex");
 const authService = require("../auth/service");
 
 const parsePayloadDate = (dateStr) => {
@@ -176,17 +175,7 @@ const normalizeQuotationItems = async (
   return normalizedItems;
 };
 
-// Knex instance untuk DB Netsuite
-const dbNetsuite = knex({
-  client: "pg",
-  connection: {
-    host: process.env.DB_HOST_NETSUITE || "localhost",
-    port: parseInt(process.env.DB_PORT_NETSUITE) || 9541,
-    user: process.env.DB_USER_NETSUITE || "msiserver",
-    password: process.env.DB_PASS_NETSUITE,
-    database: process.env.DB_NAME_NETSUITE || "bridge_sanbox",
-  },
-});
+const { dbNetsuite } = require("../../config/database");
 
 const getQuotationById = async (id) => {
   try {

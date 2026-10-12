@@ -1,20 +1,9 @@
 const axios = require("axios");
-const knex = require("knex");
 const moment = require("moment");
 const authService = require("../auth/service");
 const { pgCore } = require("../../config/database");
 
-// Knex instance untuk DB Netsuite (bridge_sanbox)
-const dbNetsuite = knex({
-  client: "pg",
-  connection: {
-    host: process.env.DB_HOST_NETSUITE || "localhost",
-    port: parseInt(process.env.DB_PORT_NETSUITE) || 9541,
-    user: process.env.DB_USER_NETSUITE || "msiserver",
-    password: process.env.DB_PASS_NETSUITE,
-    database: process.env.DB_NAME_NETSUITE || "bridge_sanbox",
-  },
-});
+const { dbNetsuite } = require("../../config/database");
 
 const isUuid = (value) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(

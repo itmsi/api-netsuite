@@ -243,3 +243,13 @@ APM_ENABLED=false
 APM_SERVER_URL=http://localhost:8200
 APM_SERVICE_NAME=api-boilerplate
 APM_ENVIRONMENT=development
+
+# Database connection pool (knex)
+# DB core (pgCore): global, override per environment dengan suffix _DEV / _PROD / _TEST
+DB_POOL_MIN=0
+DB_POOL_MAX=10
+# DB Netsuite (dbNetsuite) - satu pool bersama untuk semua module
+DB_POOL_MIN_NETSUITE=0
+DB_POOL_MAX_NETSUITE=10
+DB_POOL_IDLE_TIMEOUT=30000
+DB_ACQUIRE_TIMEOUT=60000
