@@ -393,8 +393,201 @@ const syncBillPaymentById = async (netsuite_id) => {
   }
 };
 
+/**
+ * Get bill payment attachments dari DB Netsuite (bridge_sanbox.bills_payment_attachments)
+ */
+const getAttachmentFileList = async (body) => {
+  try {
+    const page = body.page !== undefined ? parseInt(body.page) : 1;
+    const limit = parseInt(body.page_size) || parseInt(body.limit) || 20;
+    const sortOrder = body.sort_order ? body.sort_order.toUpperCase() : "DESC";
+    const offset = (page - 1 < 0 ? 0 : page - 1) * limit;
+
+    const validSortColumns = [
+      "bill_payment_netsuite_id",
+      "tran_id",
+      "status",
+      "file_netsuite_id",
+      "file_name",
+      "file_type",
+      "created_at",
+      "updated_at",
+    ];
+    const orderCol = validSortColumns.includes(body.sort_by)
+      ? body.sort_by
+      : "created_at";
+
+    let query = dbNetsuite("bills_payment_attachments").where(
+      "is_deleted",
+      body.is_deleted !== undefined ? body.is_deleted : false,
+    );
+
+    if (body.bill_payment_netsuite_id) {
+      query = query.where(
+        "bill_payment_netsuite_id",
+        String(body.bill_payment_netsuite_id),
+      );
+    }
+    if (body.file_netsuite_id) {
+      query = query.where("file_netsuite_id", String(body.file_netsuite_id));
+    }
+    if (body.status) {
+      query = query.where("status", String(body.status).toUpperCase());
+    }
+    if (body.search) {
+      query = query.where(function () {
+        this.whereILike("file_name", `%${body.search}%`).orWhereILike(
+          "tran_id",
+          `%${body.search}%`,
+        );
+      });
+    }
+
+    const countResult = await query.clone().count("id as total").first();
+    const total = parseInt(countResult.total) || 0;
+    const totalPages = Math.ceil(total / limit);
+
+    const rows = await query
+      .clone()
+      .select([
+        "id",
+        "bill_payment_netsuite_id",
+        "tran_id",
+        "count",
+        "skipped_count",
+        "status",
+        "file_netsuite_id",
+        "file_name",
+        "file_type",
+        "file_size",
+        "file_is_text",
+        "file_skipped",
+        "file_link",
+        "created_at",
+        "created_by",
+        "updated_at",
+        "updated_by",
+        "is_deleted",
+      ])
+      .orderBy(orderCol, sortOrder)
+      .limit(limit)
+      .offset(offset);
+
+    const baseUrl = (process.env.APP_BASE_URL || "").replace(/\/+$/, "");
+    const items = rows.map((r) => ({
+      ...r,
+      // download_url:
+      //   r.status === "SUCCESS" && r.file_link
+      //     ? `${baseUrl}/api/netsuite/bill-payment/attachments-files/download/${r.file_netsuite_id}`
+      //     : null,
+    }));
+
+    return {
+      items,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+      },
+    };
+  } catch (error) {
+    throw {
+      message:
+        error.message ||
+        "Failed to fetch bill payment attachments from database",
+      statusCode: 500,
+    };
+  }
+};
+
+/**
+ * POST ke bridge API bills-payments dengan token auth
+ */
+const postToBridge = async (path, payload, defaultErrorMessage) => {
+  try {
+    const tokenResponse = await authService.getToken();
+    const token = tokenResponse.data.access_token;
+
+    const baseUrl = process.env.BRIDGE_BASE_URL || "http://localhost:9570";
+    const url = `${baseUrl}/api/v1/bridge/bills-payments${path}`;
+
+    const response = await axios.post(url, payload, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    return response.data?.data || response.data;
+  } catch (error) {
+    if (error.response) {
+      throw {
+        message: error.response.data?.message || defaultErrorMessage,
+        statusCode: error.response.status,
+        errors: error.response.data,
+      };
+    }
+    throw { message: error.message, statusCode: 500 };
+  }
+};
+
+/**
+ * Sync daftar attachment satu bill payment — hit bridge API POST /bills-payments/attachments-files/get
+ */
+const syncAttachmentFiles = async (id) =>
+  postToBridge(
+    "/attachments-files/get",
+    { id: parseInt(id) },
+    `Failed to sync attachments bill payment netsuite_id ${id} from bridge API`,
+  );
+
+/**
+ * Convert satu file attachment — hit bridge API POST /bills-payments/attachments-files/converted
+ */
+const syncAttachmentFileById = async (billPaymentNetsuiteId, fileNetsuiteId) =>
+  postToBridge(
+    "/attachments-files/converted",
+    {
+      bill_payment_netsuite_id: String(billPaymentNetsuiteId),
+      file_netsuite_id: String(fileNetsuiteId),
+    },
+    `Failed to convert attachment file ${fileNetsuiteId} from bridge API`,
+  );
+
+/**
+ * Download file attachment by file_netsuite_id: minta signed URL ke bridge API
+ * POST /bills-payments/attachments-files/download, lalu ambil file-nya sebagai stream
+ */
+const downloadAttachmentFile = async (fileNetsuiteId) => {
+  const link = await postToBridge(
+    "/attachments-files/download",
+    { file_netsuite_id: String(fileNetsuiteId) },
+    `Failed to get download link file ${fileNetsuiteId} from bridge API`,
+  );
+
+  try {
+    const response = await axios.get(link.url, { responseType: "stream" });
+    return {
+      stream: response.data,
+      file_name: link.file_name,
+      content_type: response.headers["content-type"],
+      content_length: response.headers["content-length"],
+    };
+  } catch (error) {
+    throw {
+      message: `Failed to download file ${fileNetsuiteId} from bridge API`,
+      statusCode: error.response?.status || 500,
+    };
+  }
+};
+
 module.exports = {
   getBillPaymentById,
   getBillPaymentList,
   syncBillPaymentById,
+  getAttachmentFileList,
+  syncAttachmentFiles,
+  syncAttachmentFileById,
+  downloadAttachmentFile,
 };

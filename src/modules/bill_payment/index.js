@@ -36,4 +36,48 @@ router.get(
   controller.syncById
 );
 
+/**
+ * @route   POST /api/netsuite/bill-payment/attachments-files/get
+ * @desc    Get bill payment attachments dari database lokal (bridge_sanbox.bills_payment_attachments)
+ * @access  Private
+ */
+router.post(
+  '/attachments-files/get',
+  verifyToken,
+  controller.getAttachmentFiles
+);
+
+/**
+ * @route   POST /api/netsuite/bill-payment/attachments-files/sync
+ * @desc    Sync daftar attachment satu bill payment dari bridge API
+ * @access  Private
+ */
+router.post(
+  '/attachments-files/sync',
+  verifyToken,
+  controller.syncAttachmentFiles
+);
+
+/**
+ * @route   POST /api/netsuite/bill-payment/attachments-files/sync/:id
+ * @desc    Convert satu file attachment (by bill payment netsuite_id) via bridge API
+ * @access  Private
+ */
+router.post(
+  '/attachments-files/sync/:id',
+  verifyToken,
+  controller.syncAttachmentFileById
+);
+
+/**
+ * @route   GET /api/netsuite/bill-payment/attachments-files/download/:file_netsuite_id
+ * @desc    Download file attachment by file_netsuite_id (stream dari bridge API)
+ * @access  Private
+ */
+router.get(
+  '/attachments-files/download/:file_netsuite_id',
+  verifyToken,
+  controller.downloadAttachmentFile
+);
+
 module.exports = router;

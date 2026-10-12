@@ -76,6 +76,62 @@ const billPaymentSchema = {
       trandate_to: { type: 'string', format: 'date', example: '2024-12-31' },
       current_approver_id: { type: 'string', nullable: true, example: '123' }
     }
+  },
+  BillPaymentAttachment: {
+    type: 'object',
+    properties: {
+      id: { type: 'string', format: 'uuid', example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' },
+      bill_payment_netsuite_id: { type: 'string', example: '100421' },
+      tran_id: { type: 'string', example: 'BP-00001' },
+      count: { type: 'string', example: '2' },
+      skipped_count: { type: 'string', example: '0' },
+      status: { type: 'string', enum: ['PENDING', 'SUCCESS', 'FAILED'], example: 'SUCCESS' },
+      file_netsuite_id: { type: 'string', example: '2913' },
+      file_name: { type: 'string', example: 'invoice.pdf' },
+      file_type: { type: 'string', example: 'PDF' },
+      file_size: { type: 'string', example: '102400' },
+      file_is_text: { type: 'boolean', example: false },
+      file_skipped: { type: 'boolean', example: false },
+      file_link: { type: 'string', nullable: true, example: 'bills_payment/100421/2913_invoice.pdf' },
+      download_url: { type: 'string', nullable: true, description: 'Link download file, wajib pakai Bearer token (null jika status belum SUCCESS)', example: 'http://localhost:9581/api/netsuite/bill-payment/attachments-files/download/2913' },
+      created_at: { type: 'string', format: 'date-time' },
+      created_by: { type: 'string', nullable: true },
+      updated_at: { type: 'string', format: 'date-time', nullable: true },
+      updated_by: { type: 'string', nullable: true },
+      is_deleted: { type: 'boolean', example: false }
+    }
+  },
+  BillPaymentAttachmentListRequest: {
+    type: 'object',
+    properties: {
+      page: { type: 'integer', example: 1 },
+      limit: { type: 'integer', example: 20 },
+      sort_by: {
+        type: 'string',
+        example: 'created_at',
+        enum: ['bill_payment_netsuite_id', 'tran_id', 'status', 'file_netsuite_id', 'file_name', 'file_type', 'created_at', 'updated_at']
+      },
+      sort_order: { type: 'string', enum: ['asc', 'desc'], example: 'desc' },
+      search: { type: 'string', description: 'Search by file_name atau tran_id', example: '' },
+      bill_payment_netsuite_id: { type: 'string', example: '100421' },
+      file_netsuite_id: { type: 'string', example: '' },
+      status: { type: 'string', enum: ['PENDING', 'SUCCESS', 'FAILED'], example: 'SUCCESS' },
+      is_deleted: { type: 'boolean', example: false }
+    }
+  },
+  BillPaymentAttachmentSyncRequest: {
+    type: 'object',
+    required: ['id'],
+    properties: {
+      id: { type: 'integer', description: 'NetSuite ID bill payment', example: 100421 }
+    }
+  },
+  BillPaymentAttachmentConvertRequest: {
+    type: 'object',
+    required: ['file_netsuite_id'],
+    properties: {
+      file_netsuite_id: { type: 'string', description: 'NetSuite ID file attachment', example: '2913' }
+    }
   }
 };
 
