@@ -1,5 +1,4 @@
 const http = require("http");
-const knex = require("knex");
 const moment = require("moment");
 const {
   resolveModuleName,
@@ -8,17 +7,7 @@ const {
   listModuleNames,
 } = require("./module_names");
 
-// Knex instance untuk DB Netsuite (bridge_sanbox)
-const dbNetsuite = knex({
-  client: "pg",
-  connection: {
-    host: process.env.DB_HOST_NETSUITE || "localhost",
-    port: parseInt(process.env.DB_PORT_NETSUITE) || 9541,
-    user: process.env.DB_USER_NETSUITE || "msiserver",
-    password: process.env.DB_PASS_NETSUITE,
-    database: process.env.DB_NAME_NETSUITE || "bridge_sanbox",
-  },
-});
+const { dbNetsuite } = require("../../config/database");
 
 const TYPE_DATA = ["apps", "netsuite"];
 const CLIENTS = ["ITI", "MSI"];
