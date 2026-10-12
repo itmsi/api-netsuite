@@ -159,8 +159,8 @@ const billPaymentPaths = {
   '/bill-payment/attachments-files/download/{file_netsuite_id}': {
     get: {
       tags: ['Bill Payment'],
-      summary: 'Get link download file attachment bill payment',
-      description: 'Ambil URL download (signed URL dari bridge API) file hasil convert berdasarkan file_netsuite_id (nilai `download_url` dari /attachments-files/get).',
+      summary: 'Download file attachment bill payment',
+      description: 'Download file hasil convert berdasarkan file_netsuite_id (nilai `download_url` dari /attachments-files/get). Wajib Bearer token, jadi di frontend panggil dengan fetch/axios (responseType blob), bukan dibuka langsung di browser.',
       security: [{ bearerAuth: [] }],
       parameters: [
         {
@@ -173,24 +173,14 @@ const billPaymentPaths = {
       ],
       responses: {
         200: {
-          description: 'Success',
-          content: {
-            'application/json': {
-              schema: {
-                type: 'object',
-                properties: {
-                  success: { type: 'boolean', example: true },
-                  data: {
-                    type: 'object',
-                    properties: {
-                      url: { type: 'string', description: 'Signed URL, dibuka langsung di browser untuk auto download', example: 'http://localhost:9570/api/v1/bridge/bills-payments/attachments-files/file/eyJpZCI6...' }
-                    }
-                  },
-                  message: { type: 'string', example: 'Link download file berhasil dibuat' }
-                }
-              }
+          description: 'File biner (pdf, zip, jpg, dll). Nama file ada di header Content-Disposition.',
+          headers: {
+            'Content-Disposition': {
+              description: 'attachment; filename*=UTF-8\'\'<nama file>',
+              schema: { type: 'string' }
             }
-          }
+          },
+          content: { 'application/octet-stream': { schema: { type: 'string', format: 'binary' } } }
         },
         401: {
           description: 'Unauthorized',
