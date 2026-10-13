@@ -186,25 +186,19 @@ const syncAttachmentFileById = async (req, res) => {
 };
 
 /**
- * Download file attachment bill payment (stream dari bridge API)
+ * Get link download file attachment bill payment dari bridge API
  */
 const downloadAttachmentFile = async (req, res) => {
   try {
-    const file = await service.downloadAttachmentFile(
+    const data = await service.downloadAttachmentFile(
       req.params.file_netsuite_id,
     );
-
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename*=UTF-8''${encodeURIComponent(file.file_name || "file")}`,
-    );
-    // Agar frontend (beda domain) bisa membaca nama file dari header
-    res.setHeader("Access-Control-Expose-Headers", "Content-Disposition");
-    res.setHeader("Content-Type", file.content_type || "application/octet-stream");
-    if (file.content_length) res.setHeader("Content-Length", file.content_length);
-
-    file.stream.on("error", () => res.destroy());
-    return file.stream.pipe(res);
+    res.setHeader("Cache-Control", "no-store");
+    return res.status(200).json({
+      success: true,
+      message: "Download link retrieved successfully",
+      data,
+    });
   } catch (error) {
     const statusCode = error.statusCode || 500;
     return res.status(statusCode).json({

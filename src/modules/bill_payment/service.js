@@ -556,32 +556,15 @@ const syncAttachmentFileById = async (billPaymentNetsuiteId, fileNetsuiteId) =>
   );
 
 /**
- * Download file attachment by file_netsuite_id: minta signed URL ke bridge API
- * POST /bills-payments/attachments-files/download, lalu ambil file-nya sebagai stream
- * (signed URL tidak pernah dikirim ke client)
+ * Get link download file attachment by file_netsuite_id — hit bridge API
+ * POST /bills-payments/attachments-files/download
  */
-const downloadAttachmentFile = async (fileNetsuiteId) => {
-  const link = await postToBridge(
+const downloadAttachmentFile = async (fileNetsuiteId) =>
+  postToBridge(
     "/attachments-files/download",
     { file_netsuite_id: String(fileNetsuiteId) },
     `Failed to get download link file ${fileNetsuiteId} from bridge API`,
   );
-
-  try {
-    const response = await axios.get(link.url, { responseType: "stream" });
-    return {
-      stream: response.data,
-      file_name: link.file_name,
-      content_type: response.headers["content-type"],
-      content_length: response.headers["content-length"],
-    };
-  } catch (error) {
-    throw {
-      message: `Failed to download file ${fileNetsuiteId} from bridge API`,
-      statusCode: error.response?.status || 500,
-    };
-  }
-};
 
 module.exports = {
   getBillPaymentById,
