@@ -195,6 +195,9 @@ const getBillPaymentList = async (body) => {
           .orWhereILike("bills_payments.memo", `%${body.search}%`);
       });
     }
+    if (body.next_approver) {
+      query = query.where("bills_payments.next_approver", body.next_approver);
+    }
     if (body.is_deleted !== undefined) {
       query = query.where("bills_payments.is_deleted", body.is_deleted);
     }
