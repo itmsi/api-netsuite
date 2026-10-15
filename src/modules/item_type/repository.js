@@ -30,28 +30,29 @@ const findAll = async ({ page = 1, limit = 10, search = '', sort_by = 'created_a
     });
   }
 
-  const countResult = await query.clone().count('id as count').first();
+  const [countResult, items] = await Promise.all([
+    query.clone().count('id as count').first(),
+    query
+      .clone()
+      .select([
+        'id',
+        'netsuite_id',
+        'code',
+        'name',
+        'created_at',
+        'created_by',
+        'updated_at',
+        'updated_by',
+        'deleted_at',
+        'deleted_by',
+        'is_deleted'
+      ])
+      .orderBy(orderCol, orderDir)
+      .limit(limit)
+      .offset(offset),
+  ]);
   const total = parseInt(countResult.count) || 0;
   const totalPages = Math.ceil(total / limit);
-
-  const items = await query
-    .clone()
-    .select([
-      'id',
-      'netsuite_id',
-      'code',
-      'name',
-      'created_at',
-      'created_by',
-      'updated_at',
-      'updated_by',
-      'deleted_at',
-      'deleted_by',
-      'is_deleted'
-    ])
-    .orderBy(orderCol, orderDir)
-    .limit(limit)
-    .offset(offset);
 
   return {
     items,

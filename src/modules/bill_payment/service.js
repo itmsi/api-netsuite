@@ -446,35 +446,36 @@ const getAttachmentFileList = async (body) => {
       });
     }
 
-    const countResult = await query.clone().count("id as total").first();
+    const [countResult, rows] = await Promise.all([
+      query.clone().count("id as total").first(),
+      query
+        .clone()
+        .select([
+          "id",
+          "bill_payment_netsuite_id",
+          "tran_id",
+          "count",
+          "skipped_count",
+          "status",
+          "file_netsuite_id",
+          "file_name",
+          "file_type",
+          "file_size",
+          "file_is_text",
+          "file_skipped",
+          "file_link",
+          "created_at",
+          "created_by",
+          "updated_at",
+          "updated_by",
+          "is_deleted",
+        ])
+        .orderBy(orderCol, sortOrder)
+        .limit(limit)
+        .offset(offset),
+    ]);
     const total = parseInt(countResult.total) || 0;
     const totalPages = Math.ceil(total / limit);
-
-    const rows = await query
-      .clone()
-      .select([
-        "id",
-        "bill_payment_netsuite_id",
-        "tran_id",
-        "count",
-        "skipped_count",
-        "status",
-        "file_netsuite_id",
-        "file_name",
-        "file_type",
-        "file_size",
-        "file_is_text",
-        "file_skipped",
-        "file_link",
-        "created_at",
-        "created_by",
-        "updated_at",
-        "updated_by",
-        "is_deleted",
-      ])
-      .orderBy(orderCol, sortOrder)
-      .limit(limit)
-      .offset(offset);
 
     const baseUrl = (process.env.APP_BASE_URL || "").replace(/\/+$/, "");
     const items = rows.map((r) => ({

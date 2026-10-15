@@ -205,18 +205,19 @@ const getInventoryAdjustmentsList = async (body) => {
       query = query.whereIn("t.class_id", classIds);
     }
 
-    const countResult = await query.clone().count("t.id as total").first();
+    const [countResult, rows] = await Promise.all([
+      query.clone().count("t.id as total").first(),
+      withCreatedUpdatedByJoins(query.clone())
+        .select([
+          ...INVENTORY_ADJUSTMENT_COLUMNS,
+          ...CREATED_UPDATED_BY_NAME_SELECTS(),
+        ])
+        .orderBy(`t.${orderCol}`, sortOrder)
+        .limit(limit)
+        .offset(offset),
+    ]);
     const total = parseInt(countResult.total) || 0;
     const totalPages = Math.ceil(total / limit);
-
-    const rows = await withCreatedUpdatedByJoins(query.clone())
-      .select([
-        ...INVENTORY_ADJUSTMENT_COLUMNS,
-        ...CREATED_UPDATED_BY_NAME_SELECTS(),
-      ])
-      .orderBy(`t.${orderCol}`, sortOrder)
-      .limit(limit)
-      .offset(offset);
 
     return {
       items: rows,

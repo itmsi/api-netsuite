@@ -42,26 +42,27 @@ const getClassesList = async (body) => {
     }
 
     // Hitung total
-    const countResult = await query.clone().count('* as total').first();
+    // Select kolom sesuai format response
+    const [countResult, items] = await Promise.all([
+      query.clone().count('* as total').first(),
+      query
+        .clone()
+        .select([
+          'netsuite_id as id',
+          'name',
+          'is_inactive',
+          'parent_id',
+          'parent_name',
+          'subsidiary_id',
+          'subsidiary_name',
+          'last_modified_netsuite as last_modified'
+        ])
+        .orderBy(orderCol, sortOrder)
+        .limit(limit)
+        .offset(offset),
+    ]);
     const total = parseInt(countResult.total) || 0;
     const totalPages = Math.ceil(total / limit);
-
-    // Select kolom sesuai format response
-    const items = await query
-      .clone()
-      .select([
-        'netsuite_id as id',
-        'name',
-        'is_inactive',
-        'parent_id',
-        'parent_name',
-        'subsidiary_id',
-        'subsidiary_name',
-        'last_modified_netsuite as last_modified'
-      ])
-      .orderBy(orderCol, sortOrder)
-      .limit(limit)
-      .offset(offset);
 
     return {
       items,
@@ -141,6 +142,7 @@ const syncClassesList = async (body) => {
 };
 
 const { pgCore: db } = require('../../config/database');
+const { upsertByKey } = require('../../utils/sync_upsert');
 
 /**
  * Memproses sync ke tabel class di gate_sso
@@ -150,6 +152,7 @@ const processClassSync = async (records) => {
 
   const trx = await db.transaction();
   try {
+    const rows = [];
     for (const record of records) {
       const data = {
         netsuite_id: record.netsuite_id || record.id,
@@ -168,14 +171,11 @@ const processClassSync = async (records) => {
       // or parseInt if it's an integer. 
       // Looking at the query in getClassesList, it uses netsuite_id.
 
-      const existing = await trx('class').where('netsuite_id', data.netsuite_id.toString()).first();
-      if (existing) {
-        await trx('class').where('netsuite_id', data.netsuite_id.toString()).update(data);
-      } else {
-        data.created_at = db.fn.now();
-        await trx('class').insert(data);
-      }
+      rows.push(data);
     }
+    await upsertByKey(trx, 'class', rows, {
+      onInsert: (row) => ({ ...row, created_at: db.fn.now() }),
+    });
     await trx.commit();
   } catch (error) {
     await trx.rollback();

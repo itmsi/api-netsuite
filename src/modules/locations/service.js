@@ -65,30 +65,31 @@ const getLocationsList = async (body) => {
     }
 
     // Hitung total
-    const countResult = await query.clone().count("* as total").first();
+    // Select kolom sesuai format response
+    const [countResult, rows] = await Promise.all([
+      query.clone().count("* as total").first(),
+      query
+        .clone()
+        .select([
+          "netsuite_id as id",
+          "name",
+          "is_inactive",
+          "parent_id",
+          "parent_name",
+          "subsidiary_id",
+          "subsidiary_name",
+          "location_type",
+          "location_type_name",
+          "timezone",
+          "make_inventory_available",
+          "last_modified_netsuite",
+        ])
+        .orderBy(orderCol, sortOrder)
+        .limit(limit)
+        .offset(offset),
+    ]);
     const total = parseInt(countResult.total) || 0;
     const totalPages = Math.ceil(total / limit);
-
-    // Select kolom sesuai format response
-    const rows = await query
-      .clone()
-      .select([
-        "netsuite_id as id",
-        "name",
-        "is_inactive",
-        "parent_id",
-        "parent_name",
-        "subsidiary_id",
-        "subsidiary_name",
-        "location_type",
-        "location_type_name",
-        "timezone",
-        "make_inventory_available",
-        "last_modified_netsuite",
-      ])
-      .orderBy(orderCol, sortOrder)
-      .limit(limit)
-      .offset(offset);
 
     // Format last_modified ke "D/M/YYYY"
     const items = rows
@@ -173,6 +174,7 @@ const syncLocationsList = async (body) => {
 };
 
 const { pgCore: db } = require("../../config/database");
+const { upsertByKey } = require("../../utils/sync_upsert");
 
 /**
  * Memproses sync ke tabel terms di gate_sso
@@ -182,6 +184,7 @@ const processLocationsSync = async (records) => {
 
   const trx = await db.transaction();
   try {
+    const rows = [];
     for (const record of records) {
       const data = {
         netsuite_id: record.netsuite_id || record.id,
@@ -204,18 +207,11 @@ const processLocationsSync = async (records) => {
         updated_at: db.fn.now(),
       };
 
-      const existing = await trx("locations")
-        .where("netsuite_id", data.netsuite_id.toString())
-        .first();
-      if (existing) {
-        await trx("locations")
-          .where("netsuite_id", data.netsuite_id.toString())
-          .update(data);
-      } else {
-        data.created_at = db.fn.now();
-        await trx("locations").insert(data);
-      }
+      rows.push(data);
     }
+    await upsertByKey(trx, "locations", rows, {
+      onInsert: (row) => ({ ...row, created_at: db.fn.now() }),
+    });
     await trx.commit();
   } catch (error) {
     await trx.rollback();

@@ -150,54 +150,55 @@ const getTransferOrders = async (body) => {
 
     const { query } = await buildTransferOrdersFilteredQuery(body);
 
-    const countResult = await query.clone().count("* as total").first();
+    const [countResult, items] = await Promise.all([
+      query.clone().count("* as total").first(),
+      query
+        .clone()
+        .leftJoin(
+          "gate_sso_employees as created_emp",
+          dbNetsuite.raw("t.created_by::text = created_emp.employee_id::text"),
+        )
+        .leftJoin(
+          "gate_sso_employees as updated_emp",
+          dbNetsuite.raw("t.updated_by::text = updated_emp.employee_id::text"),
+        )
+        .select([
+          "t.id",
+          "t.netsuite_id",
+          "t.tranid",
+          "t.status_code",
+          "t.status_name",
+          "t.from_location_id",
+          "t.from_location_name",
+          "t.to_location_id",
+          "t.to_location_name",
+          "t.memo",
+          "t.tran_date",
+          "t.datecreated",
+          "t.last_modified_netsuite",
+          "t.custbody_msi_createdby_api",
+          // dbNetsuite.raw(
+          //   "CASE WHEN NULLIF(t.custbody_msi_createdby_api, '') IS NULL THEN COALESCE(NULLIF(created_emp.employee_name, ''), '') ELSE t.custbody_msi_createdby_api END AS created_by_name",
+          // ),
+          // dbNetsuite.raw(
+          //   "CASE WHEN NULLIF(created_emp.employee_name, '') IS NULL THEN COALESCE(NULLIF(t.custbody_msi_createdby_api, ''), '') ELSE created_emp.employee_name END AS created_by_name",
+          // ),
+          //intinya jika custbody_msi_createdby_api null maka dia di create dari netsuite langsung
+          dbNetsuite.raw(
+            "CASE WHEN NULLIF(t.custbody_msi_createdby_api, '') IS NULL THEN t.created_by_netsuite_name ELSE COALESCE(NULLIF(created_emp.employee_name, ''), '') END AS created_by_name",
+          ),
+          "updated_emp.employee_name as updated_by_name",
+          "t.status_proccess",
+          "t.status_proccess_message",
+          "t.created_at",
+          "t.updated_at",
+        ])
+        .orderBy(`t.${orderCol}`, sortOrder)
+        .limit(limit)
+        .offset(offset),
+    ]);
     const total = parseInt(countResult.total) || 0;
     const totalPages = Math.ceil(total / limit);
-
-    const items = await query
-      .clone()
-      .leftJoin(
-        "gate_sso_employees as created_emp",
-        dbNetsuite.raw("t.created_by::text = created_emp.employee_id::text"),
-      )
-      .leftJoin(
-        "gate_sso_employees as updated_emp",
-        dbNetsuite.raw("t.updated_by::text = updated_emp.employee_id::text"),
-      )
-      .select([
-        "t.id",
-        "t.netsuite_id",
-        "t.tranid",
-        "t.status_code",
-        "t.status_name",
-        "t.from_location_id",
-        "t.from_location_name",
-        "t.to_location_id",
-        "t.to_location_name",
-        "t.memo",
-        "t.tran_date",
-        "t.datecreated",
-        "t.last_modified_netsuite",
-        "t.custbody_msi_createdby_api",
-        // dbNetsuite.raw(
-        //   "CASE WHEN NULLIF(t.custbody_msi_createdby_api, '') IS NULL THEN COALESCE(NULLIF(created_emp.employee_name, ''), '') ELSE t.custbody_msi_createdby_api END AS created_by_name",
-        // ),
-        // dbNetsuite.raw(
-        //   "CASE WHEN NULLIF(created_emp.employee_name, '') IS NULL THEN COALESCE(NULLIF(t.custbody_msi_createdby_api, ''), '') ELSE created_emp.employee_name END AS created_by_name",
-        // ),
-        //intinya jika custbody_msi_createdby_api null maka dia di create dari netsuite langsung
-        dbNetsuite.raw(
-          "CASE WHEN NULLIF(t.custbody_msi_createdby_api, '') IS NULL THEN t.created_by_netsuite_name ELSE COALESCE(NULLIF(created_emp.employee_name, ''), '') END AS created_by_name",
-        ),
-        "updated_emp.employee_name as updated_by_name",
-        "t.status_proccess",
-        "t.status_proccess_message",
-        "t.created_at",
-        "t.updated_at",
-      ])
-      .orderBy(`t.${orderCol}`, sortOrder)
-      .limit(limit)
-      .offset(offset);
 
     return {
       items,
@@ -307,48 +308,49 @@ const getMobileTransferOrders = async (body) => {
       query = query.whereIn("t.class_id", classIds);
     }
 
-    const countResult = await query.clone().count("* as total").first();
+    const [countResult, items] = await Promise.all([
+      query.clone().count("* as total").first(),
+      query
+        .clone()
+        .leftJoin(
+          "gate_sso_employees as created_emp",
+          dbNetsuite.raw("t.created_by::text = created_emp.employee_id::text"),
+        )
+        .leftJoin(
+          "gate_sso_employees as updated_emp",
+          dbNetsuite.raw("t.updated_by::text = updated_emp.employee_id::text"),
+        )
+        .select([
+          "t.id",
+          "t.netsuite_id",
+          "t.tranid",
+          "t.status_code",
+          "t.status_name",
+          "t.from_location_id",
+          "t.from_location_name",
+          "t.to_location_id",
+          "t.to_location_name",
+          "t.memo",
+          "t.tran_date",
+          "t.datecreated",
+          "t.last_modified_netsuite",
+          "t.custbody_msi_createdby_api",
+          dbNetsuite.raw(
+            "CASE WHEN NULLIF(t.custbody_msi_createdby_api, '') IS NULL THEN t.created_by_netsuite_name ELSE COALESCE(NULLIF(created_emp.employee_name, ''), '') END AS created_by_name",
+          ),
+          "updated_emp.employee_name as updated_by_name",
+          "t.status_proccess",
+          "t.status_proccess_message",
+          "t.created_at",
+          "t.updated_at",
+          "t.items",
+        ])
+        .orderBy(`t.${orderCol}`, sortOrder)
+        .limit(limit)
+        .offset(offset),
+    ]);
     const total = parseInt(countResult.total) || 0;
     const totalPages = Math.ceil(total / limit);
-
-    const items = await query
-      .clone()
-      .leftJoin(
-        "gate_sso_employees as created_emp",
-        dbNetsuite.raw("t.created_by::text = created_emp.employee_id::text"),
-      )
-      .leftJoin(
-        "gate_sso_employees as updated_emp",
-        dbNetsuite.raw("t.updated_by::text = updated_emp.employee_id::text"),
-      )
-      .select([
-        "t.id",
-        "t.netsuite_id",
-        "t.tranid",
-        "t.status_code",
-        "t.status_name",
-        "t.from_location_id",
-        "t.from_location_name",
-        "t.to_location_id",
-        "t.to_location_name",
-        "t.memo",
-        "t.tran_date",
-        "t.datecreated",
-        "t.last_modified_netsuite",
-        "t.custbody_msi_createdby_api",
-        dbNetsuite.raw(
-          "CASE WHEN NULLIF(t.custbody_msi_createdby_api, '') IS NULL THEN t.created_by_netsuite_name ELSE COALESCE(NULLIF(created_emp.employee_name, ''), '') END AS created_by_name",
-        ),
-        "updated_emp.employee_name as updated_by_name",
-        "t.status_proccess",
-        "t.status_proccess_message",
-        "t.created_at",
-        "t.updated_at",
-        "t.items",
-      ])
-      .orderBy(`t.${orderCol}`, sortOrder)
-      .limit(limit)
-      .offset(offset);
 
     return {
       items,

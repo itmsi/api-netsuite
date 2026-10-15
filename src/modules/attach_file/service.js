@@ -23,14 +23,15 @@ const getList = async (filters, page = 1, limit = 10) => {
     query = query.where("file_name", "ilike", `%${search}%`);
   }
 
-  const [{ count }] = await query.clone().count("id as count");
+  const [[{ count }], items] = await Promise.all([
+    query.clone().count("id as count"),
+    query
+      .orderBy(sort_by, sort_order)
+      .limit(limit)
+      .offset(offset),
+  ]);
   const total = parseInt(count, 10);
   const totalPages = Math.ceil(total / limit);
-
-  const items = await query
-    .orderBy(sort_by, sort_order)
-    .limit(limit)
-    .offset(offset);
 
   return {
     items,

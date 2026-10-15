@@ -332,6 +332,7 @@ const getItemByNetsuiteId = async (netsuiteId) => {
 };
 
 const { pgCore: db } = require("../../config/database");
+const { upsertByKey } = require("../../utils/sync_upsert");
 
 /**
  * Memproses sync ke tabel items di gate_sso
@@ -341,6 +342,7 @@ const processItemsSync = async (records) => {
 
   const trx = await db.transaction();
   try {
+    const rows = [];
     for (const record of records) {
       const data = {
         netsuite_id: record.netsuite_id || record.id,
@@ -356,18 +358,11 @@ const processItemsSync = async (records) => {
         updated_at: db.fn.now(),
       };
 
-      const existing = await trx("items")
-        .where("netsuite_id", data.netsuite_id.toString())
-        .first();
-      if (existing) {
-        await trx("items")
-          .where("netsuite_id", data.netsuite_id.toString())
-          .update(data);
-      } else {
-        data.created_at = db.fn.now();
-        await trx("items").insert(data);
-      }
+      rows.push(data);
     }
+    await upsertByKey(trx, "items", rows, {
+      onInsert: (row) => ({ ...row, created_at: db.fn.now() }),
+    });
     await trx.commit();
   } catch (error) {
     await trx.rollback();
@@ -425,28 +420,29 @@ const getItemLocation = async (body) => {
     }
 
     // Hitung total
-    const countResult = await query.clone().count("* as total").first();
+    // Select the specified columns
+    const [countResult, rows] = await Promise.all([
+      query.clone().count("* as total").first(),
+      query
+        .clone()
+        .select([
+          "il.inventorylocationId",
+          "il.item_id",
+          "l.name as location_name",
+          "i.item_id as item_code",
+          "i.display_name as item_name",
+          "il.qtyAvailable",
+          "il.qtyBackOrder",
+          "il.qtyCommitted",
+          "il.qtyOnHand",
+          "il.qtyOnOrder",
+        ])
+        .orderByRaw(`${orderCol} ${sortOrder} NULLS LAST`)
+        .limit(limit)
+        .offset(offset),
+    ]);
     const total = parseInt(countResult.total) || 0;
     const totalPages = Math.ceil(total / limit);
-
-    // Select the specified columns
-    const rows = await query
-      .clone()
-      .select([
-        "il.inventorylocationId",
-        "il.item_id",
-        "l.name as location_name",
-        "i.item_id as item_code",
-        "i.display_name as item_name",
-        "il.qtyAvailable",
-        "il.qtyBackOrder",
-        "il.qtyCommitted",
-        "il.qtyOnHand",
-        "il.qtyOnOrder",
-      ])
-      .orderByRaw(`${orderCol} ${sortOrder} NULLS LAST`)
-      .limit(limit)
-      .offset(offset);
 
     return {
       items: rows,
@@ -538,60 +534,61 @@ const getItemReceipts = async (body) => {
       query = query.whereIn("class", classIds);
     }
 
-    const countResult = await query.clone().count("* as total").first();
+    const [countResult, rows] = await Promise.all([
+      query.clone().count("* as total").first(),
+      query
+        .clone()
+        .leftJoin(
+          "gate_sso_employees as created_emp",
+          dbNetsuite.raw("t.created_by::text = created_emp.employee_id::text"),
+        )
+        .select([
+          "id",
+          "netsuite_id",
+          "source_type",
+          "source_type_display",
+          "tranid",
+          "trandate",
+          "status",
+          "status_display",
+          "memo",
+          "vendor_id",
+          "vendor_name",
+          "createdfrom",
+          "createdfrom_display",
+          "subsidiary",
+          "subsidiary_display",
+          "location",
+          "location_display",
+          "department",
+          "department_display",
+          "class",
+          "class_display",
+          "inboundshipment",
+          "inboundshipment_display",
+          "postingperiod",
+          "incoterm_id",
+          "incoterm_name",
+          "currency",
+          "currency_display",
+          "exchangerate",
+          "transferlocation",
+          "transferlocation_display",
+          "last_modified_netsuite",
+          "datecreated_netsuite",
+          "created_at",
+          dbNetsuite.raw(
+            "CASE WHEN NULLIF(t.created_by::text, '') IS NULL THEN t.created_by_name_netsuite ELSE COALESCE(NULLIF(created_emp.employee_name, ''), '') END AS created_by_name",
+          ),
+          "created_by_name_netsuite as created_by_netsuite",
+          "updated_at",
+        ])
+        .orderBy(orderCol, sortOrder)
+        .limit(limit)
+        .offset(offset),
+    ]);
     const total = parseInt(countResult.total) || 0;
     const totalPages = Math.ceil(total / limit);
-
-    const rows = await query
-      .clone()
-      .leftJoin(
-        "gate_sso_employees as created_emp",
-        dbNetsuite.raw("t.created_by::text = created_emp.employee_id::text"),
-      )
-      .select([
-        "id",
-        "netsuite_id",
-        "source_type",
-        "source_type_display",
-        "tranid",
-        "trandate",
-        "status",
-        "status_display",
-        "memo",
-        "vendor_id",
-        "vendor_name",
-        "createdfrom",
-        "createdfrom_display",
-        "subsidiary",
-        "subsidiary_display",
-        "location",
-        "location_display",
-        "department",
-        "department_display",
-        "class",
-        "class_display",
-        "inboundshipment",
-        "inboundshipment_display",
-        "postingperiod",
-        "incoterm_id",
-        "incoterm_name",
-        "currency",
-        "currency_display",
-        "exchangerate",
-        "transferlocation",
-        "transferlocation_display",
-        "last_modified_netsuite",
-        "datecreated_netsuite",
-        "created_at",
-        dbNetsuite.raw(
-          "CASE WHEN NULLIF(t.created_by::text, '') IS NULL THEN t.created_by_name_netsuite ELSE COALESCE(NULLIF(created_emp.employee_name, ''), '') END AS created_by_name",
-        ),
-        "created_by_name_netsuite as created_by_netsuite",
-        "updated_at",
-      ])
-      .orderBy(orderCol, sortOrder)
-      .limit(limit)
-      .offset(offset);
 
     return {
       items: rows,
@@ -866,20 +863,21 @@ const getItemFulfillments = async (body) => {
       query = query.whereIn("class", classIds);
     }
 
-    const countResult = await query.clone().count("* as total").first();
+    const [countResult, rows] = await Promise.all([
+      query.clone().count("* as total").first(),
+      query
+        .clone()
+        .leftJoin(
+          "gate_sso_employees as created_emp",
+          dbNetsuite.raw("t.created_by::text = created_emp.employee_id::text"),
+        )
+        .select(FULFILLMENT_COLUMNS)
+        .orderBy(orderCol, sortOrder)
+        .limit(limit)
+        .offset(offset),
+    ]);
     const total = parseInt(countResult.total) || 0;
     const totalPages = Math.ceil(total / limit);
-
-    const rows = await query
-      .clone()
-      .leftJoin(
-        "gate_sso_employees as created_emp",
-        dbNetsuite.raw("t.created_by::text = created_emp.employee_id::text"),
-      )
-      .select(FULFILLMENT_COLUMNS)
-      .orderBy(orderCol, sortOrder)
-      .limit(limit)
-      .offset(offset);
 
     return {
       items: rows,
@@ -1244,29 +1242,30 @@ const getItemLocationsList = async (body) => {
       });
     }
 
-    const countResult = await query.clone().count("il.id as total").first();
+    const [countResult, rows] = await Promise.all([
+      query.clone().count("il.id as total").first(),
+      query
+        .clone()
+        .select([
+          "il.id",
+          "il.inventorylocationId",
+          "il.item_id",
+          "l.name as location_name",
+          "il.qtyAvailable",
+          "il.qtyOnHand",
+          "il.qtyOnOrder",
+          "il.qtyCommitted",
+          "il.qtyBackOrder",
+          "il.serialNumbers",
+          "il.created_at",
+          "il.updated_at",
+        ])
+        .orderByRaw(`${orderCol} ${sortOrder} NULLS LAST`)
+        .limit(limit)
+        .offset(offset),
+    ]);
     const total = parseInt(countResult.total) || 0;
     const totalPages = Math.ceil(total / limit);
-
-    const rows = await query
-      .clone()
-      .select([
-        "il.id",
-        "il.inventorylocationId",
-        "il.item_id",
-        "l.name as location_name",
-        "il.qtyAvailable",
-        "il.qtyOnHand",
-        "il.qtyOnOrder",
-        "il.qtyCommitted",
-        "il.qtyBackOrder",
-        "il.serialNumbers",
-        "il.created_at",
-        "il.updated_at",
-      ])
-      .orderByRaw(`${orderCol} ${sortOrder} NULLS LAST`)
-      .limit(limit)
-      .offset(offset);
 
     return { items: rows, pagination: { page, limit, total, totalPages } };
   } catch (error) {
@@ -1316,26 +1315,27 @@ const getItemTierPricesList = async (body) => {
       });
     }
 
-    const countResult = await query.clone().count("itp.id as total").first();
+    const [countResult, rows] = await Promise.all([
+      query.clone().count("itp.id as total").first(),
+      query
+        .clone()
+        .select([
+          "itp.id",
+          "itp.item_id",
+          "itp.price_level",
+          "itp.price",
+          "itp.quantity",
+          "itp.created_at",
+          "itp.created_by",
+          "itp.updated_at",
+          "itp.updated_by",
+        ])
+        .orderBy(`itp.${orderCol}`, sortOrder)
+        .limit(limit)
+        .offset(offset),
+    ]);
     const total = parseInt(countResult.total) || 0;
     const totalPages = Math.ceil(total / limit);
-
-    const rows = await query
-      .clone()
-      .select([
-        "itp.id",
-        "itp.item_id",
-        "itp.price_level",
-        "itp.price",
-        "itp.quantity",
-        "itp.created_at",
-        "itp.created_by",
-        "itp.updated_at",
-        "itp.updated_by",
-      ])
-      .orderBy(`itp.${orderCol}`, sortOrder)
-      .limit(limit)
-      .offset(offset);
 
     return { items: rows, pagination: { page, limit, total, totalPages } };
   } catch (error) {
@@ -1399,32 +1399,33 @@ const getItemSerialNumbersList = async (body) => {
       });
     }
 
-    const countResult = await query.clone().count("isn.id as total").first();
+    const [countResult, rows] = await Promise.all([
+      query.clone().count("isn.id as total").first(),
+      query
+        .clone()
+        .leftJoin(
+          "locations as l",
+          dbNetsuite.raw("l.netsuite_id::integer"),
+          dbNetsuite.raw('isn."inventorylocationId"::integer'),
+        )
+        .select([
+          "isn.id",
+          "isn.item_id",
+          "isn.inventorylocationId",
+          "l.name as location_name",
+          "isn.serial_number",
+          "isn.is_used",
+          "isn.created_at",
+          "isn.created_by",
+          "isn.updated_at",
+          "isn.updated_by",
+        ])
+        .orderBy(`isn.${orderCol}`, sortOrder)
+        .limit(limit)
+        .offset(offset),
+    ]);
     const total = parseInt(countResult.total) || 0;
     const totalPages = Math.ceil(total / limit);
-
-    const rows = await query
-      .clone()
-      .leftJoin(
-        "locations as l",
-        dbNetsuite.raw("l.netsuite_id::integer"),
-        dbNetsuite.raw('isn."inventorylocationId"::integer'),
-      )
-      .select([
-        "isn.id",
-        "isn.item_id",
-        "isn.inventorylocationId",
-        "l.name as location_name",
-        "isn.serial_number",
-        "isn.is_used",
-        "isn.created_at",
-        "isn.created_by",
-        "isn.updated_at",
-        "isn.updated_by",
-      ])
-      .orderBy(`isn.${orderCol}`, sortOrder)
-      .limit(limit)
-      .offset(offset);
 
     return { items: rows, pagination: { page, limit, total, totalPages } };
   } catch (error) {

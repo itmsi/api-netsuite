@@ -41,27 +41,28 @@ const findAll = async ({ page = 1, limit = 10, search = '', sort_by = 'sync_id',
     });
   }
 
-  const countResult = await baseQuery.clone().count(`${TABLE_NAME}.sync_id as total`).first();
+  const [countResult, items] = await Promise.all([
+    baseQuery.clone().count(`${TABLE_NAME}.sync_id as total`).first(),
+    baseQuery
+      .clone()
+      .select([
+        `${TABLE_NAME}.sync_id`,
+        `${TABLE_NAME}.sync_module`,
+        `${TABLE_NAME}.sync_status`,
+        `${TABLE_NAME}.count_data`,
+        `${TABLE_NAME}.created_at`,
+        `${TABLE_NAME}.created_by`,
+        'employees.employee_name as created_by_name',
+        `${TABLE_NAME}.updated_at`,
+        `${TABLE_NAME}.updated_by`,
+        `${TABLE_NAME}.is_delete`
+      ])
+      .orderBy(`${TABLE_NAME}.${orderCol}`, orderDir)
+      .limit(limit)
+      .offset(offset),
+  ]);
   const total = parseInt(countResult.total) || 0;
   const totalPages = Math.ceil(total / limit);
-
-  const items = await baseQuery
-    .clone()
-    .select([
-      `${TABLE_NAME}.sync_id`,
-      `${TABLE_NAME}.sync_module`,
-      `${TABLE_NAME}.sync_status`,
-      `${TABLE_NAME}.count_data`,
-      `${TABLE_NAME}.created_at`,
-      `${TABLE_NAME}.created_by`,
-      'employees.employee_name as created_by_name',
-      `${TABLE_NAME}.updated_at`,
-      `${TABLE_NAME}.updated_by`,
-      `${TABLE_NAME}.is_delete`
-    ])
-    .orderBy(`${TABLE_NAME}.${orderCol}`, orderDir)
-    .limit(limit)
-    .offset(offset);
 
   return {
     items,

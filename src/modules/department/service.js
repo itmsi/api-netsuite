@@ -35,26 +35,27 @@ const getDepartmentsList = async (body) => {
     }
 
     // Hitung total
-    const countResult = await query.clone().count('* as total').first();
+    // Select kolom sesuai format response
+    const [countResult, items] = await Promise.all([
+      query.clone().count('* as total').first(),
+      query
+        .clone()
+        .select([
+          'netsuite_id as id',
+          'name',
+          'is_inactive',
+          'parent_id',
+          'parent_name',
+          'subsidiary_id',
+          'subsidiary_name',
+          'last_modified_netsuite as last_modified'
+        ])
+        .orderBy(orderCol, sortOrder)
+        .limit(limit)
+        .offset(offset),
+    ]);
     const total       = parseInt(countResult.total) || 0;
     const totalPages  = Math.ceil(total / limit);
-
-    // Select kolom sesuai format response
-    const items = await query
-      .clone()
-      .select([
-        'netsuite_id as id',
-        'name',
-        'is_inactive',
-        'parent_id',
-        'parent_name',
-        'subsidiary_id',
-        'subsidiary_name',
-        'last_modified_netsuite as last_modified'
-      ])
-      .orderBy(orderCol, sortOrder)
-      .limit(limit)
-      .offset(offset);
 
     return {
       items,

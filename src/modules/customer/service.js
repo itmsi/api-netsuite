@@ -71,16 +71,17 @@ const getCustomerList = async (body) => {
     }
 
     // Get total count for pagination
-    const countResult = await query.clone().count('* as total').first();
+    // Get items with sorting and pagination
+    const [countResult, items] = await Promise.all([
+      query.clone().count('* as total').first(),
+      query
+        .select('*')
+        .orderBy(orderCol, sortOrder)
+        .limit(limit)
+        .offset(offset),
+    ]);
     const total = parseInt(countResult.total) || 0;
     const totalPages = Math.ceil(total / limit);
-
-    // Get items with sorting and pagination
-    const items = await query
-      .select('*')
-      .orderBy(orderCol, sortOrder)
-      .limit(limit)
-      .offset(offset);
 
     return {
       items,
