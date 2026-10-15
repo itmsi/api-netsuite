@@ -447,16 +447,17 @@ const getLogActivitiesList = async (body = {}) => {
     }
 
     // Hitung total
-    const countResult = await query.clone().count("* as total").first();
+    const [countResult, rows] = await Promise.all([
+      query.clone().count("* as total").first(),
+      query
+        .clone()
+        .select(source.select)
+        .orderBy(orderCol, sortOrder)
+        .limit(limit)
+        .offset(offset),
+    ]);
     const total = parseInt(countResult.total) || 0;
     const totalPages = Math.ceil(total / limit);
-
-    const rows = await query
-      .clone()
-      .select(source.select)
-      .orderBy(orderCol, sortOrder)
-      .limit(limit)
-      .offset(offset);
 
     const items = rows.map((row) =>
       mapItem(row, client, typeData, { checkResponseStatus: true }),

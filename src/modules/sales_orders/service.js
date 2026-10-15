@@ -338,14 +338,15 @@ const getSalesOrders = async (body) => {
       dataQuery = dataQuery.where("so.enddate", "<=", body.trans_date_end);
     }
 
-    const countResult = await countQuery.count("* as total").first();
+    const [countResult, rows] = await Promise.all([
+      countQuery.count("* as total").first(),
+      dataQuery
+        .orderBy(`so.${sortBy}`, sortOrder)
+        .limit(limit)
+        .offset(offset),
+    ]);
     const total = parseInt(countResult.total) || 0;
     const totalPages = Math.ceil(total / limit);
-
-    const rows = await dataQuery
-      .orderBy(`so.${sortBy}`, sortOrder)
-      .limit(limit)
-      .offset(offset);
 
     return {
       items: rows.map(mapSalesOrder),

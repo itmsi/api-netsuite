@@ -5,6 +5,48 @@ const { pgCore } = require("../../config/database");
 const { dbNetsuite } = require("../../config/database");
 
 /**
+ * Lookup data pendukung filter list/dashboard PO:
+ * - employee untuk filter created_by
+ * - parent class + child class untuk filter classes
+ */
+const resolvePoFilterLookups = async (body) => {
+  const createdByValue =
+    body.created_by &&
+    body.created_by !== "nan" &&
+    body.created_by !== "null" &&
+    String(body.created_by).trim() !== ""
+      ? String(body.created_by).trim()
+      : null;
+  const parentClassId = body.classes ? body.classes.toString() : null;
+
+  const [employee, children] = await Promise.all([
+    createdByValue
+      ? dbNetsuite("gate_sso_employees")
+          .select("employee_id", "employee_id_netsuite")
+          .where("employee_id", createdByValue)
+          .first()
+      : null,
+    parentClassId
+      ? dbNetsuite("class")
+          .select("netsuite_id")
+          .where("parent_id", parentClassId)
+          .andWhere("is_delete", false)
+          .whereNull("deleted_at")
+      : [],
+  ]);
+
+  const classIds = [];
+  if (parentClassId) {
+    classIds.push(parentClassId);
+    (children || []).forEach((child) => {
+      if (child.netsuite_id) classIds.push(child.netsuite_id.toString());
+    });
+  }
+
+  return { createdByValue, employee, classIds };
+};
+
+/**
  * Get purchase orders dari DB Netsuite (bridge_sanbox.purchase_orders)
  * Format response identik dengan format bridge API sebelumnya.
  */
@@ -77,19 +119,10 @@ const getPurchaseOrders = async (body) => {
       query = query.where("po.approvalstatus_display", body.approvalstatus);
     }
 
-    if (
-      body.created_by &&
-      body.created_by !== "nan" &&
-      body.created_by !== "null" &&
-      String(body.created_by).trim() !== ""
-    ) {
-      const createdByValue = String(body.created_by).trim();
+    // Lookup employee (created_by) & child class tidak saling bergantung -> jalankan paralel
+    const { createdByValue, employee, classIds } = await resolvePoFilterLookups(body);
 
-      const employee = await dbNetsuite("gate_sso_employees")
-        .select("employee_id", "employee_id_netsuite")
-        .where("employee_id", createdByValue)
-        .first();
-
+    if (createdByValue) {
       if (employee) {
         query = query.where(function () {
           this.where("po.created_by", employee.employee_id);
@@ -105,101 +138,80 @@ const getPurchaseOrders = async (body) => {
       }
     }
 
-    // Handle classes filter (parent and children)
-    let classIds = [];
-    if (body.classes) {
-      const parentIdStr = body.classes.toString();
-      classIds.push(parentIdStr);
-
-      // Step 2 & 3: Cek ke tabel class untuk child yang memiliki parent_id tersebut
-      const children = await dbNetsuite("class")
-        .select("netsuite_id")
-        .where("parent_id", parentIdStr)
-        .andWhere("is_delete", false)
-        .whereNull("deleted_at");
-
-      // Step 4 & 5: Masukan daftar netsuite_id tersebut
-      if (children && children.length > 0) {
-        children.forEach((child) => {
-          if (child.netsuite_id) classIds.push(child.netsuite_id.toString());
-        });
-      }
-    }
-
-    // Step 6: Apply class filter
     if (classIds.length > 0) {
       query = query.whereIn("po.class", classIds);
     }
 
     // Hitung total
-    const countResult = await query.clone().count("* as total").first();
+    // Select kolom sesuai SQL user
+    const [countResult, items] = await Promise.all([
+      query.clone().count("* as total").first(),
+      query
+        .clone()
+        .leftJoin(
+          "vendors as v",
+          dbNetsuite.raw("po.vendor_id = v.netsuite_id::integer"),
+        )
+        .leftJoin("subsidiarys as s", "po.subsidiary", "s.subsidiary_id")
+        .leftJoin(
+          "locations as l",
+          dbNetsuite.raw("po.location = l.netsuite_id::integer"),
+        )
+        .leftJoin(
+          "class as c2",
+          dbNetsuite.raw("po.class::text = c2.netsuite_id::text"),
+        )
+        .leftJoin(
+          "gate_sso_employees as updated_emp",
+          dbNetsuite.raw("po.updated_by = updated_emp.employee_id"),
+        )
+        .leftJoin(
+          "gate_sso_employees as created_emp",
+          dbNetsuite.raw("po.created_by = created_emp.employee_id"),
+        )
+        .select([
+          "po.id",
+          "po.po_id",
+          dbNetsuite.raw(
+            "COALESCE(NULLIF(po.subsidiary_display, ''), s.subsidiary_name) AS subsidiary_display",
+          ),
+          "po.po_number",
+          "po.po_date",
+          dbNetsuite.raw(
+            "COALESCE(NULLIF(po.vendor_name, ''), v.name) AS vendor_name",
+          ),
+          "po.custbody_me_pr_number",
+          dbNetsuite.raw(
+            "COALESCE(NULLIF(po.location_display, ''), l.name) AS location_display",
+          ),
+          dbNetsuite.raw(
+            "COALESCE(NULLIF(po.class_display, ''), c2.name) AS class_display",
+          ),
+          "po.approvalstatus",
+          "po.approvalstatus_display",
+          "po.nextapprover",
+          "po.po_status",
+          "po.po_status_label",
+          "po.memo",
+          "po.foreigntotal as total",
+          "po.custbody_msi_createdby_api",
+          "po.last_modified",
+          dbNetsuite.raw(
+            "COALESCE(NULLIF(po.datecreated, '')::timestamp, po.created_at) AS created_at",
+          ),
+          "po.currency_symbol",
+          "po.files",
+          "updated_emp.employee_name as updated_by_name",
+          dbNetsuite.raw(
+            "CASE WHEN NULLIF(po.custbody_msi_createdby_api, '') IS NULL THEN po.created_by_netsuite ELSE COALESCE(NULLIF(created_emp.employee_name, ''), '') END AS created_by_name",
+          ),
+        ])
+        .orderBy(orderCol, sortOrder)
+        .limit(limit)
+        .offset(offset),
+    ]);
     const total = parseInt(countResult.total) || 0;
     const totalPages = Math.ceil(total / limit);
-
-    // Select kolom sesuai SQL user
-    const items = await query
-      .clone()
-      .leftJoin(
-        "vendors as v",
-        dbNetsuite.raw("po.vendor_id = v.netsuite_id::integer"),
-      )
-      .leftJoin("subsidiarys as s", "po.subsidiary", "s.subsidiary_id")
-      .leftJoin(
-        "locations as l",
-        dbNetsuite.raw("po.location = l.netsuite_id::integer"),
-      )
-      .leftJoin(
-        "class as c2",
-        dbNetsuite.raw("po.class::text = c2.netsuite_id::text"),
-      )
-      .leftJoin(
-        "gate_sso_employees as updated_emp",
-        dbNetsuite.raw("po.updated_by = updated_emp.employee_id"),
-      )
-      .leftJoin(
-        "gate_sso_employees as created_emp",
-        dbNetsuite.raw("po.created_by = created_emp.employee_id"),
-      )
-      .select([
-        "po.id",
-        "po.po_id",
-        dbNetsuite.raw(
-          "COALESCE(NULLIF(po.subsidiary_display, ''), s.subsidiary_name) AS subsidiary_display",
-        ),
-        "po.po_number",
-        "po.po_date",
-        dbNetsuite.raw(
-          "COALESCE(NULLIF(po.vendor_name, ''), v.name) AS vendor_name",
-        ),
-        "po.custbody_me_pr_number",
-        dbNetsuite.raw(
-          "COALESCE(NULLIF(po.location_display, ''), l.name) AS location_display",
-        ),
-        dbNetsuite.raw(
-          "COALESCE(NULLIF(po.class_display, ''), c2.name) AS class_display",
-        ),
-        "po.approvalstatus",
-        "po.approvalstatus_display",
-        "po.nextapprover",
-        "po.po_status",
-        "po.po_status_label",
-        "po.memo",
-        "po.foreigntotal as total",
-        "po.custbody_msi_createdby_api",
-        "po.last_modified",
-        dbNetsuite.raw(
-          "COALESCE(NULLIF(po.datecreated, '')::timestamp, po.created_at) AS created_at",
-        ),
-        "po.currency_symbol",
-        "po.files",
-        "updated_emp.employee_name as updated_by_name",
-        dbNetsuite.raw(
-          "CASE WHEN NULLIF(po.custbody_msi_createdby_api, '') IS NULL THEN po.created_by_netsuite ELSE COALESCE(NULLIF(created_emp.employee_name, ''), '') END AS created_by_name",
-        ),
-      ])
-      .orderBy(orderCol, sortOrder)
-      .limit(limit)
-      .offset(offset);
 
     return {
       items,
@@ -351,19 +363,10 @@ const getDashboard = async (body) => {
       query = query.where("po.approvalstatus_display", body.approvalstatus);
     }
 
-    if (
-      body.created_by &&
-      body.created_by !== "nan" &&
-      body.created_by !== "null" &&
-      String(body.created_by).trim() !== ""
-    ) {
-      const createdByValue = String(body.created_by).trim();
+    // Lookup employee (created_by) & child class tidak saling bergantung -> jalankan paralel
+    const { createdByValue, employee, classIds } = await resolvePoFilterLookups(body);
 
-      const employee = await dbNetsuite("gate_sso_employees")
-        .select("employee_id", "employee_id_netsuite")
-        .where("employee_id", createdByValue)
-        .first();
-
+    if (createdByValue) {
       if (employee) {
         query = query.where(function () {
           this.where("po.created_by", employee.employee_id);
@@ -379,25 +382,6 @@ const getDashboard = async (body) => {
       }
     }
 
-    // Handle classes filter (parent and children)
-    let classIds = [];
-    if (body.classes) {
-      const parentIdStr = body.classes.toString();
-      classIds.push(parentIdStr);
-
-      const children = await dbNetsuite("class")
-        .select("netsuite_id")
-        .where("parent_id", parentIdStr)
-        .andWhere("is_delete", false)
-        .whereNull("deleted_at");
-
-      if (children && children.length > 0) {
-        children.forEach((child) => {
-          if (child.netsuite_id) classIds.push(child.netsuite_id.toString());
-        });
-      }
-    }
-
     if (classIds.length > 0) {
       query = query.whereIn("po.class", classIds);
     }
@@ -406,23 +390,9 @@ const getDashboard = async (body) => {
     const limit = parseInt(body.limit) || 10;
     const offset = (page - 1) * limit;
 
-    // Hitung counts sebelum filter status
-    const countQuery = query.clone();
-    const countResult = await countQuery
-      .select(
-        dbNetsuite.raw(
-          `COUNT(CASE WHEN po.approvalstatus_display = 'Pending Approval' THEN 1 END) as pending_approval`,
-        ),
-        dbNetsuite.raw(
-          `COUNT(CASE WHEN po.po_status_label = 'Pending Receipt' THEN 1 END) as pending_receipt`,
-        ),
-        dbNetsuite.raw(
-          `COUNT(CASE WHEN po.po_status_label = 'Pending Bill' THEN 1 END) as pending_bill`,
-        ),
-      )
-      .first();
-
-    const chartResult = await query
+    // Agregat per subsidiary (sebelum filter status). Total keseluruhan (total_data)
+    // dijumlahkan dari hasil ini, jadi tidak perlu query count terpisah.
+    const chartQuery = query
       .clone()
       .select(
         "po.subsidiary",
@@ -438,52 +408,6 @@ const getDashboard = async (body) => {
         dbNetsuite.raw(`COUNT(*) as total_po`),
       )
       .groupBy("po.subsidiary");
-
-    let chart_data = {
-      pending_approval_per_subsidiary: {},
-      status_po_per_subsidiary: {},
-      total_po_per_subsidiary: {},
-    };
-
-    const subMap = { 1: "msi", 5: "iec", 6: "iel" };
-
-    ["iel", "iec", "msi"].forEach((key) => {
-      chart_data.pending_approval_per_subsidiary[key] = 0;
-      chart_data.total_po_per_subsidiary[key] = 0;
-      chart_data.status_po_per_subsidiary[key] = {
-        pending_approval: 0,
-        pending_receipt: 0,
-        pending_bill: 0,
-      };
-    });
-
-    chartResult.forEach((row) => {
-      let key = subMap[row.subsidiary];
-      if (!key) {
-        key = String(row.subsidiary || "unknown").toLowerCase();
-        if (!chart_data.status_po_per_subsidiary[key]) {
-          chart_data.pending_approval_per_subsidiary[key] = 0;
-          chart_data.total_po_per_subsidiary[key] = 0;
-          chart_data.status_po_per_subsidiary[key] = {
-            pending_approval: 0,
-            pending_receipt: 0,
-            pending_bill: 0,
-          };
-        }
-      }
-
-      const pApp = parseInt(row.pending_approval) || 0;
-      const pRec = parseInt(row.pending_receipt) || 0;
-      const pBil = parseInt(row.pending_bill) || 0;
-      const tPo = parseInt(row.total_po) || 0;
-
-      chart_data.pending_approval_per_subsidiary[key] += pApp;
-      chart_data.total_po_per_subsidiary[key] += tPo;
-
-      chart_data.status_po_per_subsidiary[key].pending_approval += pApp;
-      chart_data.status_po_per_subsidiary[key].pending_receipt += pRec;
-      chart_data.status_po_per_subsidiary[key].pending_bill += pBil;
-    });
 
     if (body.po_status) {
       //filter kolom dispay saja
@@ -538,23 +462,78 @@ const getDashboard = async (body) => {
       ])
       .orderBy(orderCol, sortOrder);
 
-    const pending_approval = await baseSelectQuery
-      .clone()
-      .where("po.approvalstatus_display", "Pending Approval")
-      .limit(limit)
-      .offset(offset);
+    const [chartResult, pending_approval, pending_receipt, pending_bill] =
+      await Promise.all([
+        chartQuery,
+        baseSelectQuery
+          .clone()
+          .where("po.approvalstatus_display", "Pending Approval")
+          .limit(limit)
+          .offset(offset),
+        baseSelectQuery
+          .clone()
+          .where("po.po_status_label", "Pending Receipt")
+          .limit(limit)
+          .offset(offset),
+        baseSelectQuery
+          .clone()
+          .where("po.po_status_label", "Pending Bill")
+          .limit(limit)
+          .offset(offset),
+      ]);
 
-    const pending_receipt = await baseSelectQuery
-      .clone()
-      .where("po.po_status_label", "Pending Receipt")
-      .limit(limit)
-      .offset(offset);
+    const countResult = { pending_approval: 0, pending_receipt: 0, pending_bill: 0 };
+    chartResult.forEach((row) => {
+      countResult.pending_approval += parseInt(row.pending_approval) || 0;
+      countResult.pending_receipt += parseInt(row.pending_receipt) || 0;
+      countResult.pending_bill += parseInt(row.pending_bill) || 0;
+    });
 
-    const pending_bill = await baseSelectQuery
-      .clone()
-      .where("po.po_status_label", "Pending Bill")
-      .limit(limit)
-      .offset(offset);
+    let chart_data = {
+      pending_approval_per_subsidiary: {},
+      status_po_per_subsidiary: {},
+      total_po_per_subsidiary: {},
+    };
+
+    const subMap = { 1: "msi", 5: "iec", 6: "iel" };
+
+    ["iel", "iec", "msi"].forEach((key) => {
+      chart_data.pending_approval_per_subsidiary[key] = 0;
+      chart_data.total_po_per_subsidiary[key] = 0;
+      chart_data.status_po_per_subsidiary[key] = {
+        pending_approval: 0,
+        pending_receipt: 0,
+        pending_bill: 0,
+      };
+    });
+
+    chartResult.forEach((row) => {
+      let key = subMap[row.subsidiary];
+      if (!key) {
+        key = String(row.subsidiary || "unknown").toLowerCase();
+        if (!chart_data.status_po_per_subsidiary[key]) {
+          chart_data.pending_approval_per_subsidiary[key] = 0;
+          chart_data.total_po_per_subsidiary[key] = 0;
+          chart_data.status_po_per_subsidiary[key] = {
+            pending_approval: 0,
+            pending_receipt: 0,
+            pending_bill: 0,
+          };
+        }
+      }
+
+      const pApp = parseInt(row.pending_approval) || 0;
+      const pRec = parseInt(row.pending_receipt) || 0;
+      const pBil = parseInt(row.pending_bill) || 0;
+      const tPo = parseInt(row.total_po) || 0;
+
+      chart_data.pending_approval_per_subsidiary[key] += pApp;
+      chart_data.total_po_per_subsidiary[key] += tPo;
+
+      chart_data.status_po_per_subsidiary[key].pending_approval += pApp;
+      chart_data.status_po_per_subsidiary[key].pending_receipt += pRec;
+      chart_data.status_po_per_subsidiary[key].pending_bill += pBil;
+    });
 
     return {
       list_tabel: {
@@ -1592,8 +1571,15 @@ const getPurchaseOrderById = async (id) => {
           "email_emp.employee_name",
         ]);
 
-    // Cari dulu berdasarkan po_id (integer/netsuite ID), jika tidak ketemu cari berdasarkan id (UUID)
-    let record = await baseQuery().where("po.po_id", id).first();
+    // Cari dulu berdasarkan po_id (integer/netsuite ID), jika tidak ketemu cari berdasarkan id (UUID).
+    // Jika id berformat UUID, langsung cari di kolom id (po_id tidak pernah berformat UUID)
+    const isUuid =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        String(id),
+      );
+    let record = isUuid
+      ? null
+      : await baseQuery().where("po.po_id", id).first();
 
     if (!record) {
       // Fallback: cari berdasarkan UUID primary key
@@ -2278,99 +2264,100 @@ const getReceiveList = async (body) => {
       query = query.where("r.last_modified_netsuite", ">=", lastModified);
     }
 
-    const countResult = await query.clone().count("r.id as total").first();
+    const [countResult, items] = await Promise.all([
+      query.clone().count("r.id as total").first(),
+      query
+        .clone()
+        .leftJoin(
+          "vendors as v",
+          dbNetsuite.raw(
+            "NULLIF(r.vendor_id, '')::integer = v.netsuite_id::integer",
+          ),
+        )
+        .leftJoin(
+          "customforms as c",
+          dbNetsuite.raw(
+            "c.customform_id::integer = NULLIF(r.createdfrom, '')::integer",
+          ),
+        )
+        .leftJoin(
+          "subsidiarys as s",
+          dbNetsuite.raw(
+            "s.subsidiary_id::integer = NULLIF(r.subsidiary, '')::integer",
+          ),
+        )
+        .leftJoin(
+          "locations as l",
+          dbNetsuite.raw(
+            "l.netsuite_id::integer = NULLIF(r.location, '')::integer",
+          ),
+        )
+        .leftJoin(
+          "departments as d",
+          dbNetsuite.raw(
+            "d.netsuite_id::integer = NULLIF(r.department, '')::integer",
+          ),
+        )
+        .leftJoin(
+          "class as c2",
+          dbNetsuite.raw(
+            "c2.netsuite_id::integer = NULLIF(r.class, '')::integer",
+          ),
+        )
+
+        .select([
+          "r.id",
+          "r.netsuite_id as receipt_id",
+          "r.tranid",
+          "r.trandate",
+          "r.status",
+          "r.status_display",
+          "r.memo",
+          "r.vendor_id",
+          dbNetsuite.raw(
+            "COALESCE(NULLIF(r.vendor_name, ''), v.name) AS vendor_name",
+          ),
+          "r.createdfrom",
+          dbNetsuite.raw(
+            "COALESCE(NULLIF(r.createdfrom_display, ''), c.customform_name) AS createdfrom_display",
+          ),
+          "r.subsidiary",
+          dbNetsuite.raw(
+            "COALESCE(NULLIF(r.subsidiary_display, ''), s.subsidiary_name) AS subsidiary_display",
+          ),
+          "r.location",
+          dbNetsuite.raw(
+            "COALESCE(NULLIF(r.location_display, ''), l.name) AS location_display",
+          ),
+          "r.department",
+          dbNetsuite.raw(
+            "COALESCE(NULLIF(r.department_display, ''), d.name) AS department_display",
+          ),
+          "r.class",
+          dbNetsuite.raw(
+            "COALESCE(NULLIF(r.class_display, ''), c2.name) AS class_display",
+          ),
+          "r.last_modified_netsuite",
+          "r.datecreated_netsuite",
+          "r.created_at",
+          "r.created_by_name",
+          "r.updated_at",
+        ])
+        .groupBy([
+          "r.id",
+          "v.name",
+          "c.customform_name",
+          "s.subsidiary_name",
+          "l.name",
+          "d.name",
+          "c2.name",
+        ])
+        .orderBy(orderCol, sortOrder)
+        .limit(limit)
+        .offset(offset),
+    ]);
     const total = parseInt(countResult.total) || 0;
     const totalPages = Math.ceil(total / limit);
-
-    const items = await query
-      .clone()
-      .leftJoin(
-        "vendors as v",
-        dbNetsuite.raw(
-          "NULLIF(r.vendor_id, '')::integer = v.netsuite_id::integer",
-        ),
-      )
-      .leftJoin(
-        "customforms as c",
-        dbNetsuite.raw(
-          "c.customform_id::integer = NULLIF(r.createdfrom, '')::integer",
-        ),
-      )
-      .leftJoin(
-        "subsidiarys as s",
-        dbNetsuite.raw(
-          "s.subsidiary_id::integer = NULLIF(r.subsidiary, '')::integer",
-        ),
-      )
-      .leftJoin(
-        "locations as l",
-        dbNetsuite.raw(
-          "l.netsuite_id::integer = NULLIF(r.location, '')::integer",
-        ),
-      )
-      .leftJoin(
-        "departments as d",
-        dbNetsuite.raw(
-          "d.netsuite_id::integer = NULLIF(r.department, '')::integer",
-        ),
-      )
-      .leftJoin(
-        "class as c2",
-        dbNetsuite.raw(
-          "c2.netsuite_id::integer = NULLIF(r.class, '')::integer",
-        ),
-      )
-
-      .select([
-        "r.id",
-        "r.netsuite_id as receipt_id",
-        "r.tranid",
-        "r.trandate",
-        "r.status",
-        "r.status_display",
-        "r.memo",
-        "r.vendor_id",
-        dbNetsuite.raw(
-          "COALESCE(NULLIF(r.vendor_name, ''), v.name) AS vendor_name",
-        ),
-        "r.createdfrom",
-        dbNetsuite.raw(
-          "COALESCE(NULLIF(r.createdfrom_display, ''), c.customform_name) AS createdfrom_display",
-        ),
-        "r.subsidiary",
-        dbNetsuite.raw(
-          "COALESCE(NULLIF(r.subsidiary_display, ''), s.subsidiary_name) AS subsidiary_display",
-        ),
-        "r.location",
-        dbNetsuite.raw(
-          "COALESCE(NULLIF(r.location_display, ''), l.name) AS location_display",
-        ),
-        "r.department",
-        dbNetsuite.raw(
-          "COALESCE(NULLIF(r.department_display, ''), d.name) AS department_display",
-        ),
-        "r.class",
-        dbNetsuite.raw(
-          "COALESCE(NULLIF(r.class_display, ''), c2.name) AS class_display",
-        ),
-        "r.last_modified_netsuite",
-        "r.datecreated_netsuite",
-        "r.created_at",
-        "r.created_by_name",
-        "r.updated_at",
-      ])
-      .groupBy([
-        "r.id",
-        "v.name",
-        "c.customform_name",
-        "s.subsidiary_name",
-        "l.name",
-        "d.name",
-        "c2.name",
-      ])
-      .orderBy(orderCol, sortOrder)
-      .limit(limit)
-      .offset(offset);
 
     // Reformat trandate dari mm/dd/yyyy (NetSuite) ke dd/mm/yyyy
     const formatTransdate = (date) => {
@@ -2645,10 +2632,6 @@ const getItems = async (body) => {
       });
     }
 
-    const countResult = await query.clone().count("* as total").first();
-    const total = parseInt(countResult.total) || 0;
-    const totalPages = Math.ceil(total / limit);
-
     let orderByRaw = `(line->>'linesequencenumber')::numeric ${sortOrder}`;
     if (body.sort_by) {
       if (body.sort_by === "created_at") {
@@ -2660,53 +2643,58 @@ const getItems = async (body) => {
       }
     }
 
-    const items = await query
-      .clone()
-      .select([
-        dbNetsuite.raw("line->>'line_id' AS line_id"),
-        dbNetsuite.raw("line->>'linesequencenumber' AS linesequencenumber"),
-        dbNetsuite.raw(
-          "line->>'inbound_shipment_number' AS inbound_shipment_number",
-        ),
-        dbNetsuite.raw(
-          "line->>'inbound_shipment_line_id' AS inbound_shipment_line_id",
-        ),
-        dbNetsuite.raw("line->>'has_inbound' AS has_inbound"),
-        dbNetsuite.raw(
-          "COALESCE(NULLIF(line->>'item', ''), line->>'itemId') AS item",
-        ),
-        dbNetsuite.raw(
-          "COALESCE(NULLIF(line->>'item_display', ''), COALESCE(NULLIF(i.item_id, ''), i2.item_id)) AS item_display",
-        ),
-        dbNetsuite.raw(
-          "COALESCE(NULLIF(line->>'quantity', ''), line->>'qty') AS quantity",
-        ),
-        dbNetsuite.raw("line->>'quantityreceived' AS quantityreceived"),
-        dbNetsuite.raw(
-          "(COALESCE(NULLIF(line->>'quantity', ''), line->>'qty')::numeric - COALESCE(NULLIF(line->>'quantityreceived', ''), '0')::numeric) AS quantitypending",
-        ),
-        dbNetsuite.raw("line->>'rate' AS rate"),
-        dbNetsuite.raw("line->>'netamount' AS netamount"),
-        dbNetsuite.raw("line->>'grossamt' AS grossamt"),
-        dbNetsuite.raw("line->>'department' AS department"),
-        dbNetsuite.raw("d_line.name AS department_display"),
-        dbNetsuite.raw("line->>'class' AS class"),
-        dbNetsuite.raw("c_line.name AS class_display"),
-        dbNetsuite.raw("line->>'location' AS location"),
-        dbNetsuite.raw("l_line.name AS location_display"),
-        dbNetsuite.raw("line->>'taxcode' AS taxcode"),
-        dbNetsuite.raw("t_line.taxcode_name AS taxcode_display"),
-        dbNetsuite.raw("line->>'taxrate1' AS taxrate1"),
-        dbNetsuite.raw("line->>'tax1amt' AS tax1amt"),
-        dbNetsuite.raw(
-          "line->>'custcol_me_landed_cost' AS custcol_me_landed_cost",
-        ),
-        dbNetsuite.raw("line->>'custcol_msi_fob' AS custcol_msi_fob"),
-        dbNetsuite.raw("line->>'description' AS description"),
-      ])
-      .orderByRaw(orderByRaw)
-      .limit(limit)
-      .offset(offset);
+    const [countResult, items] = await Promise.all([
+      query.clone().count("* as total").first(),
+      query
+        .clone()
+        .select([
+          dbNetsuite.raw("line->>'line_id' AS line_id"),
+          dbNetsuite.raw("line->>'linesequencenumber' AS linesequencenumber"),
+          dbNetsuite.raw(
+            "line->>'inbound_shipment_number' AS inbound_shipment_number",
+          ),
+          dbNetsuite.raw(
+            "line->>'inbound_shipment_line_id' AS inbound_shipment_line_id",
+          ),
+          dbNetsuite.raw("line->>'has_inbound' AS has_inbound"),
+          dbNetsuite.raw(
+            "COALESCE(NULLIF(line->>'item', ''), line->>'itemId') AS item",
+          ),
+          dbNetsuite.raw(
+            "COALESCE(NULLIF(line->>'item_display', ''), COALESCE(NULLIF(i.item_id, ''), i2.item_id)) AS item_display",
+          ),
+          dbNetsuite.raw(
+            "COALESCE(NULLIF(line->>'quantity', ''), line->>'qty') AS quantity",
+          ),
+          dbNetsuite.raw("line->>'quantityreceived' AS quantityreceived"),
+          dbNetsuite.raw(
+            "(COALESCE(NULLIF(line->>'quantity', ''), line->>'qty')::numeric - COALESCE(NULLIF(line->>'quantityreceived', ''), '0')::numeric) AS quantitypending",
+          ),
+          dbNetsuite.raw("line->>'rate' AS rate"),
+          dbNetsuite.raw("line->>'netamount' AS netamount"),
+          dbNetsuite.raw("line->>'grossamt' AS grossamt"),
+          dbNetsuite.raw("line->>'department' AS department"),
+          dbNetsuite.raw("d_line.name AS department_display"),
+          dbNetsuite.raw("line->>'class' AS class"),
+          dbNetsuite.raw("c_line.name AS class_display"),
+          dbNetsuite.raw("line->>'location' AS location"),
+          dbNetsuite.raw("l_line.name AS location_display"),
+          dbNetsuite.raw("line->>'taxcode' AS taxcode"),
+          dbNetsuite.raw("t_line.taxcode_name AS taxcode_display"),
+          dbNetsuite.raw("line->>'taxrate1' AS taxrate1"),
+          dbNetsuite.raw("line->>'tax1amt' AS tax1amt"),
+          dbNetsuite.raw(
+            "line->>'custcol_me_landed_cost' AS custcol_me_landed_cost",
+          ),
+          dbNetsuite.raw("line->>'custcol_msi_fob' AS custcol_msi_fob"),
+          dbNetsuite.raw("line->>'description' AS description"),
+        ])
+        .orderByRaw(orderByRaw)
+        .limit(limit)
+        .offset(offset),
+    ]);
+    const total = parseInt(countResult.total) || 0;
+    const totalPages = Math.ceil(total / limit);
 
     return {
       items,
