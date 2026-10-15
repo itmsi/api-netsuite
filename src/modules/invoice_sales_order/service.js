@@ -1,6 +1,7 @@
 const axios = require('axios');
 const authService = require('../auth/service');
 const { pgCore: db } = require('../../config/database');
+const { upsertByKey } = require('../../utils/sync_upsert');
 
 const { dbNetsuite } = require('../../config/database');
 
@@ -345,6 +346,7 @@ const processFakturSync = async (records, search = null) => {
   // 1. Sync ke DB lokal gate_sso (invoice_sales_orders)
   const trx = await db.transaction();
   try {
+    const rows = [];
     for (const record of records) {
       const data = {
         netsuite_id: parseInt(record.netsuite_id || record.id),
@@ -391,16 +393,13 @@ const processFakturSync = async (records, search = null) => {
         is_deleted: record.is_deleted || false
       };
 
-      const existing = await trx('invoice_sales_orders').where('netsuite_id', data.netsuite_id).first();
-      if (existing) {
-        data.updated_at = db.fn.now();
-        await trx('invoice_sales_orders').where('netsuite_id', data.netsuite_id).update(data);
-      } else {
-        data.created_at = db.fn.now();
-        data.updated_at = db.fn.now();
-        await trx('invoice_sales_orders').insert(data);
-      }
+      rows.push(data);
     }
+    await upsertByKey(trx, 'invoice_sales_orders', rows, {
+      normalizeKey: (value) => parseInt(value),
+      onInsert: (row) => ({ ...row, created_at: db.fn.now(), updated_at: db.fn.now() }),
+      onUpdate: (row) => ({ ...row, updated_at: db.fn.now() }),
+    });
     await trx.commit();
   } catch (error) {
     await trx.rollback();
@@ -506,42 +505,43 @@ const getInvoiceSalesOrders = async (body) => {
     }
 
     // Hitung total
-    const countResult = await query.clone().count('* as total').first();
+    // Select kolom eksplisit (exclude raw_data, id internal)
+    const [countResult, rows] = await Promise.all([
+      query.clone().count('* as total').first(),
+      query
+        .clone()
+        .select([
+          'invoice_sales_orders.netsuite_id as id',
+          'invoice_sales_orders.tranid', 'invoice_sales_orders.entity',
+          db.raw(`COALESCE(NULLIF(CONCAT_WS(' - ', NULLIF(customers.customer_code, ''), NULLIF(customers.customer_name, '')), ''), invoice_sales_orders.entityid) as entityid`),
+          'invoice_sales_orders.trandate', 'invoice_sales_orders.startdate', 'invoice_sales_orders.enddate',
+          'invoice_sales_orders.postingperiod', 'invoice_sales_orders.postingperiod_display', 'invoice_sales_orders.otherrefnum', 'invoice_sales_orders.memo',
+          'invoice_sales_orders.custbody_me_related_fulfillment', 'invoice_sales_orders.terms', 'invoice_sales_orders.account', 'invoice_sales_orders.account_display',
+          'invoice_sales_orders.currency', 'invoice_sales_orders.currency_display', 'invoice_sales_orders.exchangerate',
+          'invoice_sales_orders.custbody_msi_bank_payment_so', 'invoice_sales_orders.custbody_msi_bank_payment_so_display',
+          'invoice_sales_orders.approvalstatus',
+          'invoice_sales_orders.custbody_me_wf_created_by', 'invoice_sales_orders.custbody_me_wf_created_by_display',
+          'invoice_sales_orders.custbody_me_wf_next_approver_blank',
+          'invoice_sales_orders.saleseffectivedate', 'invoice_sales_orders.createdfrom', 'invoice_sales_orders.createdfrom_display',
+          'invoice_sales_orders.subsidiary', 'invoice_sales_orders.subsidiary_display',
+          'invoice_sales_orders.department', 'invoice_sales_orders.department_display',
+          'invoice_sales_orders.class', 'invoice_sales_orders.class_display',
+          'invoice_sales_orders.location', 'invoice_sales_orders.location_display',
+          'invoice_sales_orders.custbody_cseg_cn_cfi', 'invoice_sales_orders.custbody_cseg_cn_cfi_display',
+          'invoice_sales_orders.custbody_me_description',
+          'invoice_sales_orders.lines',
+          'invoice_sales_orders.last_modified_netsuite',
+          'customers.type_tax_buyer',
+          db.raw("CASE WHEN customers.type_tax_buyer = 'TIN' THEN customers.no_tax_buyer ELSE '' END as no_tax_buyer"),
+          // db.raw("CASE WHEN customers.type_tax_buyer = 'TIN' THEN customers.no_tax_buyer ELSE '' END as npwp_or_nik_pembeli"),
+          db.raw("CASE WHEN customers.type_tax_buyer = 'TIN' AND customers.no_tax_buyer IS NOT NULL AND customers.no_tax_buyer != '' THEN CONCAT(customers.no_tax_buyer, '000000') ELSE '' END as npwp_or_nik_pembeli")
+        ])
+        .orderBy(orderCol, sortOrder)
+        .limit(limit)
+        .offset(offset),
+    ]);
     const total = parseInt(countResult.total) || 0;
     const totalPages = Math.ceil(total / limit);
-
-    // Select kolom eksplisit (exclude raw_data, id internal)
-    const rows = await query
-      .clone()
-      .select([
-        'invoice_sales_orders.netsuite_id as id',
-        'invoice_sales_orders.tranid', 'invoice_sales_orders.entity',
-        db.raw(`COALESCE(NULLIF(CONCAT_WS(' - ', NULLIF(customers.customer_code, ''), NULLIF(customers.customer_name, '')), ''), invoice_sales_orders.entityid) as entityid`),
-        'invoice_sales_orders.trandate', 'invoice_sales_orders.startdate', 'invoice_sales_orders.enddate',
-        'invoice_sales_orders.postingperiod', 'invoice_sales_orders.postingperiod_display', 'invoice_sales_orders.otherrefnum', 'invoice_sales_orders.memo',
-        'invoice_sales_orders.custbody_me_related_fulfillment', 'invoice_sales_orders.terms', 'invoice_sales_orders.account', 'invoice_sales_orders.account_display',
-        'invoice_sales_orders.currency', 'invoice_sales_orders.currency_display', 'invoice_sales_orders.exchangerate',
-        'invoice_sales_orders.custbody_msi_bank_payment_so', 'invoice_sales_orders.custbody_msi_bank_payment_so_display',
-        'invoice_sales_orders.approvalstatus',
-        'invoice_sales_orders.custbody_me_wf_created_by', 'invoice_sales_orders.custbody_me_wf_created_by_display',
-        'invoice_sales_orders.custbody_me_wf_next_approver_blank',
-        'invoice_sales_orders.saleseffectivedate', 'invoice_sales_orders.createdfrom', 'invoice_sales_orders.createdfrom_display',
-        'invoice_sales_orders.subsidiary', 'invoice_sales_orders.subsidiary_display',
-        'invoice_sales_orders.department', 'invoice_sales_orders.department_display',
-        'invoice_sales_orders.class', 'invoice_sales_orders.class_display',
-        'invoice_sales_orders.location', 'invoice_sales_orders.location_display',
-        'invoice_sales_orders.custbody_cseg_cn_cfi', 'invoice_sales_orders.custbody_cseg_cn_cfi_display',
-        'invoice_sales_orders.custbody_me_description',
-        'invoice_sales_orders.lines',
-        'invoice_sales_orders.last_modified_netsuite',
-        'customers.type_tax_buyer',
-        db.raw("CASE WHEN customers.type_tax_buyer = 'TIN' THEN customers.no_tax_buyer ELSE '' END as no_tax_buyer"),
-        // db.raw("CASE WHEN customers.type_tax_buyer = 'TIN' THEN customers.no_tax_buyer ELSE '' END as npwp_or_nik_pembeli"),
-        db.raw("CASE WHEN customers.type_tax_buyer = 'TIN' AND customers.no_tax_buyer IS NOT NULL AND customers.no_tax_buyer != '' THEN CONCAT(customers.no_tax_buyer, '000000') ELSE '' END as npwp_or_nik_pembeli")
-      ])
-      .orderBy(orderCol, sortOrder)
-      .limit(limit)
-      .offset(offset);
 
     // Populate faktur info dari local DB
     if (rows.length > 0) {

@@ -30,21 +30,22 @@ const getBankList = async (body) => {
     }
 
     // Hitung total
-    const countResult = await query.clone().count('* as total').first();
+    // Select format response
+    const [countResult, rows] = await Promise.all([
+      query.clone().count('* as total').first(),
+      query
+        .clone()
+        .select([
+          'netsuite_id as id',
+          'name',
+          'is_inactive'
+        ])
+        .orderBy(orderCol, sortOrder)
+        .limit(limit)
+        .offset(offset),
+    ]);
     const total = parseInt(countResult.total) || 0;
     const totalPages = Math.ceil(total / limit);
-
-    // Select format response
-    const rows = await query
-      .clone()
-      .select([
-        'netsuite_id as id',
-        'name',
-        'is_inactive'
-      ])
-      .orderBy(orderCol, sortOrder)
-      .limit(limit)
-      .offset(offset);
 
     // Some tables might have 'id' instead of 'netsuite_id'. If mapping is wrong, 'id' handles fallback
     const items = rows.map(r => ({

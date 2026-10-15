@@ -6,7 +6,8 @@ const { baseResponse } = require('../../utils');
  */
 const getToken = async (req, res) => {
   try {
-    const result = await service.getToken();
+    // Endpoint publik selalu minta token baru (expires_in akurat), sekaligus memperbarui cache
+    const result = await service.fetchToken();
     return baseResponse(res, { 
       data: result,
       message: 'Token berhasil diambil' 

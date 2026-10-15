@@ -28,17 +28,18 @@ const getNetsuiteScriptsList = async (body = {}) => {
       });
     }
 
-    const countResult = await query.clone().count("* as total").first();
+    const [countResult, items] = await Promise.all([
+      query.clone().count("* as total").first(),
+      query
+        .clone()
+        .select("module", "script_id")
+        .orderBy(orderCol, sortOrder)
+        .orderBy("id", sortOrder)
+        .limit(limit)
+        .offset(offset),
+    ]);
     const total = parseInt(countResult.total) || 0;
     const totalPages = Math.ceil(total / limit);
-
-    const items = await query
-      .clone()
-      .select("module", "script_id")
-      .orderBy(orderCol, sortOrder)
-      .orderBy("id", sortOrder)
-      .limit(limit)
-      .offset(offset);
 
     return {
       items,

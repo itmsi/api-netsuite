@@ -14,12 +14,13 @@ const findAll = async (page = 1, limit = 10, search = '', sortBy = 'created_at',
     });
   }
 
-  const data = await query.clone()
-    .orderBy(sortBy, sortOrder)
-    .limit(limit)
-    .offset(offset);
-    
-  const total = await query.clone().count('id as count').first();
+  const [data, total] = await Promise.all([
+    query.clone()
+      .orderBy(sortBy, sortOrder)
+      .limit(limit)
+      .offset(offset),
+    query.clone().count('id as count').first(),
+  ]);
     
   return {
     items: data,

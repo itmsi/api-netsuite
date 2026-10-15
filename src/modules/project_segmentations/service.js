@@ -39,25 +39,26 @@ const getProjectSegmentationsList = async (body) => {
     }
 
     // Hitung total
-    const countResult = await query.clone().count('* as total').first();
+    // Select kolom sesuai format response
+    const [countResult, items] = await Promise.all([
+      query.clone().count('* as total').first(),
+      query
+        .clone()
+        .select([
+          'netsuite_id as id',
+          'name',
+          'full_name',
+          'is_inactive',
+          'parent_id',
+          'parent_name',
+          'last_modified_netsuite as last_modified'
+        ])
+        .orderBy(orderCol, sortOrder)
+        .limit(limit)
+        .offset(offset),
+    ]);
     const total = parseInt(countResult.total) || 0;
     const totalPages = Math.ceil(total / limit);
-
-    // Select kolom sesuai format response
-    const items = await query
-      .clone()
-      .select([
-        'netsuite_id as id',
-        'name',
-        'full_name',
-        'is_inactive',
-        'parent_id',
-        'parent_name',
-        'last_modified_netsuite as last_modified'
-      ])
-      .orderBy(orderCol, sortOrder)
-      .limit(limit)
-      .offset(offset);
 
     return {
       items,
@@ -134,6 +135,7 @@ const syncProjectSegmentationsList = async (body) => {
 };
 
 const { pgCore: db } = require('../../config/database');
+const { upsertByKey } = require('../../utils/sync_upsert');
 
 /**
  * Memproses sync ke tabel project_segmentations di gate_sso
@@ -143,6 +145,7 @@ const processProjectSegmentationSync = async (records) => {
 
   const trx = await db.transaction();
   try {
+    const rows = [];
     for (const record of records) {
       const data = {
         netsuite_id: record.netsuite_id || record.id,
@@ -156,14 +159,11 @@ const processProjectSegmentationSync = async (records) => {
         data: record.data ? JSON.stringify(record.data) : null,
       };
 
-      const existing = await trx('project_segmentations').where('netsuite_id', data.netsuite_id.toString()).first();
-      if (existing) {
-        await trx('project_segmentations').where('netsuite_id', data.netsuite_id.toString()).update(data);
-      } else {
-        data.created_at = db.fn.now();
-        await trx('project_segmentations').insert(data);
-      }
+      rows.push(data);
     }
+    await upsertByKey(trx, 'project_segmentations', rows, {
+      onInsert: (row) => ({ ...row, created_at: db.fn.now() }),
+    });
     await trx.commit();
   } catch (error) {
     await trx.rollback();

@@ -28,21 +28,22 @@ const getTermsList = async (body) => {
     }
 
     // Hitung total
-    const countResult = await query.clone().count('* as total').first();
+    // Select kolom sesuai format response
+    const [countResult, rows] = await Promise.all([
+      query.clone().count('* as total').first(),
+      query
+        .clone()
+        .select([
+          'netsuite_id as id',
+          'name',
+          'isinactive'
+        ])
+        .orderBy(orderCol, sortOrder)
+        .limit(limit)
+        .offset(offset),
+    ]);
     const total = parseInt(countResult.total) || 0;
     const totalPages = Math.ceil(total / limit);
-
-    // Select kolom sesuai format response
-    const rows = await query
-      .clone()
-      .select([
-        'netsuite_id as id',
-        'name',
-        'isinactive'
-      ])
-      .orderBy(orderCol, sortOrder)
-      .limit(limit)
-      .offset(offset);
 
     // Casting id to string sesuai ekspektasi
     const items = rows.map(row => ({
@@ -122,6 +123,7 @@ const syncTermsList = async (body) => {
 };
 
 const { pgCore: db } = require('../../config/database');
+const { upsertByKey } = require('../../utils/sync_upsert');
 
 /**
  * Memproses sync ke tabel terms di gate_sso
@@ -131,6 +133,7 @@ const processTermsSync = async (records) => {
 
   const trx = await db.transaction();
   try {
+    const rows = [];
     for (const record of records) {
       const data = {
         netsuite_id: record.netsuite_id || record.id,
@@ -142,14 +145,11 @@ const processTermsSync = async (records) => {
         updated_at: db.fn.now(),
       };
 
-      const existing = await trx('terms').where('netsuite_id', data.netsuite_id.toString()).first();
-      if (existing) {
-        await trx('terms').where('netsuite_id', data.netsuite_id.toString()).update(data);
-      } else {
-        data.created_at = db.fn.now();
-        await trx('terms').insert(data);
-      }
+      rows.push(data);
     }
+    await upsertByKey(trx, 'terms', rows, {
+      onInsert: (row) => ({ ...row, created_at: db.fn.now() }),
+    });
     await trx.commit();
   } catch (error) {
     await trx.rollback();
