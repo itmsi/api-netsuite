@@ -46,6 +46,9 @@ routing.use(`${API_TAG}/bill-payment`, billPaymentModule);
 const quotationModule = require('../../modules/quotation');
 routing.use(`${API_TAG}/quotation`, quotationModule);
 
+const vendorPrepaymentModule = require('../../modules/vendor_prepayment');
+routing.use(`${API_TAG}/vendor-prepayment`, vendorPrepaymentModule);
+
 const locationsModule = require('../../modules/locations');
 routing.use(`${API_TAG}/locations`, locationsModule);
 

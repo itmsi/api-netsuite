@@ -725,5 +725,18 @@ module.exports = {
       table: "inventory_adjustments",
       deleteCol: null,
     },
+    vendor_prepayments: {
+      url: `${process.env.BRIDGE_BASE_URL || "http://localhost:9570"}/api/v1/bridge/vendor-prepayments/get`,
+      data: {
+        page: 1,
+        page_size: 10,
+        is_sync: true,
+        sort_by: "lastmodifieddate",
+        sort_order: "DESC",
+        filters: {},
+      },
+      table: "vendor_prepayments",
+      deleteCol: null,
+    },
   },
 };
