@@ -54,6 +54,7 @@ const poStatusSchema = require('./schema/po_status');
 const approvalStatusSchema = require('./schema/approval_status');
 const emailSchema = require('./schema/email');
 const quotationSchema = require('./schema/quotation');
+const vendorPrepaymentSchema = require('./schema/vendor_prepayment');
 const itemTypeSchema = require('./schema/item_type');
 const attachFileSchema = require('./schema/attach_file');
 const inventoryAdjustmentsSchema = require('./schema/inventory_adjustments');
@@ -88,6 +89,7 @@ const poStatusPaths = require('./path/po_status');
 const approvalStatusPaths = require('./path/approval_status');
 const emailPaths = require('./path/email');
 const quotationPaths = require('./path/quotation');
+const vendorPrepaymentPaths = require('./path/vendor_prepayment');
 const itemTypePaths = require('./path/item_type');
 const attachFilePaths = require('./path/attach_file');
 const inventoryAdjustmentsPaths = require('./path/inventory_adjustments');
@@ -123,6 +125,7 @@ const schemas = {
   ...approvalStatusSchema,
   ...emailSchema,
   ...quotationSchema,
+  ...vendorPrepaymentSchema,
   ...itemTypeSchema,
   ...attachFileSchema,
   ...inventoryAdjustmentsSchema,
@@ -159,6 +162,7 @@ const paths = {
   ...approvalStatusPaths,
   ...emailPaths,
   ...quotationPaths,
+  ...vendorPrepaymentPaths,
   ...itemTypePaths,
   ...attachFilePaths,
   ...inventoryAdjustmentsPaths,
