@@ -102,7 +102,7 @@ const vendorPrepaymentSchema = {
         example: 'VPREP',
         description: 'Cari di netsuite_id, tranid, transactionnumber, entity_name, purchaseorder_name, memo'
       },
-      is_deleted: { type: 'boolean', example: false },
+      is_deleted: { type: 'boolean', default: false, example: false, description: 'Default false (hanya data yang belum dihapus)' },
       entity_id: { type: 'string', example: '1001' },
       purchaseorder_id: { type: 'string', example: '5001' },
       subsidiary_id: { type: 'string', example: '3' },

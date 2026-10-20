@@ -192,9 +192,13 @@ const getVendorPrepaymentList = async (body = {}) => {
           .orWhereILike("vendor_prepayments.memo", search);
       });
     }
-    if (body.is_deleted !== undefined) {
-      query = query.where("vendor_prepayments.is_deleted", body.is_deleted);
-    }
+    // Default hanya tampilkan data yang belum dihapus
+    query = query.where(
+      "vendor_prepayments.is_deleted",
+      body.is_deleted !== undefined && body.is_deleted !== null
+        ? body.is_deleted
+        : false,
+    );
 
     // Filter exact match: key body -> kolom tabel
     const exactFilters = {
