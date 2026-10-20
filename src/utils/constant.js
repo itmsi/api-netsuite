@@ -726,7 +726,7 @@ module.exports = {
       deleteCol: null,
     },
     vendor_prepayments: {
-      url: `${process.env.BRIDGE_BASE_URL || "http://localhost:9570"}/api/v1/bridge/vendor_prepayments/get`,
+      url: `${process.env.BRIDGE_BASE_URL || "http://localhost:9570"}/api/v1/bridge/vendor-prepayments/get`,
       data: {
         page: 1,
         page_size: 10,
