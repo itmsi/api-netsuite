@@ -123,7 +123,7 @@ const vendorPrepaymentSchema = {
         type: 'string',
         nullable: true,
         example: '123',
-        description: 'Filter berdasarkan current approver di vendor_prepayment_workflow_history'
+        description: 'Wajib. Filter utama berdasarkan current approver di vendor_prepayment_workflow_history. Jika kosong / null, data tidak ditampilkan'
       },
       tran_date_from: { type: 'string', format: 'date', example: '2026-01-01' },
       tran_date_to: { type: 'string', format: 'date', example: '2026-12-31' }

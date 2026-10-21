@@ -185,6 +185,19 @@ const getVendorPrepaymentList = async (body = {}) => {
 
     let query = baseQuery();
 
+    // Filter utama: current_approver_id via vendor_prepayment_workflow_history.
+    // Jika kosong / null, data tidak ditampilkan.
+    if (isFilled(body.current_approver_id)) {
+      query = query.whereIn(
+        "vendor_prepayments.netsuite_id",
+        dbNetsuite(WORKFLOW_HISTORY_TABLE)
+          .select("prepayment_id")
+          .where("current_approver_id", String(body.current_approver_id).trim()),
+      );
+    } else {
+      query = query.whereRaw("1 = 0");
+    }
+
     if (body.search) {
       const search = `%${body.search}%`;
       query = query.where(function () {
@@ -226,16 +239,6 @@ const getVendorPrepaymentList = async (body = {}) => {
         );
       }
     });
-
-    // Filter current_approver_id via vendor_prepayment_workflow_history
-    if (isFilled(body.current_approver_id)) {
-      query = query.whereIn(
-        "vendor_prepayments.netsuite_id",
-        dbNetsuite(WORKFLOW_HISTORY_TABLE)
-          .select("prepayment_id")
-          .where("current_approver_id", String(body.current_approver_id)),
-      );
-    }
 
     // tran_date disimpan sebagai varchar (ISO string), cast ke timestamptz
     if (body.tran_date_from) {
