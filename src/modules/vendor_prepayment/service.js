@@ -3,6 +3,8 @@ const authService = require("../auth/service");
 const { dbNetsuite } = require("../../config/database");
 
 const TABLE = "vendor_prepayments";
+const ATTACHMENT_TABLE = "vendor_prepayment_attachments";
+const WORKFLOW_HISTORY_TABLE = "vendor_prepayment_workflow_history";
 
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -67,11 +69,13 @@ const LIST_COLUMNS = [
   "updater.employee_name as update_by_name",
 ];
 
-// Detail menambahkan kolom berat (address, applied_to, data)
+// Detail menambahkan kolom berat (address, applied_to, workflow_history, user_notes)
 const DETAIL_COLUMNS = [
   ...LIST_COLUMNS,
   "vendor_prepayments.address",
   "vendor_prepayments.applied_to",
+  "vendor_prepayments.workflow_history",
+  "vendor_prepayments.user_notes",
 ];
 
 // created_by/updated_by bertipe varchar, employee_id bertipe uuid
@@ -223,6 +227,16 @@ const getVendorPrepaymentList = async (body = {}) => {
       }
     });
 
+    // Filter current_approver_id via vendor_prepayment_workflow_history
+    if (isFilled(body.current_approver_id)) {
+      query = query.whereIn(
+        "vendor_prepayments.netsuite_id",
+        dbNetsuite(WORKFLOW_HISTORY_TABLE)
+          .select("prepayment_id")
+          .where("current_approver_id", String(body.current_approver_id)),
+      );
+    }
+
     // tran_date disimpan sebagai varchar (ISO string), cast ke timestamptz
     if (body.tran_date_from) {
       query = query.whereRaw(
@@ -278,20 +292,25 @@ const getVendorPrepaymentList = async (body = {}) => {
   }
 };
 
+const getBridgeRequest = async (path) => {
+  const tokenResponse = await authService.getToken();
+  const token = tokenResponse.data.access_token;
+
+  const baseUrl = process.env.BRIDGE_BASE_URL || "http://localhost:9570";
+  return {
+    url: `${baseUrl}/api/v1/bridge/vendor-prepayments${path}`,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  };
+};
+
 const syncVendorPrepaymentById = async (netsuite_id) => {
   try {
-    const tokenResponse = await authService.getToken();
-    const token = tokenResponse.data.access_token;
+    const { url, headers } = await getBridgeRequest(`/sync/${netsuite_id}`);
 
-    const baseUrl = process.env.BRIDGE_BASE_URL || "http://localhost:9570";
-    const url = `${baseUrl}/api/v1/bridge/vendor-prepayments/sync/${netsuite_id}`;
-
-    const response = await axios.get(url, {
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    const response = await axios.get(url, { headers });
 
     return response.data?.data || response.data;
   } catch (error) {
@@ -308,8 +327,174 @@ const syncVendorPrepaymentById = async (netsuite_id) => {
   }
 };
 
+/**
+ * Get vendor prepayment attachments dari DB Netsuite (vendor_prepayment_attachments)
+ */
+const getAttachmentFileList = async (body = {}) => {
+  try {
+    const page = body.page !== undefined ? parseInt(body.page) : 1;
+    const limit = parseInt(body.page_size) || parseInt(body.limit) || 20;
+    const sortOrder =
+      String(body.sort_order || "DESC").toUpperCase() === "ASC"
+        ? "ASC"
+        : "DESC";
+    const offset = (page - 1 < 0 ? 0 : page - 1) * limit;
+
+    const validSortColumns = [
+      "vendor_prepayment_netsuite_id",
+      "tran_id",
+      "status",
+      "file_netsuite_id",
+      "file_name",
+      "file_type",
+      "created_at",
+      "updated_at",
+    ];
+    const orderCol = validSortColumns.includes(body.sort_by)
+      ? body.sort_by
+      : "created_at";
+
+    let query = dbNetsuite(ATTACHMENT_TABLE).where(
+      "is_deleted",
+      body.is_deleted !== undefined && body.is_deleted !== null
+        ? body.is_deleted
+        : false,
+    );
+
+    if (isFilled(body.vendor_prepayment_netsuite_id)) {
+      query = query.where(
+        "vendor_prepayment_netsuite_id",
+        String(body.vendor_prepayment_netsuite_id),
+      );
+    }
+    if (isFilled(body.file_netsuite_id)) {
+      query = query.where("file_netsuite_id", String(body.file_netsuite_id));
+    }
+    if (isFilled(body.status)) {
+      query = query.where("status", String(body.status).toUpperCase());
+    }
+    if (body.search) {
+      query = query.where(function () {
+        this.whereILike("file_name", `%${body.search}%`).orWhereILike(
+          "tran_id",
+          `%${body.search}%`,
+        );
+      });
+    }
+
+    const [countResult, rows] = await Promise.all([
+      query.clone().count("id as total").first(),
+      query
+        .clone()
+        .select([
+          "id",
+          "vendor_prepayment_netsuite_id",
+          "tran_id",
+          "count",
+          "skipped_count",
+          "status",
+          "file_netsuite_id",
+          "file_name",
+          "file_type",
+          "file_size",
+          "file_is_text",
+          "file_skipped",
+          "file_link",
+          "created_at",
+          "created_by",
+          "updated_at",
+          "updated_by",
+          "is_deleted",
+        ])
+        .orderBy(orderCol, sortOrder)
+        .limit(limit)
+        .offset(offset),
+    ]);
+    const total = parseInt(countResult.total) || 0;
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      items: rows,
+      pagination: {
+        page: page < 1 ? 1 : page,
+        limit,
+        total,
+        totalPages,
+      },
+    };
+  } catch (error) {
+    throw {
+      message:
+        error.message ||
+        "Failed to fetch vendor prepayment attachments from database",
+      statusCode: 500,
+    };
+  }
+};
+
+/**
+ * POST ke bridge API vendor-prepayments dengan token auth
+ */
+const postToBridge = async (path, payload, defaultErrorMessage) => {
+  try {
+    const { url, headers } = await getBridgeRequest(path);
+    const response = await axios.post(url, payload, { headers });
+    return response.data?.data || response.data;
+  } catch (error) {
+    if (error.response) {
+      throw {
+        message: error.response.data?.message || defaultErrorMessage,
+        statusCode: error.response.status,
+        errors: error.response.data,
+      };
+    }
+    throw { message: error.message, statusCode: 500 };
+  }
+};
+
+/**
+ * Sync daftar attachment satu vendor prepayment — hit bridge API POST /vendor-prepayments/attachments-files/get
+ */
+const syncAttachmentFiles = async (id) =>
+  postToBridge(
+    "/attachments-files/get",
+    { id: parseInt(id) },
+    `Failed to sync attachments vendor prepayment netsuite_id ${id} from bridge API`,
+  );
+
+/**
+ * Convert satu file attachment — hit bridge API POST /vendor-prepayments/attachments-files/converted
+ */
+const syncAttachmentFileById = async (
+  vendorPrepaymentNetsuiteId,
+  fileNetsuiteId,
+) =>
+  postToBridge(
+    "/attachments-files/converted",
+    {
+      vendor_prepayment_netsuite_id: String(vendorPrepaymentNetsuiteId),
+      file_netsuite_id: String(fileNetsuiteId),
+    },
+    `Failed to convert attachment file ${fileNetsuiteId} from bridge API`,
+  );
+
+/**
+ * Get link download file attachment by file_netsuite_id — hit bridge API
+ * POST /vendor-prepayments/attachments-files/download
+ */
+const downloadAttachmentFile = async (fileNetsuiteId) =>
+  postToBridge(
+    "/attachments-files/download",
+    { file_netsuite_id: String(fileNetsuiteId) },
+    `Failed to get download link file ${fileNetsuiteId} from bridge API`,
+  );
+
 module.exports = {
   getVendorPrepaymentById,
   getVendorPrepaymentList,
   syncVendorPrepaymentById,
+  getAttachmentFileList,
+  syncAttachmentFiles,
+  syncAttachmentFileById,
+  downloadAttachmentFile,
 };

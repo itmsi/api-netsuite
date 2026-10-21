@@ -73,10 +73,17 @@ const vendorPrepaymentSchema = {
             description: 'Daftar transaksi yang di-apply (jsonb)',
             items: { type: 'object' }
           },
-          data: {
-            type: 'object',
+          workflow_history: {
+            type: 'array',
             nullable: true,
-            description: 'Raw data dari NetSuite (jsonb)'
+            description: 'Riwayat workflow approval (jsonb)',
+            items: { type: 'object' }
+          },
+          user_notes: {
+            type: 'array',
+            nullable: true,
+            description: 'User notes dari NetSuite (jsonb)',
+            items: { type: 'object' }
           }
         }
       }
@@ -112,8 +119,72 @@ const vendorPrepaymentSchema = {
       currency_id: { type: 'string', example: '1' },
       class_id: { type: 'string', example: '2' },
       next_approver_blank: { type: 'string', example: '20' },
+      current_approver_id: {
+        type: 'string',
+        nullable: true,
+        example: '123',
+        description: 'Filter berdasarkan current approver di vendor_prepayment_workflow_history'
+      },
       tran_date_from: { type: 'string', format: 'date', example: '2026-01-01' },
       tran_date_to: { type: 'string', format: 'date', example: '2026-12-31' }
+    }
+  },
+  VendorPrepaymentAttachment: {
+    type: 'object',
+    properties: {
+      id: { type: 'string', format: 'uuid', example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' },
+      vendor_prepayment_netsuite_id: { type: 'string', example: '28015' },
+      tran_id: { type: 'string', example: 'VPREP-00001' },
+      count: { type: 'string', example: '2' },
+      skipped_count: { type: 'string', example: '0' },
+      status: { type: 'string', enum: ['PENDING', 'SUCCESS', 'FAILED'], example: 'SUCCESS' },
+      file_netsuite_id: { type: 'string', example: '2913' },
+      file_name: { type: 'string', example: 'invoice.pdf' },
+      file_type: { type: 'string', example: 'PDF' },
+      file_size: { type: 'string', example: '102400' },
+      file_is_text: { type: 'boolean', example: false },
+      file_skipped: { type: 'boolean', example: false },
+      file_link: { type: 'string', nullable: true, example: 'vendor_prepayment/28015/2913_invoice.pdf' },
+      created_at: { type: 'string', format: 'date-time' },
+      created_by: { type: 'string', nullable: true },
+      updated_at: { type: 'string', format: 'date-time', nullable: true },
+      updated_by: { type: 'string', nullable: true },
+      is_deleted: { type: 'boolean', example: false }
+    }
+  },
+  VendorPrepaymentAttachmentListRequest: {
+    type: 'object',
+    properties: {
+      page: { type: 'integer', example: 1 },
+      page_size: { type: 'integer', example: 20, description: 'Jumlah data per halaman (alias: limit)' },
+      sort_by: {
+        type: 'string',
+        example: 'created_at',
+        enum: [
+          'vendor_prepayment_netsuite_id', 'tran_id', 'status', 'file_netsuite_id',
+          'file_name', 'file_type', 'created_at', 'updated_at'
+        ]
+      },
+      sort_order: { type: 'string', enum: ['ASC', 'DESC'], example: 'DESC' },
+      search: { type: 'string', description: 'Cari di file_name atau tran_id', example: '' },
+      vendor_prepayment_netsuite_id: { type: 'string', example: '28015' },
+      file_netsuite_id: { type: 'string', example: '' },
+      status: { type: 'string', enum: ['PENDING', 'SUCCESS', 'FAILED'], example: 'SUCCESS' },
+      is_deleted: { type: 'boolean', default: false, example: false }
+    }
+  },
+  VendorPrepaymentAttachmentSyncRequest: {
+    type: 'object',
+    required: ['id'],
+    properties: {
+      id: { type: 'integer', description: 'NetSuite ID vendor prepayment', example: 28015 }
+    }
+  },
+  VendorPrepaymentAttachmentConvertRequest: {
+    type: 'object',
+    required: ['file_netsuite_id'],
+    properties: {
+      file_netsuite_id: { type: 'string', description: 'NetSuite ID file attachment', example: '2913' }
     }
   }
 };
