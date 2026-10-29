@@ -462,25 +462,33 @@ const getDashboard = async (body) => {
       ])
       .orderBy(orderCol, sortOrder);
 
-    const [chartResult, pending_approval, pending_receipt, pending_bill] =
-      await Promise.all([
-        chartQuery,
-        baseSelectQuery
-          .clone()
-          .where("po.approvalstatus_display", "Pending Approval")
-          .limit(limit)
-          .offset(offset),
-        baseSelectQuery
-          .clone()
-          .where("po.po_status_label", "Pending Receipt")
-          .limit(limit)
-          .offset(offset),
-        baseSelectQuery
-          .clone()
-          .where("po.po_status_label", "Pending Bill")
-          .limit(limit)
-          .offset(offset),
-      ]);
+    const [
+      chartResult,
+      pending_approval,
+      pending_receipt,
+      pending_bill,
+      subsidiaries,
+    ] = await Promise.all([
+      chartQuery,
+      baseSelectQuery
+        .clone()
+        .where("po.approvalstatus_display", "Pending Approval")
+        .limit(limit)
+        .offset(offset),
+      baseSelectQuery
+        .clone()
+        .where("po.po_status_label", "Pending Receipt")
+        .limit(limit)
+        .offset(offset),
+      baseSelectQuery
+        .clone()
+        .where("po.po_status_label", "Pending Bill")
+        .limit(limit)
+        .offset(offset),
+      dbNetsuite("subsidiarys")
+        .select("subsidiary_id", "tranprefix")
+        .whereNotNull("tranprefix"),
+    ]);
 
     const countResult = { pending_approval: 0, pending_receipt: 0, pending_bill: 0 };
     chartResult.forEach((row) => {
@@ -495,9 +503,14 @@ const getDashboard = async (body) => {
       total_po_per_subsidiary: {},
     };
 
-    const subMap = { 1: "msi", 5: "iec", 6: "iel", 8: "mso", 9: "ibm" };
+    // Key chart per subsidiary diambil dari subsidiarys.tranprefix (tanpa "-", lowercase)
+    const subMap = {};
+    subsidiaries.forEach((sub) => {
+      const key = String(sub.tranprefix).replace(/-/g, "").toLowerCase();
+      if (key) subMap[sub.subsidiary_id] = key;
+    });
 
-    ["iel", "iec", "msi", "mso", "ibm"].forEach((key) => {
+    [...new Set(Object.values(subMap))].forEach((key) => {
       chart_data.pending_approval_per_subsidiary[key] = 0;
       chart_data.total_po_per_subsidiary[key] = 0;
       chart_data.status_po_per_subsidiary[key] = {
