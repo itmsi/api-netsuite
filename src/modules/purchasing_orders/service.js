@@ -495,9 +495,9 @@ const getDashboard = async (body) => {
       total_po_per_subsidiary: {},
     };
 
-    const subMap = { 1: "msi", 5: "iec", 6: "iel" };
+    const subMap = { 1: "msi", 5: "iec", 6: "iel", 8: "mso", 9: "ibm" };
 
-    ["iel", "iec", "msi"].forEach((key) => {
+    ["iel", "iec", "msi", "mso", "ibm"].forEach((key) => {
       chart_data.pending_approval_per_subsidiary[key] = 0;
       chart_data.total_po_per_subsidiary[key] = 0;
       chart_data.status_po_per_subsidiary[key] = {
