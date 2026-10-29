@@ -501,6 +501,7 @@ const getTransferOrderById = async (id) => {
           ),
           "updated_emp.employee_name as updated_by_name",
           "t.files",
+          "t.user_notes",
           dbNetsuite.raw(`
           jsonb_agg(
             jsonb_build_object(
