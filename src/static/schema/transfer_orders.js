@@ -112,6 +112,11 @@ const transferOrdersSchema = {
         example: "Warehouse B",
       },
       memo: { type: "string", example: "Transfer order memo" },
+      note_approval: {
+        type: "string",
+        nullable: true,
+        example: "Catatan approval transfer order",
+      },
       tran_date: { type: "string", example: "31/12/2026" },
       datecreated: {
         type: "string",
@@ -198,6 +203,10 @@ const transferOrdersSchema = {
       transferlocation: { type: "integer", example: 2 },
       trandate: { type: "string", example: "31/12/2026" },
       memo: { type: "string", example: "Transfer order memo" },
+      note_approval: {
+        type: "string",
+        example: "Catatan approval transfer order",
+      },
       department: { type: "integer", example: 105 },
       class: { type: "integer", example: 5 },
       incoterm: { type: "integer", example: 1 },
@@ -231,6 +240,10 @@ const transferOrdersSchema = {
       transferlocation: { type: "integer", example: 2 },
       trandate: { type: "string", example: "31/12/2026" },
       memo: { type: "string", example: "Transfer order memo di edit" },
+      note_approval: {
+        type: "string",
+        example: "Catatan approval transfer order di edit",
+      },
       department: { type: "integer", example: 105 },
       class: { type: "integer", example: 5 },
       incoterm: { type: "integer", example: 1 },
