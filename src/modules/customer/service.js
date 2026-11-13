@@ -128,12 +128,13 @@ const createCustomer = async (body, user) => {
       eventType = 'UPDATE';
     } else {
       // Insert new record
-      customerData.created_at = new Date();
-      // Use timestamp as a temporary unique netsuite_id to satisfy not-null & unique constraints
-      customerData.netsuite_id = body.netsuite_id || Math.floor(Date.now() / 1000);
+      // customerData.created_at = new Date();
+      // // Use timestamp as a temporary unique netsuite_id to satisfy not-null & unique constraints
+      // customerData.netsuite_id = body.netsuite_id || Math.floor(Date.now() / 1000);
 
-      const [customerInternal] = await trx('customers').insert(customerData).returning('id');
-      customerInternalId = typeof customerInternal === 'object' ? customerInternal.id : customerInternal;
+      // const [customerInternal] = await trx('customers').insert(customerData).returning('id');
+      // customerInternalId = typeof customerInternal === 'object' ? customerInternal.id : customerInternal;
+      customerInternalId = uuidv4(); // Generate a UUID for the new customer record
     }
 
     const gate_sso_customer_internal_id = body.internalId || null;
