@@ -1,4 +1,5 @@
 const axios = require('axios');
+const crypto = require('crypto');
 const authService = require('../auth/service');
 const { dbNetsuite } = require('../../config/database');
 const { EXCHANGES, QUEUE } = require('../../utils/constant');
@@ -134,7 +135,7 @@ const createCustomer = async (body, user) => {
 
       // const [customerInternal] = await trx('customers').insert(customerData).returning('id');
       // customerInternalId = typeof customerInternal === 'object' ? customerInternal.id : customerInternal;
-      customerInternalId = uuidv4(); // Generate a UUID for the new customer record
+      customerInternalId = crypto.randomUUID();
     }
 
     const gate_sso_customer_internal_id = body.internalId || null;
