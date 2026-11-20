@@ -621,6 +621,12 @@ module.exports = {
       table: "bills_payments",
       deleteCol: "is_deleted",
     },
+    cash_statements: {
+      url: `${process.env.BRIDGE_BASE_URL || "http://localhost:9570"}/api/v1/bridge/cash-statements/sync`,
+      data: {},
+      table: "cash_statements",
+      deleteCol: "is_deleted",
+    },
     receives: {
       url: `${process.env.BRIDGE_BASE_URL || "http://localhost:9570"}/api/v1/bridge/receives/get-list`,
       data: {

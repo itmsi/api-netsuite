@@ -481,6 +481,69 @@ const BRIDGE_ROUTES = [
   ["bills", "GET", "/api/v1/bridge/bills/netsuite/:netsuite_id", "get bills"],
   ["bills", "POST", "/api/v1/bridge/bills/search", "get bills"],
 
+  // cash_statements
+  [
+    "cash_statements",
+    "POST",
+    "/api/v1/bridge/cash-statements/get",
+    "get cash statements",
+    "cash_statements_getList",
+  ],
+  [
+    "cash_statements",
+    "POST",
+    "/api/v1/bridge/cash-statements/summary",
+    "get cash statements summary",
+  ],
+  [
+    "cash_statements",
+    "POST",
+    "/api/v1/bridge/cash-statements/sync",
+    "sync cash statements",
+  ],
+  [
+    "cash_statements",
+    "GET",
+    "/api/v1/bridge/cash-statements/sync/:netsuite_id",
+    "sync cash statements",
+  ],
+  [
+    "cash_statements",
+    "POST",
+    "/api/v1/bridge/cash-statements/search",
+    "get cash statements",
+  ],
+  [
+    "cash_statements",
+    "GET",
+    "/api/v1/bridge/cash-statements/:id",
+    "get cash statements",
+  ],
+  [
+    "cash_statements",
+    "POST",
+    "/api/v1/bridge/cash-statements/searches/get",
+    "get cash statement searches",
+  ],
+  [
+    "cash_statements",
+    "POST",
+    "/api/v1/bridge/cash-statements/searches",
+    "create cash statement searches",
+  ],
+  [
+    "cash_statements",
+    "PUT",
+    "/api/v1/bridge/cash-statements/searches/:id",
+    "update cash statement searches",
+  ],
+  [
+    "cash_statements",
+    "DELETE",
+    "/api/v1/bridge/cash-statements/searches/:id",
+    "delete cash statement searches",
+  ],
+
   // bills_payments
   [
     "bills_payments",
